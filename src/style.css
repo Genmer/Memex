@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-glass-base: rgba(255, 255, 255, 0.03);
+  --color-glass-border: rgba(255, 255, 255, 0.05);
+  --color-glass-hover: rgba(255, 255, 255, 0.08);
+}
+
+:root {
+  background-color: #050505;
+  color: #f8fafc;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%),
+    radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.1), transparent 30%);
+  background-color: #0f1117;
+  background-attachment: fixed;
+}
+
+/* Custom Scrollbar for sleek UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes slide {
+  0% { left: -33%; }
+  100% { left: 100%; }
+}
+
+.animate-\\[slide_1\\.5s_ease-in-out_infinite\\] {
+  animation: slide 1.5s ease-in-out infinite;
+}

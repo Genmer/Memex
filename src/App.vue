@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { open } from '@tauri-apps/plugin-dialog'
+import { open, save } from '@tauri-apps/plugin-dialog'
 import SkillCard from './components/SkillCard.vue'
 import MemoryCard from './components/MemoryCard.vue'
 import Sidebar from './components/Sidebar.vue'
@@ -151,6 +151,32 @@ const toggleTarget = async (id: number, is_enabled: boolean) => {
 const removeTarget = async (id: number) => {
   await invoke('remove_scan_target', { id })
   scanTargets.value = await invoke('get_scan_targets')
+}
+
+const exportAssets = async () => {
+  const path = await save({
+    defaultPath: `memex-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  })
+  if (!path) return
+  try {
+    const n: number = await invoke('export_assets', { path })
+    toast.success(`已导出 ${n} 个资产`)
+  } catch (err) {
+    toast.error('导出失败: ' + err)
+  }
+}
+
+const importAssets = async () => {
+  const path = await open({ multiple: false, filters: [{ name: 'JSON', extensions: ['json'] }] })
+  if (!path || typeof path !== 'string') return
+  try {
+    const n: number = await invoke('import_assets', { path })
+    toast.success(`已导入 ${n} 个新资产`)
+    await fetchData()
+  } catch (err) {
+    toast.error('导入失败: ' + err)
+  }
 }
 
 const scanNow = async () => {
@@ -609,6 +635,35 @@ onUnmounted(() => {
               </div>
             </div>
             
+            <!-- Backup / Restore Section -->
+            <div class="pt-8 mt-8 border-t border-white/10">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                </div>
+                <div>
+                  <h4 class="text-sm font-semibold text-white/90">数据备份与恢复</h4>
+                  <p class="text-[11px] text-white/40">将全部技能与记忆导出为 JSON 归档，或从归档恢复</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 mt-4">
+                <button
+                  @click="exportAssets"
+                  class="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  导出备份
+                </button>
+                <button
+                  @click="importAssets"
+                  class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                  导入恢复
+                </button>
+              </div>
+            </div>
+
             <div class="flex items-center justify-end pt-8 mt-8 border-t border-white/10">
               <button @click="saveAllConfigs" class="px-6 py-2.5 bg-white text-black font-semibold rounded-xl text-sm hover:bg-white/90 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]">
                 {{ t('settings.save') }}

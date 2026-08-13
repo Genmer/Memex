@@ -562,6 +562,166 @@ fn delete_memory(state: State<'_, DbState>, id: i64) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+// ---- Export / Backup / Import ----
+
+/// Serialize all skills + memories into a JSON archive at `path`.
+#[tauri::command]
+fn export_assets(state: State<'_, DbState>, path: String) -> Result<usize, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut skills = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare("SELECT name, content, source_tool, local_path, tags, priority, is_favorite FROM skills")
+            .map_err(|e| e.to_string())?;
+        let iter = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "name": row.get::<_, String>(0)?,
+                    "content": row.get::<_, String>(1)?,
+                    "source_tool": row.get::<_, String>(2)?,
+                    "local_path": row.get::<_, Option<String>>(3)?,
+                    "tags": row.get::<_, Option<String>>(4)?,
+                    "priority": row.get::<_, i32>(5)?,
+                    "is_favorite": row.get::<_, bool>(6)?,
+                }))
+            })
+            .map_err(|e| e.to_string())?;
+        for r in iter {
+            skills.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    let mut memories = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare("SELECT name, content, source_tool, tags, priority, is_favorite FROM memories")
+            .map_err(|e| e.to_string())?;
+        let iter = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "name": row.get::<_, String>(0)?,
+                    "content": row.get::<_, String>(1)?,
+                    "source_tool": row.get::<_, String>(2)?,
+                    "tags": row.get::<_, Option<String>>(3)?,
+                    "priority": row.get::<_, i32>(4)?,
+                    "is_favorite": row.get::<_, bool>(5)?,
+                }))
+            })
+            .map_err(|e| e.to_string())?;
+        for r in iter {
+            memories.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    let exported_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let archive = serde_json::json!({
+        "app": "memex",
+        "version": 1,
+        "exported_at": exported_at,
+        "skills": skills,
+        "memories": memories
+    });
+
+    let json = serde_json::to_string_pretty(&archive).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+
+    Ok(skills.len() + memories.len())
+}
+
+/// Read a JSON archive and upsert skills + memories into the database.
+#[tauri::command]
+fn import_assets(state: State<'_, DbState>, path: String) -> Result<usize, String> {
+    let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    let mut count = 0;
+
+    if let Some(skills) = v["skills"].as_array() {
+        for s in skills {
+            let name = s["name"].as_str().unwrap_or("").to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let content = s["content"].as_str().unwrap_or("").to_string();
+            let source_tool = s["source_tool"].as_str().unwrap_or("memex_native").to_string();
+            let local_path = s["local_path"].as_str().map(|x| x.to_string());
+            let tags = s["tags"].as_str().map(|x| x.to_string());
+            let priority = s["priority"].as_i64().unwrap_or(50) as i32;
+            let is_favorite = s["is_favorite"].as_bool().unwrap_or(false);
+
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM skills WHERE source_tool = ?1 AND name = ?2)",
+                    params![source_tool, name],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+
+            if exists {
+                conn.execute(
+                    "UPDATE skills SET content = ?1, local_path = ?2, tags = ?3, priority = ?4, is_favorite = ?5, updated_at = CURRENT_TIMESTAMP WHERE source_tool = ?6 AND name = ?7",
+                    params![content, local_path, tags, priority, is_favorite, source_tool, name],
+                )
+                .map_err(|e| e.to_string())?;
+            } else {
+                conn.execute(
+                    "INSERT INTO skills (name, content, source_tool, local_path, tags, priority, is_favorite) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![name, content, source_tool, local_path, tags, priority, is_favorite],
+                )
+                .map_err(|e| e.to_string())?;
+                count += 1;
+            }
+        }
+    }
+
+    if let Some(memories) = v["memories"].as_array() {
+        for m in memories {
+            let name = m["name"].as_str().unwrap_or("").to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let content = m["content"].as_str().unwrap_or("").to_string();
+            let source_tool = m["source_tool"].as_str().unwrap_or("memex_native").to_string();
+            let tags = m["tags"].as_str().map(|x| x.to_string());
+            let priority = m["priority"].as_i64().unwrap_or(50) as i32;
+            let is_favorite = m["is_favorite"].as_bool().unwrap_or(false);
+
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM memories WHERE source_tool = ?1 AND name = ?2)",
+                    params![source_tool, name],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+
+            if exists {
+                conn.execute(
+                    "UPDATE memories SET content = ?1, tags = ?2, priority = ?3, is_favorite = ?4, updated_at = CURRENT_TIMESTAMP WHERE source_tool = ?5 AND name = ?6",
+                    params![content, tags, priority, is_favorite, source_tool, name],
+                )
+                .map_err(|e| e.to_string())?;
+            } else {
+                conn.execute(
+                    "INSERT INTO memories (name, content, source_tool, tags, priority, is_favorite) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![name, content, source_tool, tags, priority, is_favorite],
+                )
+                .map_err(|e| e.to_string())?;
+                count += 1;
+            }
+        }
+    }
+
+    Ok(count)
+}
 #[tauri::command]
 async fn chat_with_ai(
     app: tauri::AppHandle,
@@ -774,6 +934,8 @@ pub fn run() {
             create_memory,
             update_memory,
             delete_memory,
+            export_assets,
+            import_assets,
             open_in_finder,
             open_in_editor,
             chat_with_ai

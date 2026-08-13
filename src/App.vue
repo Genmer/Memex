@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { open } from '@tauri-apps/plugin-dialog'
+import { open, save } from '@tauri-apps/plugin-dialog'
 import SkillCard from './components/SkillCard.vue'
 import MemoryCard from './components/MemoryCard.vue'
 import Sidebar from './components/Sidebar.vue'
@@ -13,7 +13,7 @@ import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
-import { Search, Folder, Sparkles, LayoutGrid, List } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star } from 'lucide-vue-next'
 
 const toast = useToast()
 
@@ -26,13 +26,26 @@ const isScanning = ref(false)
 const showWelcomePrompt = ref(false)
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
+const favoriteOnly = ref(false)
+const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
+
+const sortOptions: { value: 'recent' | 'name' | 'favorite', label: string }[] = [
+  { value: 'recent', label: '最近更新' },
+  { value: 'name', label: '名称' },
+  { value: 'favorite', label: '收藏优先' }
+]
+const currentCount = computed(() => activeView.value.includes('skills') ? filteredSkills.value.length : filteredMemories.value.length)
+
+// Drawer / create state
+const drawerType = ref<'skill' | 'memory'>('skill')
+const drawerIsNew = ref(false)
+const drawerAsset = ref<any>(null)
 
 // Progress state
 const scanProgressMessage = ref('')
 const scanProgressCount = ref(0)
 let unlistenProgress: (() => void) | null = null
 
-const selectedSkill = ref<any>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
 // AI state
@@ -56,7 +69,10 @@ const fetchData = async () => {
       sessionStorage.setItem('prompt_shown', 'true')
     }
   } catch (error) {
-    console.error('Failed to fetch data:', error)
+    // Mock fallback for pure-browser preview (no Tauri runtime)
+    console.warn('Tauri invoke failed, using mock data:', error)
+    skills.value = mockSkills
+    memories.value = mockMemories
   }
 }
 
@@ -81,9 +97,91 @@ const fetchConfigs = async () => {
       aiModel.value = aiMdl.key_value
     }
   } catch (error) {
-    console.error('Failed to fetch configs:', error)
+    console.warn('Tauri config fetch failed, using mock configs:', error)
+    scanTargets.value = mockTargets
+    pinnedSources.value = []
+    hasAiKey.value = false
   }
 }
+
+const mockSkills = [
+  {
+    id: 1, name: 'Python 代码审查',
+    content: '# Python 代码审查规范\n\n请严格按以下标准审查代码：\n\n1. 类型注解覆盖所有函数签名\n2. docstring 采用 Google 风格\n3. 使用 dataclass 而非裸字典传递状态\n4. 复杂度圈数 > 10 的函数必须拆分',
+    source_tool: 'memex_native',
+    local_path: null,
+    prefix_template: '请严格遵守以下 Skill 规范回答：',
+    tags: 'python, code-review, best-practice',
+    priority: 90,
+    is_favorite: true,
+    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 2).toISOString()
+  },
+  {
+    id: 2, name: 'React 组件模板',
+    content: '# React 组件最佳实践\n\n- 优先使用 FC + hooks，避免 class component\n- 业务组件拆分 ≤ 120 行\n- 自定义 hook 以 use 前缀开头\n- 状态最小化：优先派生计算而非多余 state',
+    source_tool: 'zcode',
+    local_path: '/Users/user/.zcode/skills/react.md',
+    prefix_template: '请严格遵守以下 Skill 规范回答：',
+    tags: 'react, frontend, typescript',
+    priority: 70,
+    is_favorite: false,
+    created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 5).toISOString()
+  },
+  {
+    id: 3, name: 'SQL 索引规范',
+    content: '# SQL 索引编写规则\n\n1. 复合索引遵循最左前缀匹配\n2. 选择性低的列不建单列索引\n3. 避免 SELECT *\n4. 大表分页用游标而非 OFFSET',
+    source_tool: 'claude',
+    local_path: '/Users/user/.claude/skills/sql.md',
+    prefix_template: 'Use the following template/skill:',
+    tags: 'sql, database, performance',
+    priority: 50,
+    is_favorite: true,
+    created_at: new Date(Date.now() - 86400000 * 60).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 10).toISOString()
+  },
+  {
+    id: 4, name: '安全编码 Checklist',
+    content: '# 安全编码检查清单\n\n- 所有外部输入做校验与类型约束\n- 鉴权在路由层 + 服务层双重检查\n- 敏感字段日志脱敏\n- 密码使用 bcrypt/Argon2 而非散列',
+    source_tool: 'trae',
+    local_path: '/Users/user/.trae-cn/skills/security.md',
+    tags: 'security, backend',
+    priority: 80,
+    is_favorite: false,
+    created_at: new Date(Date.now() - 86400000 * 15).toISOString(),
+    updated_at: new Date(Date.now() - 86400000).toISOString()
+  }
+]
+
+const mockMemories = [
+  {
+    id: 1, name: '项目 A 架构决策记录',
+    source_tool: 'zcode',
+    session_id: null,
+    content: '2026 Q1 架构调整：拆分订单服务为 CQRS 双写。\n- 写库 MySQL 8 / 读库 PostgreSQL\n- 同步通道用 Kafka compact topic\n- 1 个月后弃用旧读接口',
+    tags: 'architecture, project-A',
+    priority: 70,
+    is_favorite: true,
+    extracted_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 3).toISOString()
+  },
+  {
+    id: 2, name: '常见坑：Vite 3 端口冲突',
+    source_tool: 'memex_native',
+    content: '端口 5173 被占用时 Vite 报错不直观。\n解决：lsof -i :5173 找 PID kill，或在 vite.config.ts 中指定 server.strictPort: false。',
+    tags: 'vite, frontend, troubleshooting',
+    priority: 50,
+    is_favorite: false,
+    extracted_at: new Date(Date.now() - 86400000 * 8).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 8).toISOString()
+  }
+]
+
+const mockTargets = [
+  { id: 1, path: '/Users/user/.gemini/config', override_tool: 'zcode', priority: 50, is_enabled: true, created_at: new Date().toISOString() },
+  { id: 2, path: '/Users/user/.agents/skills', override_tool: 'agents', priority: 10, is_enabled: true, created_at: new Date().toISOString() }
+]
 
 const togglePin = async (sourceId: string) => {
   if (pinnedSources.value.includes(sourceId)) {
@@ -140,6 +238,32 @@ const removeTarget = async (id: number) => {
   scanTargets.value = await invoke('get_scan_targets')
 }
 
+const exportAssets = async () => {
+  const path = await save({
+    defaultPath: `memex-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  })
+  if (!path) return
+  try {
+    const n: number = await invoke('export_assets', { path })
+    toast.success(`已导出 ${n} 个资产`)
+  } catch (err) {
+    toast.error('导出失败: ' + err)
+  }
+}
+
+const importAssets = async () => {
+  const path = await open({ multiple: false, filters: [{ name: 'JSON', extensions: ['json'] }] })
+  if (!path || typeof path !== 'string') return
+  try {
+    const n: number = await invoke('import_assets', { path })
+    toast.success(`已导入 ${n} 个新资产`)
+    await fetchData()
+  } catch (err) {
+    toast.error('导入失败: ' + err)
+  }
+}
+
 const scanNow = async () => {
   if (isScanning.value) return
   isScanning.value = true
@@ -188,8 +312,10 @@ const filteredSkills = computed(() => {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
   }
-  // Sort: favorites first
-  list = [...list].sort((a, b) => (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0))
+  if (favoriteOnly.value) {
+    list = list.filter(s => s.is_favorite)
+  }
+  list = [...list].sort(sortSkills(sortBy.value))
   return list
 })
 
@@ -205,8 +331,31 @@ const filteredMemories = computed(() => {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
   }
+  if (favoriteOnly.value) {
+    list = list.filter(s => s.is_favorite)
+  }
+  list = [...list].sort(sortByTimeOrName(sortBy.value, 'updated_at'))
   return list
 })
+
+const sortSkills = (mode: string) => (a: any, b: any) => {
+  if (mode === 'favorite') {
+    const fa = a.is_favorite ? 1 : 0, fb = b.is_favorite ? 1 : 0
+    if (fa !== fb) return fb - fa
+  }
+  if (mode === 'name') return a.name.localeCompare(b.name)
+  // recent (default)
+  return (b.updated_at || '').localeCompare(a.updated_at || '')
+}
+
+const sortByTimeOrName = (mode: string, timeField: string) => (a: any, b: any) => {
+  if (mode === 'name') return a.name.localeCompare(b.name)
+  if (mode === 'favorite') {
+    const fa = a.is_favorite ? 1 : 0, fb = b.is_favorite ? 1 : 0
+    if (fa !== fb) return fb - fa
+  }
+  return (b[timeField] || b.extracted_at || '').localeCompare(a[timeField] || a.extracted_at || '')
+}
 
 const viewTitle = computed(() => {
   if (activeView.value.includes('skills')) return t('header.title.skills')
@@ -215,15 +364,49 @@ const viewTitle = computed(() => {
   return t('header.title.dashboard')
 })
 
-const openSkillDetail = (skill: any) => {
-  selectedSkill.value = skill
+const openAssetDetail = (asset: any, type: 'skill' | 'memory') => {
+  drawerType.value = type
+  drawerIsNew.value = false
+  drawerAsset.value = asset
 }
 
-const handleFavoriteToggled = (skillId: number, newVal: boolean) => {
-  const skill = skills.value.find(s => s.id === skillId)
-  if (skill) skill.is_favorite = newVal
-  if (selectedSkill.value && selectedSkill.value.id === skillId) {
-    selectedSkill.value = { ...selectedSkill.value, is_favorite: newVal }
+const openNewAsset = (type: 'skill' | 'memory') => {
+  drawerType.value = type
+  drawerIsNew.value = true
+  drawerAsset.value = {
+    id: null,
+    name: '',
+    content: '',
+    source_tool: 'memex_native',
+    tags: '',
+    is_favorite: false
+  }
+}
+
+const closeDrawer = () => {
+  drawerAsset.value = null
+}
+
+const handleDrawerSaved = async () => {
+  drawerAsset.value = null
+  await fetchData()
+}
+
+const handleDrawerDeleted = async () => {
+  drawerAsset.value = null
+  await fetchData()
+}
+
+const handleFavoriteToggled = (assetId: number, newVal: boolean, type?: 'skill' | 'memory') => {
+  if (type === 'memory') {
+    const mem = memories.value.find(m => m.id === assetId)
+    if (mem) mem.is_favorite = newVal
+  } else {
+    const skill = skills.value.find(s => s.id === assetId)
+    if (skill) skill.is_favorite = newVal
+  }
+  if (drawerAsset.value && drawerAsset.value.id === assetId) {
+    drawerAsset.value = { ...drawerAsset.value, is_favorite: newVal }
   }
 }
 
@@ -237,8 +420,8 @@ const handleKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     searchInputRef.value?.focus()
   }
-  if (e.key === 'Escape' && selectedSkill.value) {
-    selectedSkill.value = null
+  if (e.key === 'Escape' && drawerAsset.value) {
+    drawerAsset.value = null
   }
 }
 
@@ -328,6 +511,14 @@ onUnmounted(() => {
             </button>
           </div>
           <button 
+            v-if="activeView.includes('skills') || activeView.includes('memories')"
+            @click="openNewAsset(activeView.includes('skills') ? 'skill' : 'memory')"
+            class="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+            title="新建资产"
+          >
+            <span class="text-base leading-none">+</span> 新建
+          </button>
+          <button 
             v-if="activeView.includes('skills') || activeView.includes('memories') || activeView === 'settings'"
             @click="scanNow" 
             class="px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] backdrop-blur-md disabled:opacity-50"
@@ -365,6 +556,30 @@ onUnmounted(() => {
           <div class="text-[10px] text-white/40 font-mono truncate w-full" :title="scanProgressMessage">{{ scanProgressMessage }}</div>
         </div>
 
+        <!-- Filter / Sort Bar -->
+        <div v-if="activeView.includes('skills') || activeView.includes('memories')" class="flex items-center gap-3 mb-6 flex-wrap animate-in fade-in duration-300">
+          <button 
+            @click="favoriteOnly = !favoriteOnly"
+            class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+            :class="favoriteOnly ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'"
+          >
+            <Star :size="12" :class="{ 'fill-current': favoriteOnly }" /> 只看收藏
+          </button>
+          <div class="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
+            <button 
+              v-for="opt in sortOptions" 
+              :key="opt.value"
+              @click="sortBy = opt.value"
+              class="px-3 py-1 rounded-md text-xs transition-colors"
+              :class="sortBy === opt.value ? 'bg-indigo-500/25 text-indigo-200' : 'text-white/50 hover:text-white/80'"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+          <div class="flex-1"></div>
+          <span class="text-xs text-white/40 font-mono">{{ currentCount }} 项</span>
+        </div>
+
         <!-- DASHBOARD VIEW -->
         <div v-if="activeView === 'dashboard'">
           <Dashboard />
@@ -381,7 +596,7 @@ onUnmounted(() => {
               :skill="skill"
               :search-query="searchQuery"
               :view-mode="viewMode"
-              @open-detail="openSkillDetail"
+              @open-detail="(s) => openAssetDetail(s, 'skill')"
               @favorite-toggled="handleFavoriteToggled"
             />
           </div>
@@ -418,8 +633,8 @@ onUnmounted(() => {
               :memory="memory" 
               :search-query="searchQuery"
               :view-mode="viewMode"
-              @open-detail="openSkillDetail"
-              @favorite-toggled="handleFavoriteToggled"
+              @open-detail="(m) => openAssetDetail(m, 'memory')"
+              @favorite-toggled="(id, v) => handleFavoriteToggled(id, v, 'memory')"
             />
           </div>
           
@@ -505,6 +720,35 @@ onUnmounted(() => {
               </div>
             </div>
             
+            <!-- Backup / Restore Section -->
+            <div class="pt-8 mt-8 border-t border-white/10">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                </div>
+                <div>
+                  <h4 class="text-sm font-semibold text-white/90">数据备份与恢复</h4>
+                  <p class="text-[11px] text-white/40">将全部技能与记忆导出为 JSON 归档，或从归档恢复</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 mt-4">
+                <button
+                  @click="exportAssets"
+                  class="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  导出备份
+                </button>
+                <button
+                  @click="importAssets"
+                  class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                  导入恢复
+                </button>
+              </div>
+            </div>
+
             <div class="flex items-center justify-end pt-8 mt-8 border-t border-white/10">
               <button @click="saveAllConfigs" class="px-6 py-2.5 bg-white text-black font-semibold rounded-xl text-sm hover:bg-white/90 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]">
                 {{ t('settings.save') }}
@@ -536,9 +780,13 @@ onUnmounted(() => {
       </div>
     </main>
     <SkillDrawer 
-      :skill="selectedSkill" 
-      @close="selectedSkill = null" 
-      @favorite-toggled="handleFavoriteToggled" 
+      :skill="drawerAsset" 
+      :type="drawerType"
+      :is-new="drawerIsNew"
+      @close="closeDrawer" 
+      @favorite-toggled="handleFavoriteToggled"
+      @saved="handleDrawerSaved"
+      @deleted="handleDrawerDeleted"
     />
     <AiChatPanel 
       :visible="showAiChat" 

@@ -61,6 +61,9 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     // Add priority column if it doesn't exist (for migration)
     let _ = conn.execute("ALTER TABLE skills ADD COLUMN priority INTEGER DEFAULT 10", []);
     let _ = conn.execute("ALTER TABLE memories ADD COLUMN priority INTEGER DEFAULT 10", []);
+    // Personal memory management: enable favorites & timestamps on memories
+    let _ = conn.execute("ALTER TABLE memories ADD COLUMN is_favorite BOOLEAN DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE memories ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP", []);
 
     // Migrate old configs to scan_targets
     let _ = conn.execute(

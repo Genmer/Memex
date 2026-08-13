@@ -19,7 +19,9 @@ pub struct Memory {
     pub content: String,
     pub tags: Option<String>,
     pub priority: i32,
+    pub is_favorite: bool,
     pub extracted_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

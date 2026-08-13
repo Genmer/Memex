@@ -13,7 +13,7 @@ import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
-import { Search, Folder, Sparkles, LayoutGrid, List } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star } from 'lucide-vue-next'
 
 const toast = useToast()
 
@@ -26,13 +26,26 @@ const isScanning = ref(false)
 const showWelcomePrompt = ref(false)
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
+const favoriteOnly = ref(false)
+const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
+
+const sortOptions: { value: 'recent' | 'name' | 'favorite', label: string }[] = [
+  { value: 'recent', label: '最近更新' },
+  { value: 'name', label: '名称' },
+  { value: 'favorite', label: '收藏优先' }
+]
+const currentCount = computed(() => activeView.value.includes('skills') ? filteredSkills.value.length : filteredMemories.value.length)
+
+// Drawer / create state
+const drawerType = ref<'skill' | 'memory'>('skill')
+const drawerIsNew = ref(false)
+const drawerAsset = ref<any>(null)
 
 // Progress state
 const scanProgressMessage = ref('')
 const scanProgressCount = ref(0)
 let unlistenProgress: (() => void) | null = null
 
-const selectedSkill = ref<any>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
 // AI state
@@ -188,8 +201,10 @@ const filteredSkills = computed(() => {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
   }
-  // Sort: favorites first
-  list = [...list].sort((a, b) => (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0))
+  if (favoriteOnly.value) {
+    list = list.filter(s => s.is_favorite)
+  }
+  list = [...list].sort(sortSkills(sortBy.value))
   return list
 })
 
@@ -205,8 +220,31 @@ const filteredMemories = computed(() => {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
   }
+  if (favoriteOnly.value) {
+    list = list.filter(s => s.is_favorite)
+  }
+  list = [...list].sort(sortByTimeOrName(sortBy.value, 'updated_at'))
   return list
 })
+
+const sortSkills = (mode: string) => (a: any, b: any) => {
+  if (mode === 'favorite') {
+    const fa = a.is_favorite ? 1 : 0, fb = b.is_favorite ? 1 : 0
+    if (fa !== fb) return fb - fa
+  }
+  if (mode === 'name') return a.name.localeCompare(b.name)
+  // recent (default)
+  return (b.updated_at || '').localeCompare(a.updated_at || '')
+}
+
+const sortByTimeOrName = (mode: string, timeField: string) => (a: any, b: any) => {
+  if (mode === 'name') return a.name.localeCompare(b.name)
+  if (mode === 'favorite') {
+    const fa = a.is_favorite ? 1 : 0, fb = b.is_favorite ? 1 : 0
+    if (fa !== fb) return fb - fa
+  }
+  return (b[timeField] || b.extracted_at || '').localeCompare(a[timeField] || a.extracted_at || '')
+}
 
 const viewTitle = computed(() => {
   if (activeView.value.includes('skills')) return t('header.title.skills')
@@ -215,15 +253,49 @@ const viewTitle = computed(() => {
   return t('header.title.dashboard')
 })
 
-const openSkillDetail = (skill: any) => {
-  selectedSkill.value = skill
+const openAssetDetail = (asset: any, type: 'skill' | 'memory') => {
+  drawerType.value = type
+  drawerIsNew.value = false
+  drawerAsset.value = asset
 }
 
-const handleFavoriteToggled = (skillId: number, newVal: boolean) => {
-  const skill = skills.value.find(s => s.id === skillId)
-  if (skill) skill.is_favorite = newVal
-  if (selectedSkill.value && selectedSkill.value.id === skillId) {
-    selectedSkill.value = { ...selectedSkill.value, is_favorite: newVal }
+const openNewAsset = (type: 'skill' | 'memory') => {
+  drawerType.value = type
+  drawerIsNew.value = true
+  drawerAsset.value = {
+    id: null,
+    name: '',
+    content: '',
+    source_tool: 'memex_native',
+    tags: '',
+    is_favorite: false
+  }
+}
+
+const closeDrawer = () => {
+  drawerAsset.value = null
+}
+
+const handleDrawerSaved = async () => {
+  drawerAsset.value = null
+  await fetchData()
+}
+
+const handleDrawerDeleted = async () => {
+  drawerAsset.value = null
+  await fetchData()
+}
+
+const handleFavoriteToggled = (assetId: number, newVal: boolean, type?: 'skill' | 'memory') => {
+  if (type === 'memory') {
+    const mem = memories.value.find(m => m.id === assetId)
+    if (mem) mem.is_favorite = newVal
+  } else {
+    const skill = skills.value.find(s => s.id === assetId)
+    if (skill) skill.is_favorite = newVal
+  }
+  if (drawerAsset.value && drawerAsset.value.id === assetId) {
+    drawerAsset.value = { ...drawerAsset.value, is_favorite: newVal }
   }
 }
 
@@ -237,8 +309,8 @@ const handleKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     searchInputRef.value?.focus()
   }
-  if (e.key === 'Escape' && selectedSkill.value) {
-    selectedSkill.value = null
+  if (e.key === 'Escape' && drawerAsset.value) {
+    drawerAsset.value = null
   }
 }
 
@@ -328,6 +400,14 @@ onUnmounted(() => {
             </button>
           </div>
           <button 
+            v-if="activeView.includes('skills') || activeView.includes('memories')"
+            @click="openNewAsset(activeView.includes('skills') ? 'skill' : 'memory')"
+            class="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+            title="新建资产"
+          >
+            <span class="text-base leading-none">+</span> 新建
+          </button>
+          <button 
             v-if="activeView.includes('skills') || activeView.includes('memories') || activeView === 'settings'"
             @click="scanNow" 
             class="px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] backdrop-blur-md disabled:opacity-50"
@@ -365,6 +445,30 @@ onUnmounted(() => {
           <div class="text-[10px] text-white/40 font-mono truncate w-full" :title="scanProgressMessage">{{ scanProgressMessage }}</div>
         </div>
 
+        <!-- Filter / Sort Bar -->
+        <div v-if="activeView.includes('skills') || activeView.includes('memories')" class="flex items-center gap-3 mb-6 flex-wrap animate-in fade-in duration-300">
+          <button 
+            @click="favoriteOnly = !favoriteOnly"
+            class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+            :class="favoriteOnly ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'"
+          >
+            <Star :size="12" :class="{ 'fill-current': favoriteOnly }" /> 只看收藏
+          </button>
+          <div class="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
+            <button 
+              v-for="opt in sortOptions" 
+              :key="opt.value"
+              @click="sortBy = opt.value"
+              class="px-3 py-1 rounded-md text-xs transition-colors"
+              :class="sortBy === opt.value ? 'bg-indigo-500/25 text-indigo-200' : 'text-white/50 hover:text-white/80'"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+          <div class="flex-1"></div>
+          <span class="text-xs text-white/40 font-mono">{{ currentCount }} 项</span>
+        </div>
+
         <!-- DASHBOARD VIEW -->
         <div v-if="activeView === 'dashboard'">
           <Dashboard />
@@ -381,7 +485,7 @@ onUnmounted(() => {
               :skill="skill"
               :search-query="searchQuery"
               :view-mode="viewMode"
-              @open-detail="openSkillDetail"
+              @open-detail="(s) => openAssetDetail(s, 'skill')"
               @favorite-toggled="handleFavoriteToggled"
             />
           </div>
@@ -418,8 +522,8 @@ onUnmounted(() => {
               :memory="memory" 
               :search-query="searchQuery"
               :view-mode="viewMode"
-              @open-detail="openSkillDetail"
-              @favorite-toggled="handleFavoriteToggled"
+              @open-detail="(m) => openAssetDetail(m, 'memory')"
+              @favorite-toggled="(id, v) => handleFavoriteToggled(id, v, 'memory')"
             />
           </div>
           
@@ -536,9 +640,13 @@ onUnmounted(() => {
       </div>
     </main>
     <SkillDrawer 
-      :skill="selectedSkill" 
-      @close="selectedSkill = null" 
-      @favorite-toggled="handleFavoriteToggled" 
+      :skill="drawerAsset" 
+      :type="drawerType"
+      :is-new="drawerIsNew"
+      @close="closeDrawer" 
+      @favorite-toggled="handleFavoriteToggled"
+      @saved="handleDrawerSaved"
+      @deleted="handleDrawerDeleted"
     />
     <AiChatPanel 
       :visible="showAiChat" 

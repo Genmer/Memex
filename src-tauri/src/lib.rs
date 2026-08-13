@@ -228,7 +228,7 @@ fn get_skills(state: State<'_, DbState>) -> Result<Vec<Skill>, String> {
 fn get_memories(state: State<'_, DbState>) -> Result<Vec<models::Memory>, String> {
     let db = state.db.lock().unwrap();
     let conn = db.as_ref().unwrap();
-    let mut stmt = conn.prepare("SELECT id, name, source_tool, session_id, content, tags, priority, extracted_at FROM memories ORDER BY priority DESC, extracted_at DESC").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, source_tool, session_id, content, tags, priority, is_favorite, extracted_at, updated_at FROM memories ORDER BY priority DESC, extracted_at DESC").map_err(|e| e.to_string())?;
 
     let iter = stmt
         .query_map([], |row| {
@@ -240,7 +240,9 @@ fn get_memories(state: State<'_, DbState>) -> Result<Vec<models::Memory>, String
                 content: row.get(4)?,
                 tags: row.get(5)?,
                 priority: row.get(6)?,
-                extracted_at: row.get(7)?,
+                is_favorite: row.get(7)?,
+                extracted_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -331,24 +333,235 @@ fn update_skill_tags(state: State<'_, DbState>, skill_id: i64, tags: String) -> 
     Ok(())
 }
 
+/// Cross-platform: reveal a file in its file manager.
 #[tauri::command]
 fn open_in_finder(path: String) -> Result<(), String> {
-    std::process::Command::new("open")
-        .args(["-R", &path])
-        .spawn()
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // Fall back to opening the parent directory in the default file manager.
+        if let Some(parent) = std::path::Path::new(&path).parent() {
+            std::process::Command::new("xdg-open")
+                .arg(parent)
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Cross-platform: open a file with its default application/editor.
+#[tauri::command]
+fn open_in_editor(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Toggle favorite for a memory.
+#[tauri::command]
+fn toggle_memory_favorite(state: State<'_, DbState>, memory_id: i64) -> Result<bool, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let current: bool = conn
+        .query_row("SELECT is_favorite FROM memories WHERE id = ?1", params![memory_id], |row| row.get(0))
         .map_err(|e| e.to_string())?;
+
+    let new_val = !current;
+    conn.execute(
+        "UPDATE memories SET is_favorite = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+        params![new_val, memory_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(new_val)
+}
+
+/// Directory where Memex-native created assets are persisted as Markdown files.
+fn native_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("memex_native");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+fn sanitize_filename(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars() {
+        if c.is_alphanumeric() || c == '-' || c == '_' || c == ' ' {
+            out.push(c);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.trim().is_empty() {
+        "untitled".to_string()
+    } else {
+        out
+    }
+}
+
+// ---- Skill CRUD ----
+
+#[tauri::command]
+fn create_skill(
+    app: tauri::AppHandle,
+    state: State<'_, DbState>,
+    name: String,
+    content: String,
+    source_tool: Option<String>,
+    tags: Option<String>,
+) -> Result<i64, String> {
+    let tool = source_tool.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| "memex_native".to_string());
+    let mut local_path = None;
+    if tool == "memex_native" {
+        let dir = native_dir(&app)?;
+        let file = dir.join(format!("{}.md", sanitize_filename(&name)));
+        std::fs::write(&file, &content).map_err(|e| e.to_string())?;
+        local_path = Some(file.to_string_lossy().to_string());
+    }
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute(
+        "INSERT INTO skills (name, content, source_tool, local_path, tags, priority) VALUES (?1, ?2, ?3, ?4, ?5, 50)",
+        params![name, content, tool, local_path, tags],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn update_skill(
+    app: tauri::AppHandle,
+    state: State<'_, DbState>,
+    id: i64,
+    name: String,
+    content: String,
+    tags: Option<String>,
+) -> Result<(), String> {
+    let (source_tool, local_path): (String, Option<String>) = {
+        let db = state.db.lock().unwrap();
+        let conn = db.as_ref().unwrap();
+        conn.query_row(
+            "SELECT source_tool, local_path FROM skills WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?
+    };
+
+    // Persist Memex-native assets back to disk.
+    if source_tool == "memex_native" {
+        let dir = native_dir(&app)?;
+        let file = local_path
+            .as_ref()
+            .filter(|p| !p.is_empty())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| dir.join(format!("{}.md", sanitize_filename(&name))));
+        std::fs::write(&file, &content).map_err(|e| e.to_string())?;
+    }
+
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute(
+        "UPDATE skills SET name = ?1, content = ?2, tags = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?4",
+        params![name, content, tags, id],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
-fn open_in_editor(path: String) -> Result<(), String> {
-    std::process::Command::new("open")
-        .arg(&path)
-        .spawn()
+fn delete_skill(state: State<'_, DbState>, id: i64) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute("DELETE FROM skills WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
     Ok(())
 }
 
+// ---- Memory CRUD ----
+
+#[tauri::command]
+fn create_memory(
+    state: State<'_, DbState>,
+    name: String,
+    content: String,
+    source_tool: Option<String>,
+    tags: Option<String>,
+) -> Result<i64, String> {
+    let tool = source_tool.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| "memex_native".to_string());
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute(
+        "INSERT INTO memories (name, content, source_tool, tags, priority) VALUES (?1, ?2, ?3, ?4, 50)",
+        params![name, content, tool, tags],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn update_memory(
+    state: State<'_, DbState>,
+    id: i64,
+    name: String,
+    content: String,
+    tags: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute(
+        "UPDATE memories SET name = ?1, content = ?2, tags = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?4",
+        params![name, content, tags, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_memory(state: State<'_, DbState>, id: i64) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute("DELETE FROM memories WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
 #[tauri::command]
 async fn chat_with_ai(
     app: tauri::AppHandle,
@@ -554,6 +767,13 @@ pub fn run() {
             save_config,
             toggle_favorite,
             update_skill_tags,
+            toggle_memory_favorite,
+            create_skill,
+            update_skill,
+            delete_skill,
+            create_memory,
+            update_memory,
+            delete_memory,
             open_in_finder,
             open_in_editor,
             chat_with_ai

@@ -21,7 +21,17 @@ const fetchStats = async () => {
   try {
     stats.value = await invoke('get_stats')
   } catch (error) {
-    console.error('Failed to fetch stats', error)
+    console.warn('Tauri invoke failed, using mock stats:', error)
+    stats.value = {
+      total_skills: 4,
+      total_memories: 2,
+      sources: [
+        { source_tool: 'memex_native', count: 1 },
+        { source_tool: 'zcode', count: 1 },
+        { source_tool: 'claude', count: 1 },
+        { source_tool: 'trae', count: 1 }
+      ]
+    }
   }
 }
 

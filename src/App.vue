@@ -69,7 +69,10 @@ const fetchData = async () => {
       sessionStorage.setItem('prompt_shown', 'true')
     }
   } catch (error) {
-    console.error('Failed to fetch data:', error)
+    // Mock fallback for pure-browser preview (no Tauri runtime)
+    console.warn('Tauri invoke failed, using mock data:', error)
+    skills.value = mockSkills
+    memories.value = mockMemories
   }
 }
 
@@ -94,9 +97,91 @@ const fetchConfigs = async () => {
       aiModel.value = aiMdl.key_value
     }
   } catch (error) {
-    console.error('Failed to fetch configs:', error)
+    console.warn('Tauri config fetch failed, using mock configs:', error)
+    scanTargets.value = mockTargets
+    pinnedSources.value = []
+    hasAiKey.value = false
   }
 }
+
+const mockSkills = [
+  {
+    id: 1, name: 'Python 代码审查',
+    content: '# Python 代码审查规范\n\n请严格按以下标准审查代码：\n\n1. 类型注解覆盖所有函数签名\n2. docstring 采用 Google 风格\n3. 使用 dataclass 而非裸字典传递状态\n4. 复杂度圈数 > 10 的函数必须拆分',
+    source_tool: 'memex_native',
+    local_path: null,
+    prefix_template: '请严格遵守以下 Skill 规范回答：',
+    tags: 'python, code-review, best-practice',
+    priority: 90,
+    is_favorite: true,
+    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 2).toISOString()
+  },
+  {
+    id: 2, name: 'React 组件模板',
+    content: '# React 组件最佳实践\n\n- 优先使用 FC + hooks，避免 class component\n- 业务组件拆分 ≤ 120 行\n- 自定义 hook 以 use 前缀开头\n- 状态最小化：优先派生计算而非多余 state',
+    source_tool: 'zcode',
+    local_path: '/Users/user/.zcode/skills/react.md',
+    prefix_template: '请严格遵守以下 Skill 规范回答：',
+    tags: 'react, frontend, typescript',
+    priority: 70,
+    is_favorite: false,
+    created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 5).toISOString()
+  },
+  {
+    id: 3, name: 'SQL 索引规范',
+    content: '# SQL 索引编写规则\n\n1. 复合索引遵循最左前缀匹配\n2. 选择性低的列不建单列索引\n3. 避免 SELECT *\n4. 大表分页用游标而非 OFFSET',
+    source_tool: 'claude',
+    local_path: '/Users/user/.claude/skills/sql.md',
+    prefix_template: 'Use the following template/skill:',
+    tags: 'sql, database, performance',
+    priority: 50,
+    is_favorite: true,
+    created_at: new Date(Date.now() - 86400000 * 60).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 10).toISOString()
+  },
+  {
+    id: 4, name: '安全编码 Checklist',
+    content: '# 安全编码检查清单\n\n- 所有外部输入做校验与类型约束\n- 鉴权在路由层 + 服务层双重检查\n- 敏感字段日志脱敏\n- 密码使用 bcrypt/Argon2 而非散列',
+    source_tool: 'trae',
+    local_path: '/Users/user/.trae-cn/skills/security.md',
+    tags: 'security, backend',
+    priority: 80,
+    is_favorite: false,
+    created_at: new Date(Date.now() - 86400000 * 15).toISOString(),
+    updated_at: new Date(Date.now() - 86400000).toISOString()
+  }
+]
+
+const mockMemories = [
+  {
+    id: 1, name: '项目 A 架构决策记录',
+    source_tool: 'zcode',
+    session_id: null,
+    content: '2026 Q1 架构调整：拆分订单服务为 CQRS 双写。\n- 写库 MySQL 8 / 读库 PostgreSQL\n- 同步通道用 Kafka compact topic\n- 1 个月后弃用旧读接口',
+    tags: 'architecture, project-A',
+    priority: 70,
+    is_favorite: true,
+    extracted_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 3).toISOString()
+  },
+  {
+    id: 2, name: '常见坑：Vite 3 端口冲突',
+    source_tool: 'memex_native',
+    content: '端口 5173 被占用时 Vite 报错不直观。\n解决：lsof -i :5173 找 PID kill，或在 vite.config.ts 中指定 server.strictPort: false。',
+    tags: 'vite, frontend, troubleshooting',
+    priority: 50,
+    is_favorite: false,
+    extracted_at: new Date(Date.now() - 86400000 * 8).toISOString(),
+    updated_at: new Date(Date.now() - 86400000 * 8).toISOString()
+  }
+]
+
+const mockTargets = [
+  { id: 1, path: '/Users/user/.gemini/config', override_tool: 'zcode', priority: 50, is_enabled: true, created_at: new Date().toISOString() },
+  { id: 2, path: '/Users/user/.agents/skills', override_tool: 'agents', priority: 10, is_enabled: true, created_at: new Date().toISOString() }
+]
 
 const togglePin = async (sourceId: string) => {
   if (pinnedSources.value.includes(sourceId)) {

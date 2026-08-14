@@ -47,8 +47,20 @@ const allTags = computed(() => {
   const collect = (tagsStr?: string | null) => {
     if (!tagsStr) return
     tagsStr.split(',').forEach(raw => {
-      const tag = raw.trim()
-      if (tag) counts[tag] = (counts[tag] || 0) + 1
+      const tag = raw.trim().replace(/^["']|["']$/g, '').trim()
+      if (
+        tag && 
+        tag !== '>' && 
+        tag !== '|' && 
+        tag !== '-' && 
+        tag !== ':' && 
+        tag.length >= 2 &&
+        tag.length <= 30 && 
+        !tag.includes('\n') &&
+        !tag.startsWith('http')
+      ) {
+        counts[tag] = (counts[tag] || 0) + 1
+      }
     })
   }
   skills.value.forEach(s => collect(s.tags))
@@ -57,6 +69,32 @@ const allTags = computed(() => {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
 })
+
+const handleTagSelect = (tag: string | null) => {
+  selectedTag.value = tag
+  if (tag) {
+    const t = tag.toLowerCase().trim()
+    if (activeView.value === 'dashboard' || activeView.value === 'settings') {
+      const existsInSkills = skills.value.some(s => s.tags && s.tags.toLowerCase().includes(t))
+      activeView.value = existsInSkills ? 'skills' : 'memories'
+      return
+    }
+    
+    if (activeView.value.endsWith('-skills')) {
+      const tool = activeView.value.replace('-skills', '')
+      const matchInCurrent = skills.value.some(s => (tool === 'memex' ? s.source_tool === 'memex_native' : s.source_tool === tool) && s.tags && s.tags.toLowerCase().includes(t))
+      if (!matchInCurrent) {
+        activeView.value = 'skills'
+      }
+    } else if (activeView.value.endsWith('-memories')) {
+      const tool = activeView.value.replace('-memories', '')
+      const matchInCurrent = memories.value.some(m => m.source_tool === tool && m.tags && m.tags.toLowerCase().includes(t))
+      if (!matchInCurrent) {
+        activeView.value = 'memories'
+      }
+    }
+  }
+}
 
 const currentCount = computed(() => activeView.value.includes('skills') ? filteredSkills.value.length : filteredMemories.value.length)
 
@@ -414,8 +452,12 @@ const filteredSkills = computed(() => {
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
   }
   if (selectedTag.value) {
-    const t = selectedTag.value.toLowerCase()
-    list = list.filter(s => s.tags && s.tags.toLowerCase().split(',').map((x: string) => x.trim()).includes(t))
+    const t = selectedTag.value.toLowerCase().trim()
+    list = list.filter(s => {
+      if (!s.tags) return false
+      const arr = s.tags.toLowerCase().split(',').map((x: string) => x.trim().replace(/^["']|["']$/g, '').trim())
+      return arr.includes(t) || arr.some((x: string) => x === t || x.replace(/^project:/, '') === t || x.includes(t))
+    })
   }
   if (favoriteOnly.value) {
     list = list.filter(s => s.is_favorite)
@@ -437,8 +479,12 @@ const filteredMemories = computed(() => {
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
   }
   if (selectedTag.value) {
-    const t = selectedTag.value.toLowerCase()
-    list = list.filter(s => s.tags && s.tags.toLowerCase().split(',').map((x: string) => x.trim()).includes(t))
+    const t = selectedTag.value.toLowerCase().trim()
+    list = list.filter(s => {
+      if (!s.tags) return false
+      const arr = s.tags.toLowerCase().split(',').map((x: string) => x.trim().replace(/^["']|["']$/g, '').trim())
+      return arr.includes(t) || arr.some((x: string) => x === t || x.replace(/^project:/, '') === t || x.includes(t))
+    })
   }
   if (favoriteOnly.value) {
     list = list.filter(s => s.is_favorite)
@@ -625,7 +671,7 @@ onUnmounted(() => {
       :selected-tag="selectedTag"
       @select="handleSidebarSelect" 
       @toggle-pin="togglePin"
-      @select-tag="selectedTag = $event"
+      @select-tag="handleTagSelect($event)"
     />
 
     <!-- Main Content Area -->
@@ -806,7 +852,7 @@ onUnmounted(() => {
               :is-selected="selectedIds.includes(skill.id)"
               @open-detail="(s) => openAssetDetail(s, 'skill')"
               @favorite-toggled="handleFavoriteToggled"
-              @select-tag="selectedTag = $event"
+              @select-tag="handleTagSelect($event)"
               @toggle-select="toggleSelectId"
             />
           </div>
@@ -847,7 +893,7 @@ onUnmounted(() => {
               :is-selected="selectedIds.includes(memory.id)"
               @open-detail="(m) => openAssetDetail(m, 'memory')"
               @favorite-toggled="(id, v) => handleFavoriteToggled(id, v, 'memory')"
-              @select-tag="selectedTag = $event"
+              @select-tag="handleTagSelect($event)"
               @toggle-select="toggleSelectId"
             />
           </div>
@@ -875,7 +921,7 @@ onUnmounted(() => {
 
               <!-- Group Body -->
               <div v-show="!collapsedProjects[groupKey as string]" class="p-6">
-                <div :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-3'">
+                <div :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-2'">
                   <MemoryCard 
                     v-for="memory in groupList" 
                     :key="memory.id" 
@@ -886,7 +932,7 @@ onUnmounted(() => {
                     :is-selected="selectedIds.includes(memory.id)"
                     @open-detail="(m) => openAssetDetail(m, 'memory')"
                     @favorite-toggled="(id, v) => handleFavoriteToggled(id, v, 'memory')"
-                    @select-tag="selectedTag = $event"
+                    @select-tag="handleTagSelect($event)"
                     @toggle-select="toggleSelectId"
                   />
                 </div>

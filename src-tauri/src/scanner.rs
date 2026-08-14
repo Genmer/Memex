@@ -84,23 +84,19 @@ pub fn scan_directory(app: &tauri::AppHandle, db: &DbState, dir_path: &str, over
                                     .trim_matches('"')
                                     .trim_matches('\'')
                                     .to_string();
-                            } else if line.starts_with("tags:") {
-                                tags = Some(
-                                    line.replace("tags:", "")
-                                        .trim()
-                                        .trim_matches('"')
-                                        .trim_matches('\'')
-                                        .to_string(),
-                                );
-                            } else if line.starts_with("description:") && tags.is_none() {
-                                // Fallback: use description as tags if tags missing
-                                tags = Some(
-                                    line.replace("description:", "")
-                                        .trim()
-                                        .trim_matches('"')
-                                        .trim_matches('\'')
-                                        .to_string(),
-                                );
+                            } else if line.starts_with("tags:") || line.starts_with("keywords:") || line.starts_with("categories:") {
+                                let raw = line
+                                    .replace("tags:", "")
+                                    .replace("keywords:", "")
+                                    .replace("categories:", "");
+                                let clean_tags: Vec<&str> = raw
+                                    .split(|c| c == ',' || c == ';' || c == '、')
+                                    .map(|s| s.trim().trim_matches('"').trim_matches('\'').trim())
+                                    .filter(|s| !s.is_empty() && *s != ">" && *s != "|" && *s != "-" && *s != ":" && s.len() <= 30)
+                                    .collect();
+                                if !clean_tags.is_empty() {
+                                    tags = Some(clean_tags.join(", "));
+                                }
                             }
                         }
                         clean_content = content[end_idx + 8..].trim().to_string();

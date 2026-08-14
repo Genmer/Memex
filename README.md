@@ -17,10 +17,13 @@ Memex 的诞生正是为了解决这些“记忆孤岛”。
 ## ✨ 核心特性 (Features)
 
 - **🚀 极速本地扫描**：由底层 Rust 引擎提供的高效并行扫描，支持自动探测常用的 AI 框架路径（`.trae-cn`, `.zcode`, `.claude`, `.agents` 等）。
+- **⌨️ 快捷键命令面板 (⌘K Omnibar)**：随时按下 `⌘K` 或 `Ctrl+K` 唤起浮动命令面板，支持模糊搜索 Skills / Memories 以及一键执行扫描、新建、备份等全局指令。
+- **📊 核心大盘与多源冲突诊断**：统计全库多工具资产分布（Donut Chart），并实时诊断同名技能在不同框架下的优先级覆写与冲突胜出者。
+- **🗂️ 记忆按工程聚类 (Clustered View)**：智能解析 Trae-CN、ZCode 等多级工程记忆路径，按项目/主题折叠归拢，条理清晰。
+- **⚡ 资产批量管理 (Batch Operations)**：支持批量选择、一键批量收藏、批量打标签及批量清理删除。
 - **🗂️ 动态目标管理器**：可随时在设置中添加/移除/停用特定的硬盘目录，支持针对未知目录自动打标。
-- **🔄 同名技能覆写机制**：项目内的 `.zcode/skills` 会自动拥有比 `~/.agents/skills` 更高的读取优先级。
 - **💬 AI 智能对话面板**：内置了与 DeepSeek V4 (或自定义模型) 对接的流式问答面板，支持通过特殊 Action 标签自动修复本地配置。
-- **🎨 灵活视图切换**：提供清晰卡片模式（Grid）与高密度列表模式（List）无缝切换。
+- **🎨 灵活视图切换**：提供全景卡片模式（Grid）与极简高密度单行数据流列表模式（List）无缝切换。
 
 ---
 
@@ -43,7 +46,7 @@ Memex 的诞生正是为了解决这些“记忆孤岛”。
 ### 安装与运行
 1. **克隆项目**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/Genmer/Memex.git
    cd Memex
    ```
 
@@ -66,23 +69,35 @@ Memex 的诞生正是为了解决这些“记忆孤岛”。
 
 ## 📖 使用指南 (Usage)
 
-1. **配置 AI 助手**
-   - 进入应用的【Settings】（左侧边栏底部的齿轮图标）。
-   - 在底部输入你的 DeepSeek API Key（或其他兼容格式的 API Key）。
-   - 填写要使用的模型名称（默认：`deepseek-v4-flash`）。
+1. **快捷键与命令面板**
+   - 按下 `⌘K` (Mac) 或 `Ctrl+K` (Windows/Linux) 随时打开全局命令面板。
+   - 输入关键词快速模糊检索技能，或者使用上下方向键导航并按回车直接打开详情抽屉或执行操作。
 
-2. **管理扫描目标 (Scan Targets)**
-   - 在【Settings】中，通过“扫描目标管理器”点击【添加路径】。
+2. **配置 AI 助手**
+   - 进入应用的【设置】（左侧边栏底部的齿轮图标）。
+   - 在底部输入你的 DeepSeek API Key（或其他兼容格式的 API Key）。
+   - 填写要使用的模型名称（默认：`deepseek-chat` 或 `deepseek-reasoner`）。
+
+3. **管理扫描目标 (Scan Targets)**
+   - 在【设置】中，通过“扫描目标管理器”点击【添加路径】。
    - 选择你需要让 Memex 接管监控的文件夹。应用会自动赋予对应目录不同的优先级。
    - 默认自带常用的 `~/.agents/skills` 及 `~/.gemini/config` 的扫描规则。
 
-3. **查看与同步**
-   - 点击顶部右上角的 **[Sync]** 按钮，应用会调用 Rust 后端将所有 Markdown 沉淀迅速转化为本地数据库结构。
+4. **查看与同步**
+   - 点击顶部右上角的 **[扫描本地数据]** 按钮，应用会调用 Rust 后端将所有 Markdown 沉淀迅速转化为本地数据库结构。
    - 在 Dashboard 或 Skills 面板中，即可使用搜索、收藏及复制（Copy with Prefix）功能。
 
 ---
 
 ## 📝 更新日志 (Changelog)
+
+### v1.1.0 (Latest)
+- **[Feature]** 新增 **⌘K 全局命令面板 (Command Palette / Omnibar)**，支持模糊搜索、动作直达与纯键盘流畅操作。
+- **[Feature]** 列表视图全新升级为**单行紧凑数据表格流 (Single-Row Data Table)**，信息密度提升 300%，彻底消除文字重叠。
+- **[Feature]** 记忆库支持**按项目聚类视图 (Project Clustered View)**，自动解析 Trae / ZCode 工程哈希目录为真实项目名。
+- **[Feature]** 新增**资产批量管理模式 (Batch Operations)**，支持多选、批量收藏、批量追加标签与批量删除。
+- **[Feature]** Dashboard 新增**多源技能覆写与冲突健康诊断看板**，实时洞悉同名 Skill 胜出优先级。
+- **[Core]** 优化标签解析与清洗引擎，彻底过滤多行 YAML 块标记（`>`、`|`）脏数据，支持全局跨源智能跳转。
 
 ### v1.0.0-alpha
 - **[Feature]** 完成基础 Tauri 框架搭建，集成 SQLite 数据持久化。

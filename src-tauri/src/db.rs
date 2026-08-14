@@ -62,6 +62,15 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS category_syntheses (
+            category_key TEXT PRIMARY KEY,
+            category_name TEXT NOT NULL,
+            total_skills INTEGER NOT NULL,
+            overview_zh TEXT NOT NULL,
+            core_capabilities TEXT NOT NULL,
+            recommended_workflows TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         ",
     )?;
 

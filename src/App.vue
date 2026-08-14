@@ -482,6 +482,24 @@ const batchAnalyzeCurrentCategory = async (forceAll = false) => {
   )
 }
 
+const currentCategoryKey = computed(() => {
+  if (selectedTag.value) return `tag:${selectedTag.value}`
+  return activeView.value
+})
+
+const loadCategorySynthesis = async () => {
+  if (!activeView.value.includes('skills')) return
+  try {
+    const res: any = await invoke('get_category_synthesis', {
+      categoryKey: currentCategoryKey.value
+    })
+    categorySynthesisResult.value = res || null
+  } catch (err) {
+    console.error('Failed to load category synthesis:', err)
+    categorySynthesisResult.value = null
+  }
+}
+
 const generateCategorySynthesis = async () => {
   if (filteredSkills.value.length === 0 || isSynthesizingCategory.value) return
   isSynthesizingCategory.value = true
@@ -489,11 +507,12 @@ const generateCategorySynthesis = async () => {
   try {
     const ids = filteredSkills.value.map(s => s.id)
     const res: any = await invoke('synthesize_category_ai', {
+      categoryKey: currentCategoryKey.value,
       categoryName: currentCategoryName.value,
       skillIds: ids
     })
     categorySynthesisResult.value = res
-    toast.success('已生成当前分类技能库全景画像报告！')
+    toast.success('已生成并持久化保存当前分类技能库全景画像报告！')
   } catch (err: any) {
     toast.error(typeof err === 'string' ? err : `生成全景画像失败: ${JSON.stringify(err)}`)
   } finally {
@@ -502,8 +521,8 @@ const generateCategorySynthesis = async () => {
 }
 
 watch([activeView, selectedTag], () => {
-  categorySynthesisResult.value = null
-})
+  loadCategorySynthesis()
+}, { immediate: true })
 
 const handleSidebarSelect = (id: string) => {
   activeView.value = id
@@ -1072,10 +1091,15 @@ onUnmounted(() => {
             >
               <div v-if="categorySynthesisResult" class="mt-4 pt-4 border-t border-white/10 space-y-3">
                 <div>
-                  <h4 class="text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                    <Bot :size="13" />
-                    <span>分类核心定位与能力画像</span>
-                  </h4>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <h4 class="text-xs font-semibold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Bot :size="13" />
+                      <span>分类核心定位与能力画像</span>
+                    </h4>
+                    <span v-if="categorySynthesisResult.updated_at" class="text-[10px] text-indigo-300/60 font-mono bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      已持久化 · {{ categorySynthesisResult.updated_at }}
+                    </span>
+                  </div>
                   <p class="text-xs text-white/90 leading-relaxed font-sans bg-black/20 p-3 rounded-xl border border-white/5 shadow-inner">
                     {{ categorySynthesisResult.overview_zh }}
                   </p>

@@ -1371,8 +1371,46 @@ fn update_skill_ai_summary(
 }
 
 #[tauri::command]
+fn get_category_synthesis(
+    state: State<'_, DbState>,
+    category_key: String,
+) -> Result<Option<models::CategorySynthesisResult>, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut stmt = conn
+        .prepare("SELECT category_key, category_name, total_skills, overview_zh, core_capabilities, recommended_workflows, updated_at FROM category_syntheses WHERE category_key = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let result = stmt
+        .query_row(params![category_key], |row| {
+            let core_caps_str: String = row.get(4)?;
+            let rec_wfs_str: String = row.get(5)?;
+            let core_capabilities: Vec<String> = serde_json::from_str(&core_caps_str).unwrap_or_default();
+            let recommended_workflows: Vec<String> = serde_json::from_str(&rec_wfs_str).unwrap_or_default();
+
+            Ok(models::CategorySynthesisResult {
+                category_key: row.get(0)?,
+                category_name: row.get(1)?,
+                total_skills: row.get::<_, i64>(2)? as usize,
+                overview_zh: row.get(3)?,
+                core_capabilities,
+                recommended_workflows,
+                updated_at: row.get(6)?,
+            })
+        });
+
+    match result {
+        Ok(res) => Ok(Some(res)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
 async fn synthesize_category_ai(
     state: State<'_, DbState>,
+    category_key: String,
     category_name: String,
     skill_ids: Vec<i64>,
 ) -> Result<models::CategorySynthesisResult, String> {
@@ -1528,12 +1566,35 @@ async fn synthesize_category_ai(
         })
         .unwrap_or_default();
 
+    // Persist to SQLite
+    {
+        let db = state.db.lock().unwrap();
+        let conn = db.as_ref().unwrap();
+        let caps_json = serde_json::to_string(&core_capabilities).unwrap_or_default();
+        let wfs_json = serde_json::to_string(&recommended_workflows).unwrap_or_default();
+
+        let _ = conn.execute(
+            "INSERT OR REPLACE INTO category_syntheses (category_key, category_name, total_skills, overview_zh, core_capabilities, recommended_workflows, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)",
+            params![
+                category_key,
+                category_name,
+                skills_data.len() as i64,
+                overview_zh,
+                caps_json,
+                wfs_json
+            ],
+        );
+    }
+
     Ok(models::CategorySynthesisResult {
+        category_key,
         category_name,
         total_skills: skills_data.len(),
         overview_zh,
         core_capabilities,
         recommended_workflows,
+        updated_at: Some("刚刚".to_string()),
     })
 }
 
@@ -1579,7 +1640,8 @@ pub fn run() {
             analyze_skill_ai,
             batch_analyze_skills_ai,
             update_skill_ai_summary,
-            synthesize_category_ai
+            synthesize_category_ai,
+            get_category_synthesis
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

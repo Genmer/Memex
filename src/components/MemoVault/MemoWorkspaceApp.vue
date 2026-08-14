@@ -1,0 +1,723 @@
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
+import { save } from '@tauri-apps/plugin-dialog'
+import { 
+  BookOpen, 
+  Bot, 
+  Plus, 
+  Search, 
+  LayoutGrid, 
+  Calendar, 
+  Columns, 
+  Download, 
+  RefreshCw, 
+  Pin, 
+  Star, 
+  CheckSquare, 
+  Tag as TagIcon, 
+  Layers, 
+  FileText, 
+  Sparkles, 
+  Sun, 
+  Moon, 
+  Monitor, 
+  Globe, 
+  X, 
+  FolderPlus,
+  ArrowLeftRight
+} from 'lucide-vue-next'
+import MemoCard from './MemoCard.vue'
+import MemoTimeline from './MemoTimeline.vue'
+import MemoSplitView from './MemoSplitView.vue'
+import MemoEditor from './MemoEditor.vue'
+import { useToast } from '../../composables/useToast'
+import { useTheme } from '../../composables/useTheme'
+import { useI18n } from '../../composables/useI18n'
+
+const emit = defineEmits(['switch-mode'])
+
+const toast = useToast()
+const { themeMode, setThemeMode } = useTheme()
+const { toggleLanguage } = useI18n()
+
+// Data State
+const memos = ref<any[]>([])
+const folders = ref<any[]>([])
+const tags = ref<any[]>([])
+const isLoading = ref(false)
+
+// Navigation & Filter State
+const selectedFilter = ref<'all' | 'pinned' | 'favorite' | 'todo' | 'journal'>('all')
+const selectedFolder = ref<string | null>(null)
+const selectedTag = ref<string | null>(null)
+const selectedTypeFilter = ref<string>('all')
+const searchQuery = ref('')
+const layoutMode = ref<'grid' | 'timeline' | 'split'>('grid')
+
+// Folder Creation
+const isCreatingFolder = ref(false)
+const newFolderName = ref('')
+
+// Editor Modal State
+const showEditor = ref(false)
+const editingMemo = ref<any | null>(null)
+
+// Stats
+const stats = computed(() => {
+  const total = memos.value.length
+  const pinned = memos.value.filter(m => m.is_pinned).length
+  const favorites = memos.value.filter(m => m.is_favorite).length
+  const journals = memos.value.filter(m => m.note_type === 'journal').length
+  
+  let todoTotal = 0
+  let todoCompleted = 0
+  memos.value.forEach(m => {
+    todoTotal += m.todo_total || 0
+    todoCompleted += m.todo_completed || 0
+  })
+
+  return {
+    total,
+    pinned,
+    favorites,
+    journals,
+    todoTotal,
+    todoCompleted
+  }
+})
+
+const availableFolders = computed(() => {
+  const set = new Set<string>(['默认备忘', '工作日志', '架构设计', '灵感闪念', '待办清单'])
+  folders.value.forEach(f => set.add(f.name))
+  return Array.from(set)
+})
+
+const currentBreadcrumb = computed(() => {
+  if (selectedFolder.value) return `📂 分类目录 / ${selectedFolder.value}`
+  if (selectedTag.value) return `🏷️ 标签检索 / #${selectedTag.value}`
+  switch (selectedFilter.value) {
+    case 'pinned': return '📌 已置顶备忘'
+    case 'favorite': return '⭐ 收藏备忘录'
+    case 'todo': return '✅ 待办事项清单'
+    case 'journal': return '📅 个人工作日志'
+    default: return '全部备忘与开发日志'
+  }
+})
+
+const loadData = async () => {
+  isLoading.value = true
+  try {
+    let filterTypeParam: string | null = null
+    if (selectedFilter.value === 'pinned') filterTypeParam = 'pinned'
+    else if (selectedFilter.value === 'favorite') filterTypeParam = 'favorite'
+    else if (selectedFilter.value === 'todo') filterTypeParam = 'todo'
+    else if (selectedFilter.value === 'journal') filterTypeParam = 'journal'
+    else if (selectedTypeFilter.value !== 'all') filterTypeParam = selectedTypeFilter.value
+
+    const data: any = await invoke('get_memos', {
+      folder: selectedFolder.value || null,
+      tag: selectedTag.value || null,
+      search: searchQuery.value.trim() || null,
+      filterType: filterTypeParam
+    })
+    memos.value = data
+
+    const folderData: any = await invoke('get_memo_folders')
+    folders.value = folderData
+
+    const tagData: any = await invoke('get_memo_tags')
+    tags.value = tagData
+  } catch (err: any) {
+    toast.error('加载备忘数据失败: ' + err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleOpenCreate = () => {
+  editingMemo.value = null
+  showEditor.value = true
+}
+
+const handleOpenEdit = (memo: any) => {
+  editingMemo.value = memo
+  showEditor.value = true
+}
+
+const handleSaveMemo = async (payload: any) => {
+  try {
+    if (payload.id) {
+      await invoke('update_memo', {
+        id: payload.id,
+        payload: {
+          title: payload.title,
+          content: payload.content,
+          folder: payload.folder,
+          note_type: payload.note_type,
+          color: payload.color,
+          tags: payload.tags,
+          is_pinned: payload.is_pinned,
+          is_favorite: payload.is_favorite
+        }
+      })
+      toast.success('备忘已保存')
+    } else {
+      await invoke('create_memo', {
+        payload: {
+          title: payload.title,
+          content: payload.content,
+          folder: payload.folder,
+          note_type: payload.note_type,
+          color: payload.color,
+          tags: payload.tags,
+          is_pinned: payload.is_pinned,
+          is_favorite: payload.is_favorite
+        }
+      })
+      toast.success('新备忘创建成功')
+    }
+    showEditor.value = false
+    await loadData()
+  } catch (err: any) {
+    toast.error('保存失败: ' + err)
+  }
+}
+
+const handleDeleteMemo = async (id: number) => {
+  if (!confirm('确定要删除这篇备忘吗？')) return
+  try {
+    await invoke('delete_memo', { id })
+    toast.success('备忘已删除')
+    if (editingMemo.value?.id === id) {
+      showEditor.value = false
+    }
+    await loadData()
+  } catch (err: any) {
+    toast.error('删除失败: ' + err)
+  }
+}
+
+const handleTogglePin = async (id: number, isPinned: boolean) => {
+  try {
+    await invoke('toggle_memo_pinned', { id, isPinned })
+    const target = memos.value.find(m => m.id === id)
+    if (target) target.is_pinned = isPinned
+    toast.success(isPinned ? '已置顶' : '已取消置顶')
+    await loadData()
+  } catch (err: any) {
+    toast.error('操作失败: ' + err)
+  }
+}
+
+const handleToggleFavorite = async (id: number, isFavorite: boolean) => {
+  try {
+    await invoke('toggle_memo_favorite', { id, isFavorite })
+    const target = memos.value.find(m => m.id === id)
+    if (target) target.is_favorite = isFavorite
+    toast.success(isFavorite ? '已收藏' : '已取消收藏')
+  } catch (err: any) {
+    toast.error('操作失败: ' + err)
+  }
+}
+
+const handleCreateFolder = () => {
+  if (!newFolderName.value.trim()) return
+  const name = newFolderName.value.trim()
+  selectedFolder.value = name
+  selectedTag.value = null
+  selectedFilter.value = 'all'
+  newFolderName.value = ''
+  isCreatingFolder.value = false
+  loadData()
+}
+
+const handleExportMarkdown = async () => {
+  try {
+    const mdContent: string = await invoke('export_memos_markdown')
+    const filePath = await save({
+      filters: [{ name: 'Markdown Document', extensions: ['md'] }],
+      defaultPath: `Memex_Memos_${new Date().toISOString().slice(0, 10)}.md`
+    })
+
+    if (filePath) {
+      const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filePath.split('/').pop() || 'memos.md'
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('已导出 Markdown 归档文件')
+    }
+  } catch (err: any) {
+    toast.error('导出失败: ' + err)
+  }
+}
+
+const selectFilter = (f: 'all' | 'pinned' | 'favorite' | 'todo' | 'journal') => {
+  selectedFilter.value = f
+  selectedFolder.value = null
+  selectedTag.value = null
+  loadData()
+}
+
+const selectFolder = (folderName: string | null) => {
+  selectedFolder.value = folderName
+  selectedFilter.value = 'all'
+  selectedTag.value = null
+  loadData()
+}
+
+const selectTag = (tagName: string | null) => {
+  selectedTag.value = tagName
+  selectedFilter.value = 'all'
+  selectedFolder.value = null
+  loadData()
+}
+
+const handleKeydown = (e: KeyboardEvent) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+    e.preventDefault()
+    handleOpenCreate()
+  }
+}
+
+onMounted(() => {
+  loadData()
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+
+watch([selectedTypeFilter], () => {
+  loadData()
+})
+</script>
+
+<template>
+  <div class="flex h-screen w-full text-white/90 selection:bg-purple-500/30 overflow-hidden bg-[#0c0e14]">
+    <!-- ================= DEDICATED MEMO SIDEBAR ================= -->
+    <aside class="w-64 h-screen flex flex-col bg-white/[0.03] backdrop-blur-3xl border-r border-white/10 shrink-0 select-none">
+      <!-- Top Left Workspace Mode Switcher -->
+      <div class="h-16 flex items-center justify-between px-4 border-b border-white/10 shrink-0 bg-black/20">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg text-sm shrink-0">
+            <BookOpen :size="16" />
+          </div>
+          <div class="min-w-0">
+            <h1 class="font-bold text-sm text-white/95 truncate">个人备忘与日志</h1>
+            <p class="text-[10px] text-white/40 font-mono">Personal Vault</p>
+          </div>
+        </div>
+
+        <!-- Mode Switch Button -->
+        <button 
+          @click="emit('switch-mode', 'agent')"
+          class="p-2 rounded-xl bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 text-white/60 hover:text-indigo-200 transition-all flex items-center gap-1 text-xs"
+          title="切换回 Agent 武器库"
+        >
+          <Bot :size="14" />
+        </button>
+      </div>
+
+      <!-- Quick Switch Bar -->
+      <div class="p-3 border-b border-white/5 bg-black/10">
+        <button 
+          @click="emit('switch-mode', 'agent')"
+          class="w-full py-2 px-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 text-xs font-semibold flex items-center justify-between transition-all group"
+        >
+          <span class="flex items-center gap-2">
+            <Bot :size="14" class="text-indigo-400" />
+            <span>切换至 Agent 武器库</span>
+          </span>
+          <ArrowLeftRight :size="13" class="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      </div>
+
+      <!-- Scrollable Navigation Menu -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-6">
+        <!-- Quick Views Section -->
+        <div class="space-y-1">
+          <div class="px-2 py-1 text-[11px] font-bold text-white/40 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles :size="12" />
+            <span>视图快速导航</span>
+          </div>
+
+          <div class="space-y-0.5 pt-1">
+            <button 
+              @click="selectFilter('all')"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              :class="selectedFilter === 'all' && !selectedFolder && !selectedTag ? 'bg-purple-600/20 text-purple-200 font-bold border border-purple-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
+            >
+              <span class="flex items-center gap-2.5">
+                <FileText :size="14" />
+                <span>全部备忘</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-50">{{ stats.total }}</span>
+            </button>
+
+            <button 
+              @click="selectFilter('pinned')"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              :class="selectedFilter === 'pinned' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
+            >
+              <span class="flex items-center gap-2.5">
+                <Pin :size="14" class="text-amber-400 fill-amber-400" />
+                <span>已置顶</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-50">{{ stats.pinned }}</span>
+            </button>
+
+            <button 
+              @click="selectFilter('favorite')"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              :class="selectedFilter === 'favorite' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
+            >
+              <span class="flex items-center gap-2.5">
+                <Star :size="14" class="text-amber-400 fill-amber-400" />
+                <span>收藏夹</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-50">{{ stats.favorites }}</span>
+            </button>
+
+            <button 
+              @click="selectFilter('todo')"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              :class="selectedFilter === 'todo' ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
+            >
+              <span class="flex items-center gap-2.5">
+                <CheckSquare :size="14" class="text-emerald-400" />
+                <span>待办清单</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-60 text-emerald-400 font-bold">
+                {{ stats.todoCompleted }}/{{ stats.todoTotal }}
+              </span>
+            </button>
+
+            <button 
+              @click="selectFilter('journal')"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              :class="selectedFilter === 'journal' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
+            >
+              <span class="flex items-center gap-2.5">
+                <Calendar :size="14" class="text-indigo-400" />
+                <span>开发日志</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-50">{{ stats.journals }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Folders Section -->
+        <div class="pt-4 border-t border-white/5 space-y-2">
+          <div class="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-white/40 uppercase tracking-wider">
+            <div class="flex items-center gap-1.5">
+              <Layers :size="12" />
+              <span>分类目录 (Folders)</span>
+            </div>
+            <button 
+              @click="isCreatingFolder = !isCreatingFolder"
+              class="p-1 rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+              title="新建分类"
+            >
+              <FolderPlus :size="13" />
+            </button>
+          </div>
+
+          <!-- Add folder input inline -->
+          <div v-if="isCreatingFolder" class="flex items-center gap-1 px-1 py-1">
+            <input 
+              v-model="newFolderName"
+              @keydown.enter="handleCreateFolder"
+              placeholder="输入新分类名称..."
+              class="w-full px-2.5 py-1 text-xs bg-white/10 border border-purple-500/40 rounded-lg text-white placeholder-white/30 focus:outline-none"
+              autoFocus
+            />
+            <button @click="handleCreateFolder" class="px-2 py-1 bg-purple-600 text-white rounded-lg text-xs">确定</button>
+          </div>
+
+          <div class="space-y-0.5">
+            <button 
+              v-for="folder in folders" 
+              :key="folder.name"
+              @click="selectFolder(folder.name)"
+              class="w-full px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              :class="[
+                selectedFolder === folder.name 
+                  ? 'bg-purple-600/20 text-purple-200 border border-purple-500/40 font-bold' 
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              ]"
+            >
+              <span class="truncate flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-400/80"></span>
+                <span>{{ folder.name }}</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-50">{{ folder.count }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tags Cloud Section -->
+        <div v-if="tags && tags.length > 0" class="pt-4 border-t border-white/5 space-y-2">
+          <div class="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-white/40 uppercase tracking-wider">
+            <div class="flex items-center gap-1.5">
+              <TagIcon :size="12" />
+              <span>备忘标签 (Tags)</span>
+            </div>
+            <button 
+              v-if="selectedTag"
+              @click="selectTag(null)"
+              class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] hover:bg-purple-500/30 flex items-center gap-0.5"
+            >
+              清除 <X :size="10" />
+            </button>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 px-1 pt-1">
+            <button 
+              v-for="tag in tags" 
+              :key="tag.name"
+              @click="selectTag(selectedTag === tag.name ? null : tag.name)"
+              class="px-2 py-1 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 border"
+              :class="[
+                selectedTag === tag.name
+                  ? 'bg-purple-500/30 border-purple-400 text-purple-200 shadow-sm font-bold'
+                  : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border-white/5'
+              ]"
+            >
+              <span>#{{ tag.name }}</span>
+              <span class="text-[10px] opacity-50">{{ tag.count }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Theme & Language -->
+      <div class="p-3 border-t border-white/5 shrink-0 bg-black/15 flex items-center justify-between gap-2">
+        <div class="flex items-center bg-white/5 rounded-lg p-0.5 border border-white/10">
+          <button 
+            @click="setThemeMode('light')"
+            class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+            :class="themeMode === 'light' ? 'bg-white text-purple-600 shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
+            title="浅色模式"
+          >
+            <Sun :size="13" />
+          </button>
+          <button 
+            @click="setThemeMode('dark')"
+            class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+            :class="themeMode === 'dark' ? 'bg-purple-600 text-white shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
+            title="深色模式"
+          >
+            <Moon :size="13" />
+          </button>
+          <button 
+            @click="setThemeMode('auto')"
+            class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+            :class="themeMode === 'auto' ? 'bg-white/20 text-white shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
+            title="跟随系统"
+          >
+            <Monitor :size="13" />
+          </button>
+        </div>
+
+        <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言">
+          <Globe :size="15" />
+        </button>
+      </div>
+    </aside>
+
+    <!-- ================= DEDICATED MEMO MAIN WORKSPACE CANVAS ================= -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#0e1017] relative">
+      <!-- Topbar Header -->
+      <header class="h-16 shrink-0 flex items-center justify-between px-8 bg-black/20 border-b border-white/5 backdrop-blur-xl">
+        <div class="flex items-center gap-3 min-w-0 mr-6">
+          <h2 class="text-lg font-bold tracking-wide text-white/95 truncate">
+            {{ currentBreadcrumb }}
+          </h2>
+          <span class="text-xs text-white/40 font-mono shrink-0">({{ memos.length }} 条)</span>
+        </div>
+
+        <!-- Global Memo Search Bar -->
+        <div class="flex-1 max-w-md relative hidden md:block">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/40">
+            <Search :size="15" />
+          </div>
+          <input 
+            v-model="searchQuery" 
+            @input="loadData"
+            type="text" 
+            placeholder="搜索备忘标题、内容或标签..." 
+            class="w-full bg-white/5 hover:bg-white/[0.08] border border-white/10 focus:border-purple-500/50 rounded-full py-1.5 pl-10 pr-4 text-xs text-white placeholder-white/30 focus:outline-none transition-all shadow-inner"
+          />
+        </div>
+
+        <!-- Right Controls: Type Filter, Layout Switcher, Export, Create -->
+        <div class="flex items-center gap-3 ml-6 shrink-0">
+          <!-- Type Filter Selector -->
+          <div class="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs font-medium">
+            <button 
+              @click="selectedTypeFilter = 'all'"
+              class="px-2.5 py-1 rounded-xl transition-all"
+              :class="selectedTypeFilter === 'all' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
+            >
+              全部
+            </button>
+            <button 
+              @click="selectedTypeFilter = 'journal'"
+              class="px-2.5 py-1 rounded-xl transition-all"
+              :class="selectedTypeFilter === 'journal' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
+            >
+              日志
+            </button>
+            <button 
+              @click="selectedTypeFilter = 'todo'"
+              class="px-2.5 py-1 rounded-xl transition-all"
+              :class="selectedTypeFilter === 'todo' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
+            >
+              待办
+            </button>
+            <button 
+              @click="selectedTypeFilter = 'fleeting'"
+              class="px-2.5 py-1 rounded-xl transition-all"
+              :class="selectedTypeFilter === 'fleeting' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
+            >
+              灵感
+            </button>
+          </div>
+
+          <!-- Layout Switcher (Grid, Timeline, Split) -->
+          <div class="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10">
+            <button 
+              @click="layoutMode = 'grid'"
+              class="p-1.5 rounded-xl transition-all"
+              :class="layoutMode === 'grid' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
+              title="瀑布流卡片视图"
+            >
+              <LayoutGrid :size="15" />
+            </button>
+            <button 
+              @click="layoutMode = 'timeline'"
+              class="p-1.5 rounded-xl transition-all"
+              :class="layoutMode === 'timeline' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
+              title="时间流日志视图"
+            >
+              <Calendar :size="15" />
+            </button>
+            <button 
+              @click="layoutMode = 'split'"
+              class="p-1.5 rounded-xl transition-all"
+              :class="layoutMode === 'split' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
+              title="双栏极速工作台"
+            >
+              <Columns :size="15" />
+            </button>
+          </div>
+
+          <!-- Export Button -->
+          <button 
+            @click="handleExportMarkdown"
+            class="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
+            title="导出全部备忘为 Markdown"
+          >
+            <Download :size="14" />
+            <span>导出</span>
+          </button>
+
+          <!-- Refresh -->
+          <button 
+            @click="loadData"
+            class="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white rounded-xl transition-colors"
+            title="刷新"
+          >
+            <RefreshCw :size="14" :class="{ 'animate-spin': isLoading }" />
+          </button>
+
+          <!-- Create Button -->
+          <button 
+            @click="handleOpenCreate"
+            class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/25 flex items-center gap-1.5"
+          >
+            <Plus :size="15" />
+            <span>新建备忘 (⌘N)</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Main View Body -->
+      <div class="flex-1 overflow-y-auto p-8 relative">
+        <!-- Layout 1: Grid / Masonry Cards -->
+        <div v-if="layoutMode === 'grid'">
+          <div v-if="memos.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <MemoCard 
+              v-for="m in memos" 
+              :key="m.id"
+              :memo="m"
+              @edit="handleOpenEdit"
+              @delete="handleDeleteMemo"
+              @toggle-pin="handleTogglePin"
+              @toggle-favorite="handleToggleFavorite"
+              @select-tag="selectTag"
+            />
+          </div>
+
+          <div v-else class="text-center py-24 bg-white/[0.01] rounded-3xl border border-dashed border-white/10 space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 mx-auto flex items-center justify-center">
+              <FileText :size="28" />
+            </div>
+            <div class="space-y-1">
+              <h4 class="text-base font-bold text-white/90">暂无匹配备忘或日志</h4>
+              <p class="text-xs text-white/40 max-w-sm mx-auto">
+                随时记录您的架构想法、踩坑记录或每日待办
+              </p>
+            </div>
+            <button 
+              @click="handleOpenCreate"
+              class="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/30"
+            >
+              + 立即创建第一篇备忘
+            </button>
+          </div>
+        </div>
+
+        <!-- Layout 2: Timeline Stream -->
+        <div v-else-if="layoutMode === 'timeline'">
+          <MemoTimeline 
+            :memos="memos"
+            @edit="handleOpenEdit"
+            @delete="handleDeleteMemo"
+            @toggle-pin="handleTogglePin"
+            @toggle-favorite="handleToggleFavorite"
+            @select-tag="selectTag"
+          />
+        </div>
+
+        <!-- Layout 3: Split Editor Workspace -->
+        <div v-else-if="layoutMode === 'split'">
+          <MemoSplitView 
+            :memos="memos"
+            :available-folders="availableFolders"
+            @save="handleSaveMemo"
+            @delete="handleDeleteMemo"
+            @toggle-pin="handleTogglePin"
+            @toggle-favorite="handleToggleFavorite"
+            @create-new="handleOpenCreate"
+          />
+        </div>
+      </div>
+
+      <!-- Full-Featured Modal Editor / Drawer -->
+      <MemoEditor 
+        :show="showEditor"
+        :memo="editingMemo"
+        :available-folders="availableFolders"
+        @close="showEditor = false"
+        @save="handleSaveMemo"
+        @delete="handleDeleteMemo"
+      />
+    </main>
+  </div>
+</template>

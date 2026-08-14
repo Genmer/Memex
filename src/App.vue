@@ -13,7 +13,7 @@ import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import AiUsageStats from './components/AiUsageStats.vue'
-import MemoVault from './components/MemoVault/MemoVault.vue'
+import MemoWorkspaceApp from './components/MemoVault/MemoWorkspaceApp.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { useTheme } from './composables/useTheme'
@@ -38,31 +38,8 @@ const favoriteOnly = ref(false)
 const selectedTag = ref<string | null>(null)
 const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
 
-// Memo Workspace State
+// Workspace Mode State
 const workspaceMode = ref<'agent' | 'memo'>('agent')
-const memoFolders = ref<any[]>([])
-const memoTags = ref<any[]>([])
-const selectedMemoFolder = ref<string | null>(null)
-const selectedMemoTag = ref<string | null>(null)
-const selectedMemoFilter = ref<string | null>(null)
-
-const handleSelectMemoFolder = (f: string | null) => {
-  selectedMemoFolder.value = f
-  selectedMemoTag.value = null
-  selectedMemoFilter.value = null
-}
-
-const handleSelectMemoTag = (t: string | null) => {
-  selectedMemoTag.value = t
-  selectedMemoFolder.value = null
-  selectedMemoFilter.value = null
-}
-
-const handleSelectMemoFilter = (ft: string | null) => {
-  selectedMemoFilter.value = ft
-  selectedMemoFolder.value = null
-  selectedMemoTag.value = null
-}
 
 // Batch selection state
 const isBatchMode = ref(false)
@@ -694,15 +671,6 @@ const sortByTimeOrName = (mode: string, timeField: string) => (a: any, b: any) =
 }
 
 const viewTitle = computed(() => {
-  if (workspaceMode.value === 'memo') {
-    if (selectedMemoFolder.value) return `📂 备忘分类 / ${selectedMemoFolder.value}`
-    if (selectedMemoTag.value) return `#${selectedMemoTag.value}`
-    if (selectedMemoFilter.value === 'pinned') return '📌 置顶备忘'
-    if (selectedMemoFilter.value === 'favorite') return '⭐ 收藏备忘'
-    if (selectedMemoFilter.value === 'todo') return '✅ 待办清单'
-    if (selectedMemoFilter.value === 'journal') return '📅 每日日志'
-    return '个人备忘与开发日志 (Memos & Logs)'
-  }
   if (selectedTag.value) return `#${selectedTag.value}`
   if (activeView.value === 'ai-stats') return t('header.title.aiStats')
   if (activeView.value.includes('skills')) return t('header.title.skills')
@@ -826,7 +794,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen w-full text-white/90 selection:bg-indigo-500/30">
+  <!-- 100% DEDICATED INDEPENDENT MEMO WORKSPACE APP -->
+  <MemoWorkspaceApp 
+    v-if="workspaceMode === 'memo'" 
+    @switch-mode="(m) => workspaceMode = m" 
+  />
+
+  <!-- 100% DEDICATED AI AGENT ARSENAL PAGE -->
+  <div v-else class="flex h-screen w-full text-white/90 selection:bg-indigo-500/30">
     <!-- Sidebar -->
     <Sidebar 
       :unique-sources="uniqueSources" 
@@ -834,17 +809,9 @@ onUnmounted(() => {
       :all-tags="allTags"
       :selected-tag="selectedTag"
       v-model:workspace-mode="workspaceMode"
-      :memo-folders="memoFolders"
-      :memo-tags="memoTags"
-      :selected-memo-folder="selectedMemoFolder"
-      :selected-memo-tag="selectedMemoTag"
-      :selected-memo-filter="selectedMemoFilter"
       @select="handleSidebarSelect" 
       @toggle-pin="togglePin"
       @select-tag="handleTagSelect($event)"
-      @select-memo-folder="handleSelectMemoFolder"
-      @select-memo-tag="handleSelectMemoTag"
-      @select-memo-filter="handleSelectMemoFilter"
     />
 
     <!-- Main Content Area -->
@@ -914,19 +881,6 @@ onUnmounted(() => {
 
       <!-- Scrollable Content -->
       <div class="flex-1 overflow-y-auto p-8 relative">
-        <!-- ================= MEMO WORKSPACE VIEW ================= -->
-        <div v-if="workspaceMode === 'memo'">
-          <MemoVault 
-            :selected-folder="selectedMemoFolder"
-            :selected-tag="selectedMemoTag"
-            :filter-type="selectedMemoFilter"
-            @update-folders="memoFolders = $event"
-            @update-tags="memoTags = $event"
-          />
-        </div>
-
-        <!-- ================= AGENT WORKSPACE VIEWS ================= -->
-        <template v-else>
         <!-- Scanning Progress Overlay -->
         <div v-if="isScanning" class="absolute inset-x-8 top-8 z-20 bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 rounded-xl p-4 shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
           <div class="flex items-center justify-between mb-2">
@@ -1444,7 +1398,6 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        </template>
       </div>
 
       <!-- Welcome / Scan Prompt Overlay -->

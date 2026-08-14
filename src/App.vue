@@ -11,6 +11,7 @@ import Toast from './components/Toast.vue'
 import SkillDrawer from './components/SkillDrawer.vue'
 import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
+import CommandPalette from './components/CommandPalette.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight } from 'lucide-vue-next'
@@ -20,6 +21,7 @@ const toast = useToast()
 const { t } = useI18n()
 
 const activeView = ref('dashboard')
+const showCommandPalette = ref(false)
 const skills = ref<any[]>([])
 const memories = ref<any[]>([])
 const isScanning = ref(false)
@@ -107,8 +109,6 @@ const drawerAsset = ref<any>(null)
 const scanProgressMessage = ref('')
 const scanProgressCount = ref(0)
 let unlistenProgress: (() => void) | null = null
-
-const searchInputRef = ref<HTMLInputElement | null>(null)
 
 // AI state
 const showAiChat = ref(false)
@@ -606,10 +606,14 @@ const dismissAiPrompt = () => {
 const handleKeydown = (e: KeyboardEvent) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault()
-    searchInputRef.value?.focus()
+    showCommandPalette.value = true
   }
-  if (e.key === 'Escape' && drawerAsset.value) {
-    drawerAsset.value = null
+  if (e.key === 'Escape') {
+    if (showCommandPalette.value) {
+      showCommandPalette.value = false
+    } else if (drawerAsset.value) {
+      drawerAsset.value = null
+    }
   }
 }
 
@@ -683,18 +687,24 @@ onUnmounted(() => {
           {{ viewTitle }}
         </h2>
 
-        <!-- Global Search Bar (Only in list views) -->
-        <div class="flex-1 max-w-xl relative hidden md:block" v-if="activeView.includes('skills') || activeView.includes('memories')">
-          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search :size="16" class="text-white/40" />
+        <!-- Global Search Bar / Omnibar Trigger -->
+        <div 
+          @click="showCommandPalette = true"
+          class="flex-1 max-w-xl relative hidden md:block cursor-pointer group" 
+          v-if="activeView.includes('skills') || activeView.includes('memories') || activeView === 'dashboard'"
+        >
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/40 group-hover:text-indigo-400 transition-colors">
+            <Search :size="16" />
           </div>
           <input 
-            ref="searchInputRef"
             v-model="searchQuery" 
             type="text" 
-            :placeholder="t('search.placeholder') + ' (⌘K)'"
-            class="w-full bg-white/5 border border-white/10 rounded-full py-1.5 pl-10 pr-4 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all shadow-inner"
+            :placeholder="t('search.placeholder') + ' (⌘K 命令面板)'"
+            class="w-full bg-white/5 group-hover:bg-white/[0.08] border border-white/10 group-hover:border-indigo-500/40 rounded-full py-1.5 pl-10 pr-12 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all shadow-inner"
           />
+          <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <span class="text-[10px] font-mono text-white/30 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 group-hover:text-white/60">⌘K</span>
+          </div>
         </div>
         
         <div class="flex items-center gap-4 ml-8 shrink-0">
@@ -1154,6 +1164,19 @@ onUnmounted(() => {
       :visible="showAiKeyPrompt" 
       @close="dismissAiPrompt" 
       @saved="handleAiKeySaved" 
+    />
+    <CommandPalette 
+      :show="showCommandPalette" 
+      :skills="skills" 
+      :memories="memories" 
+      @close="showCommandPalette = false" 
+      @open-asset="(asset, type) => openAssetDetail(asset, type)" 
+      @new-asset="(type) => openNewAsset(type)" 
+      @scan="scanNow" 
+      @export="exportAssets" 
+      @import="importAssets" 
+      @navigate="(v) => activeView = v" 
+      @ask-ai="(query) => openAiChat(query)" 
     />
     <Toast />
   </div>

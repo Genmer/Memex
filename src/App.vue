@@ -15,7 +15,8 @@ import CommandPalette from './components/CommandPalette.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { useTheme } from './composables/useTheme'
-import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight, Loader2, Bot } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight, Loader2, Bot, Maximize2, Minimize2 } from 'lucide-vue-next'
+import { useAiBatchQueue } from './composables/useAiBatchQueue'
 
 const toast = useToast()
 const { t } = useI18n()
@@ -422,24 +423,17 @@ const batchDelete = async () => {
   }
 }
 
-const isBatchAnalyzing = ref(false)
+const aiBatchQueue = useAiBatchQueue()
 
 const batchAnalyzeAi = async () => {
-  if (selectedIds.value.length === 0 || isBatchAnalyzing.value) return
-  isBatchAnalyzing.value = true
-  toast.info(`正在批量提炼选中的 ${selectedIds.value.length} 个技能，请稍候...`)
-  try {
-    const results: any[] = await invoke('batch_analyze_skills_ai', {
-      skillIds: selectedIds.value
-    })
-    toast.success(`已成功批量提炼 ${results.length} 个技能的中文用途与分类！`)
-    await fetchData()
-    selectedIds.value = []
-  } catch (err: any) {
-    toast.error(typeof err === 'string' ? err : `批量 AI 解析失败: ${JSON.stringify(err)}`)
-  } finally {
-    isBatchAnalyzing.value = false
-  }
+  if (selectedIds.value.length === 0 || aiBatchQueue.isRunning.value) return
+  const selectedSkills = skills.value.filter(s => selectedIds.value.includes(s.id))
+  await aiBatchQueue.startBatch(
+    selectedSkills.map(s => ({ id: s.id, name: s.name })),
+    handleAiAnalyzed,
+    3
+  )
+  selectedIds.value = []
 }
 
 const handleAiAnalyzed = (result: any) => {
@@ -471,6 +465,7 @@ const unparsedSkillsCount = computed(() => {
 })
 
 const batchAnalyzeCurrentCategory = async (forceAll = false) => {
+  if (aiBatchQueue.isRunning.value) return
   const targetList = forceAll 
     ? filteredSkills.value 
     : filteredSkills.value.filter(s => !s.summary_zh)
@@ -480,20 +475,11 @@ const batchAnalyzeCurrentCategory = async (forceAll = false) => {
     return
   }
 
-  isBatchAnalyzing.value = true
-  toast.info(`正在批量提炼当前分类下的 ${targetList.length} 个技能，请稍候...`)
-  try {
-    const ids = targetList.map(s => s.id)
-    const results: any[] = await invoke('batch_analyze_skills_ai', {
-      skillIds: ids
-    })
-    toast.success(`已成功批量提炼 ${results.length} 个技能的中文用途与分类！`)
-    await fetchData()
-  } catch (err: any) {
-    toast.error(typeof err === 'string' ? err : `批量解析失败: ${JSON.stringify(err)}`)
-  } finally {
-    isBatchAnalyzing.value = false
-  }
+  await aiBatchQueue.startBatch(
+    targetList.map(s => ({ id: s.id, name: s.name })),
+    handleAiAnalyzed,
+    3
+  )
 }
 
 const generateCategorySynthesis = async () => {
@@ -996,26 +982,26 @@ onUnmounted(() => {
                 <button
                   v-if="unparsedSkillsCount > 0"
                   @click="batchAnalyzeCurrentCategory(false)"
-                  :disabled="isBatchAnalyzing"
+                  :disabled="aiBatchQueue.isRunning.value"
                   class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md transition-all disabled:opacity-50"
                   title="批量解析当前分类下所有未提炼中文释义的技能"
                 >
-                  <Loader2 v-if="isBatchAnalyzing" :size="13" class="animate-spin" />
+                  <Loader2 v-if="aiBatchQueue.isRunning.value" :size="13" class="animate-spin" />
                   <Sparkles v-else :size="13" />
-                  <span>{{ isBatchAnalyzing ? '批量解析中...' : `一键批量解析未提炼 (${unparsedSkillsCount}项)` }}</span>
+                  <span>{{ aiBatchQueue.isRunning.value ? '批量解析进行中...' : `一键批量解析未提炼 (${unparsedSkillsCount}项)` }}</span>
                 </button>
 
                 <!-- Batch analyze ALL in current category -->
                 <button
                   v-else
                   @click="batchAnalyzeCurrentCategory(true)"
-                  :disabled="isBatchAnalyzing"
+                  :disabled="aiBatchQueue.isRunning.value"
                   class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 text-xs font-medium border border-white/10 transition-all disabled:opacity-50"
                   title="重新对当前分类所有技能进行 AI 深度解析"
                 >
-                  <Loader2 v-if="isBatchAnalyzing" :size="13" class="animate-spin" />
+                  <Loader2 v-if="aiBatchQueue.isRunning.value" :size="13" class="animate-spin" />
                   <Sparkles v-else :size="13" />
-                  <span>{{ isBatchAnalyzing ? '批量解析中...' : '重新批量解析全部分类' }}</span>
+                  <span>{{ aiBatchQueue.isRunning.value ? '批量解析进行中...' : '重新批量解析全部分类' }}</span>
                 </button>
 
                 <!-- Macro Category Synthesis Button -->
@@ -1031,6 +1017,51 @@ onUnmounted(() => {
                 </button>
               </div>
             </div>
+
+            <!-- Active Batch Parsing Progress Indicator (In Banner) -->
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              leave-active-class="transition-all duration-200 ease-in"
+              enter-from-class="opacity-0 -translate-y-2"
+              leave-to-class="opacity-0 -translate-y-2"
+            >
+              <div v-if="aiBatchQueue.isRunning.value" class="mt-3.5 p-3 rounded-xl bg-black/40 border border-indigo-500/30 shadow-inner space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <Loader2 :size="13" class="animate-spin text-indigo-400 shrink-0" />
+                    <span class="text-indigo-200 font-medium truncate">
+                      正在批量提炼中文释义 ({{ aiBatchQueue.completedCount.value }}/{{ aiBatchQueue.totalCount.value }} 项)
+                    </span>
+                    <span class="text-[11px] text-white/40 font-mono truncate hidden sm:inline">
+                      当前: {{ aiBatchQueue.currentItemName.value }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="font-mono font-bold text-indigo-300">{{ aiBatchQueue.progressPercent.value }}%</span>
+                    <button 
+                      @click="aiBatchQueue.toggleMinimize" 
+                      class="px-2 py-0.5 rounded text-[11px] bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
+                    >
+                      {{ aiBatchQueue.isMinimized.value ? '展开面板' : '挂起后台' }}
+                    </button>
+                    <button 
+                      @click="aiBatchQueue.cancelBatch" 
+                      class="px-2 py-0.5 rounded text-[11px] bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 transition-colors"
+                    >
+                      中止
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Animated Gradient Progress Bar -->
+                <div class="w-full bg-white/5 rounded-full h-2 overflow-hidden relative border border-white/5">
+                  <div 
+                    class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(168,85,247,0.6)]"
+                    :style="{ width: `${aiBatchQueue.progressPercent.value}%` }"
+                  ></div>
+                </div>
+              </div>
+            </Transition>
 
             <!-- Macro Synthesis Result Display -->
             <Transition
@@ -1369,13 +1400,13 @@ onUnmounted(() => {
             <button
               v-if="activeView.includes('skills')"
               @click="batchAnalyzeAi"
-              :disabled="isBatchAnalyzing"
+              :disabled="aiBatchQueue.isRunning.value"
               class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/25 to-purple-500/25 hover:from-indigo-500/35 hover:to-purple-500/35 border border-indigo-500/40 text-indigo-200 text-xs font-semibold transition-all shadow-md disabled:opacity-50"
               title="批量由 AI 解析中文释义与分类"
             >
-              <Loader2 v-if="isBatchAnalyzing" :size="13" class="animate-spin" />
+              <Loader2 v-if="aiBatchQueue.isRunning.value" :size="13" class="animate-spin" />
               <Sparkles v-else :size="13" />
-              <span>{{ isBatchAnalyzing ? 'AI 解析中...' : '批量 AI 解析' }}</span>
+              <span>{{ aiBatchQueue.isRunning.value ? '批量解析中...' : '批量 AI 解析' }}</span>
             </button>
             <button
               @click="batchToggleFavorite(true)"
@@ -1445,6 +1476,90 @@ onUnmounted(() => {
       @navigate="(v) => activeView = v" 
       @ask-ai="(query) => openAiChat(query)" 
     />
+
+    <!-- Global Persistent Batch Parsing Floating Widget -->
+    <Transition
+      enter-active-class="transition-all duration-300 ease-out"
+      leave-active-class="transition-all duration-200 ease-in"
+      enter-from-class="translate-y-8 opacity-0 scale-95"
+      leave-to-class="translate-y-8 opacity-0 scale-95"
+    >
+      <div 
+        v-if="aiBatchQueue.isRunning.value"
+        class="fixed bottom-6 right-6 z-50 transition-all duration-200 select-none"
+      >
+        <!-- Minimized Suspended Capsule -->
+        <div 
+          v-if="aiBatchQueue.isMinimized.value"
+          @click="aiBatchQueue.toggleMinimize"
+          class="flex items-center gap-3 px-4 py-2.5 rounded-full bg-[#161922]/95 backdrop-blur-2xl border border-indigo-500/50 text-white shadow-2xl cursor-pointer hover:border-indigo-400 group transition-all"
+          title="点击展开 AI 批量解析进度"
+        >
+          <Loader2 :size="14" class="animate-spin text-indigo-400" />
+          <span class="text-xs font-medium text-white/90">AI 批量解析进行中</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/25 text-indigo-300 border border-indigo-500/30">
+            {{ aiBatchQueue.completedCount.value }}/{{ aiBatchQueue.totalCount.value }} ({{ aiBatchQueue.progressPercent.value }}%)
+          </span>
+          <Maximize2 :size="12" class="text-white/40 group-hover:text-white transition-colors ml-1" />
+        </div>
+
+        <!-- Expanded Floating HUD Card (Visible when user navigates away or keeps expanded) -->
+        <div 
+          v-else-if="!activeView.includes('skills')"
+          class="w-80 p-4 rounded-2xl bg-[#161922]/95 backdrop-blur-2xl border border-indigo-500/40 text-white shadow-[0_10px_40px_rgba(0,0,0,0.8)] space-y-3 animate-in fade-in zoom-in-95 duration-200"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                <Loader2 :size="13" class="animate-spin" />
+              </div>
+              <span class="text-xs font-semibold text-white/90 truncate">AI 批量解析任务</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button 
+                @click="aiBatchQueue.toggleMinimize" 
+                class="p-1 text-white/40 hover:text-white rounded hover:bg-white/10 transition-colors"
+                title="挂起最小化"
+              >
+                <Minimize2 :size="13" />
+              </button>
+              <button 
+                @click="aiBatchQueue.cancelBatch" 
+                class="p-1 text-red-400/60 hover:text-red-400 rounded hover:bg-red-500/10 transition-colors"
+                title="中止任务"
+              >
+                <X :size="14" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Info -->
+          <div>
+            <div class="flex items-center justify-between text-xs mb-1.5 font-mono">
+              <span class="text-white/60">当前进度</span>
+              <span class="text-indigo-300 font-bold">{{ aiBatchQueue.completedCount.value }} / {{ aiBatchQueue.totalCount.value }} ({{ aiBatchQueue.progressPercent.value }}%)</span>
+            </div>
+            <div class="w-full bg-black/40 rounded-full h-2 overflow-hidden relative shadow-inner border border-white/5">
+              <div 
+                class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                :style="{ width: `${aiBatchQueue.progressPercent.value}%` }"
+              ></div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-white/40 font-mono truncate pt-1 border-t border-white/5">
+            <span class="truncate mr-2">正在处理: {{ aiBatchQueue.currentItemName.value }}</span>
+            <button 
+              @click="aiBatchQueue.cancelBatch" 
+              class="text-red-400 hover:text-red-300 shrink-0 font-sans text-xs underline"
+            >
+              中止
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <Toast />
   </div>
 </template>

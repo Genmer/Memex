@@ -6,6 +6,7 @@ import {
   Save, BookOpen, Terminal, Sparkles, Link as LinkIcon, Sliders, Check,
   ChevronDown, Rocket
 } from 'lucide-vue-next'
+import MarkdownViewer from './MarkdownViewer.vue'
 import { useToast } from '../composables/useToast'
 
 const toast = useToast()
@@ -340,9 +341,7 @@ const remove = async () => {
         <template v-if="!editing">
           <!-- TAB 1: CONTENT PREVIEW -->
           <div v-if="activeTab === 'content'">
-            <div class="bg-black/30 rounded-xl p-6 border border-white/5 shadow-inner">
-              <pre class="text-sm font-mono text-white/80 whitespace-pre-wrap leading-relaxed break-words">{{ asset.content }}</pre>
-            </div>
+            <MarkdownViewer :content="asset.content || ''" />
 
             <!-- File path (skills only) -->
             <div v-if="isSkill && asset.local_path" class="mt-4 px-1">

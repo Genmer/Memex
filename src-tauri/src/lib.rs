@@ -647,6 +647,154 @@ fn delete_memory(state: State<'_, DbState>, id: i64) -> Result<(), String> {
     Ok(())
 }
 
+// ---- Batch Operations ----
+
+#[tauri::command]
+fn batch_toggle_favorite(
+    state: State<'_, DbState>,
+    ids: Vec<i64>,
+    is_favorite: bool,
+    asset_type: String,
+) -> Result<usize, String> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    let table = if asset_type == "memory" { "memories" } else { "skills" };
+
+    let mut count = 0;
+    for id in ids {
+        let sql = format!("UPDATE {} SET is_favorite = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", table);
+        if let Ok(_) = conn.execute(&sql, params![is_favorite, id]) {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+#[tauri::command]
+fn batch_add_tag(
+    state: State<'_, DbState>,
+    ids: Vec<i64>,
+    tag: String,
+    asset_type: String,
+) -> Result<usize, String> {
+    if ids.is_empty() || tag.trim().is_empty() {
+        return Ok(0);
+    }
+    let clean_tag = tag.trim();
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    let table = if asset_type == "memory" { "memories" } else { "skills" };
+
+    let mut count = 0;
+    for id in ids {
+        let query_sql = format!("SELECT tags FROM {} WHERE id = ?1", table);
+        let existing_tags: Option<String> = conn
+            .query_row(&query_sql, params![id], |row| row.get(0))
+            .unwrap_or(None);
+
+        let new_tags = match existing_tags {
+            Some(curr) => {
+                let tags_list: Vec<&str> = curr.split(',').map(|t| t.trim()).collect();
+                if tags_list.contains(&clean_tag) {
+                    curr
+                } else {
+                    format!("{}, {}", curr, clean_tag)
+                }
+            }
+            None => clean_tag.to_string(),
+        };
+
+        let update_sql = format!("UPDATE {} SET tags = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", table);
+        if let Ok(_) = conn.execute(&update_sql, params![new_tags, id]) {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+#[tauri::command]
+fn batch_delete(
+    state: State<'_, DbState>,
+    ids: Vec<i64>,
+    asset_type: String,
+) -> Result<usize, String> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    let table = if asset_type == "memory" { "memories" } else { "skills" };
+
+    let mut count = 0;
+    for id in ids {
+        let sql = format!("DELETE FROM {} WHERE id = ?1", table);
+        if let Ok(_) = conn.execute(&sql, params![id]) {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct ConflictReport {
+    pub skill_name: String,
+    pub count: usize,
+    pub sources: Vec<String>,
+    pub highest_priority: i32,
+    pub winning_source: String,
+    pub description: String,
+}
+
+#[tauri::command]
+fn inspect_skill_conflicts(state: State<'_, DbState>) -> Result<Vec<ConflictReport>, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut stmt = conn
+        .prepare("SELECT name, source_tool, priority FROM skills ORDER BY name, priority DESC")
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i32>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut map: std::collections::HashMap<String, Vec<(String, i32)>> = std::collections::HashMap::new();
+    for r in rows {
+        if let Ok((name, source, priority)) = r {
+            map.entry(name).or_default().push((source, priority));
+        }
+    }
+
+    let mut reports = Vec::new();
+    for (name, mut list) in map {
+        if list.len() > 1 {
+            list.sort_by(|a, b| b.1.cmp(&a.1));
+            let highest = list[0].1;
+            let winning = list[0].0.clone();
+            let sources: Vec<String> = list.iter().map(|(s, p)| format!("{} (优先级 {})", s, p)).collect();
+            reports.push(ConflictReport {
+                skill_name: name.clone(),
+                count: list.len(),
+                sources,
+                highest_priority: highest,
+                winning_source: winning.clone(),
+                description: format!("同名技能在 {} 个来源中并存，当前由最高优先级 [{}] 生效覆盖。", list.len(), winning),
+            });
+        }
+    }
+
+    Ok(reports)
+}
+
 // ---- Export / Backup / Import ----
 
 /// Serialize all skills + memories into a JSON archive at `path`.
@@ -1019,6 +1167,10 @@ pub fn run() {
             create_memory,
             update_memory,
             delete_memory,
+            batch_toggle_favorite,
+            batch_add_tag,
+            batch_delete,
+            inspect_skill_conflicts,
             export_assets,
             import_assets,
             open_in_finder,

@@ -18,10 +18,12 @@ const props = defineProps<{
     is_favorite: boolean
   },
   searchQuery?: string,
-  viewMode?: 'grid' | 'list'
+  viewMode?: 'grid' | 'list',
+  isSelectMode?: boolean,
+  isSelected?: boolean
 }>()
 
-const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag'])
+const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag', 'toggle-select'])
 
 const sourceColor = computed(() => {
   const source = props.skill.source_tool.toLowerCase()
@@ -95,9 +97,26 @@ const openInEditor = async () => {
     :class="viewMode === 'list' ? 'flex-row items-stretch' : 'flex-col h-72'"
   >
     
+    <!-- Selection checkbox overlay in batch mode -->
+    <div 
+      v-if="isSelectMode" 
+      @click.stop="emit('toggle-select', skill.id)"
+      class="absolute top-3 left-3 z-20 cursor-pointer p-1 rounded-lg bg-black/40 backdrop-blur-md border border-white/20 hover:border-indigo-400 transition-all"
+    >
+      <div 
+        class="w-4 h-4 rounded flex items-center justify-center transition-all"
+        :class="isSelected ? 'bg-indigo-600 text-white' : 'border border-white/40'"
+      >
+        <svg v-if="isSelected" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+      </div>
+    </div>
+
     <!-- Header -->
     <div class="flex items-center justify-between px-5 py-4 border-white/5 backdrop-blur-md shrink-0"
-         :class="viewMode === 'list' ? 'flex-col justify-center items-start w-48 border-r' : 'border-b'">
+         :class="[
+           viewMode === 'list' ? 'flex-col justify-center items-start w-48 border-r' : 'border-b',
+           isSelectMode ? 'pl-11' : ''
+         ]">
       <div class="flex items-center gap-3">
         <div 
           class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner"
@@ -130,8 +149,12 @@ const openInEditor = async () => {
       </div>
     </div>
 
-    <!-- Body (clickable to open drawer) -->
-    <div class="flex-1 cursor-pointer flex flex-col justify-center min-w-0" :class="viewMode === 'list' ? 'p-3 gap-1' : 'p-5 space-y-4'" @click="emit('open-detail', skill)">
+    <!-- Body (clickable to open drawer or toggle select in batch mode) -->
+    <div 
+      class="flex-1 cursor-pointer flex flex-col justify-center min-w-0" 
+      :class="viewMode === 'list' ? 'p-3 gap-1' : 'p-5 space-y-4'" 
+      @click="isSelectMode ? emit('toggle-select', skill.id) : emit('open-detail', skill)"
+    >
       
       <!-- Tags -->
       <div v-if="skill.tags" class="flex flex-wrap gap-2" :class="viewMode === 'list' ? 'order-2 mt-2' : ''">

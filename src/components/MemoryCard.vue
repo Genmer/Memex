@@ -9,10 +9,12 @@ const toast = useToast()
 const props = defineProps<{
   memory: any,
   searchQuery?: string,
-  viewMode?: 'grid' | 'list'
+  viewMode?: 'grid' | 'list',
+  isSelectMode?: boolean,
+  isSelected?: boolean
 }>()
 
-const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag'])
+const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag', 'toggle-select'])
 
 const sourceColor = computed(() => {
   if (props.memory.source_tool === 'zcode') return 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30'
@@ -46,9 +48,26 @@ const toggleFavorite = async () => {
     class="group relative flex overflow-hidden rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/50 hover:bg-white/[0.06] transition-all duration-300 shadow-lg hover:shadow-indigo-500/20"
     :class="viewMode === 'list' ? 'flex-row items-stretch' : 'flex-col h-72'"
   >
+    <!-- Selection checkbox overlay in batch mode -->
+    <div 
+      v-if="isSelectMode" 
+      @click.stop="emit('toggle-select', memory.id)"
+      class="absolute top-3 left-3 z-20 cursor-pointer p-1 rounded-lg bg-black/40 backdrop-blur-md border border-white/20 hover:border-indigo-400 transition-all"
+    >
+      <div 
+        class="w-4 h-4 rounded flex items-center justify-center transition-all"
+        :class="isSelected ? 'bg-indigo-600 text-white' : 'border border-white/40'"
+      >
+        <svg v-if="isSelected" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+      </div>
+    </div>
+
     <!-- Header -->
     <div class="flex items-center justify-between px-5 py-4 border-white/5 backdrop-blur-md shrink-0"
-         :class="viewMode === 'list' ? 'flex-col justify-center items-start w-48 border-r' : 'border-b'">
+         :class="[
+           viewMode === 'list' ? 'flex-col justify-center items-start w-48 border-r' : 'border-b',
+           isSelectMode ? 'pl-11' : ''
+         ]">
       <div class="flex items-center gap-3 w-full">
         <BookOpen :size="18" class="text-white/40 shrink-0" />
         <div class="min-w-0 flex-1">
@@ -76,7 +95,11 @@ const toggleFavorite = async () => {
     </div>
 
     <!-- Body -->
-    <div class="flex-1 cursor-pointer flex flex-col justify-center min-w-0" :class="viewMode === 'list' ? 'p-3 gap-1' : 'p-5 space-y-4'" @click="emit('open-detail', memory)">
+    <div 
+      class="flex-1 cursor-pointer flex flex-col justify-center min-w-0" 
+      :class="viewMode === 'list' ? 'p-3 gap-1' : 'p-5 space-y-4'" 
+      @click="isSelectMode ? emit('toggle-select', memory.id) : emit('open-detail', memory)"
+    >
       
       <!-- Tags -->
       <div v-if="memory.tags" class="flex flex-wrap gap-2" :class="viewMode === 'list' ? 'order-2 mt-2' : ''">

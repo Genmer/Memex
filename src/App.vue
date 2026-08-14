@@ -13,7 +13,7 @@ import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
-import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2 } from 'lucide-vue-next'
 
 const toast = useToast()
 
@@ -29,6 +29,10 @@ const viewMode = ref<'grid' | 'list'>('grid')
 const favoriteOnly = ref(false)
 const selectedTag = ref<string | null>(null)
 const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
+
+// Batch selection state
+const isBatchMode = ref(false)
+const selectedIds = ref<number[]>([])
 
 const sortOptions: { value: 'recent' | 'name' | 'favorite', label: string }[] = [
   { value: 'recent', label: '最近更新' },
@@ -301,9 +305,86 @@ const scanNow = async () => {
   }
 }
 
+const toggleBatchMode = () => {
+  isBatchMode.value = !isBatchMode.value
+  selectedIds.value = []
+}
+
+const toggleSelectId = (id: number) => {
+  if (selectedIds.value.includes(id)) {
+    selectedIds.value = selectedIds.value.filter(x => x !== id)
+  } else {
+    selectedIds.value.push(id)
+  }
+}
+
+const selectAllCurrent = () => {
+  const currentList = activeView.value.includes('skills') ? filteredSkills.value : filteredMemories.value
+  selectedIds.value = currentList.map(item => item.id)
+}
+
+const deselectAll = () => {
+  selectedIds.value = []
+}
+
+const batchToggleFavorite = async (isFavorite: boolean) => {
+  if (selectedIds.value.length === 0) return
+  const assetType = activeView.value.includes('memories') ? 'memory' : 'skill'
+  try {
+    const count: number = await invoke('batch_toggle_favorite', {
+      ids: selectedIds.value,
+      isFavorite,
+      assetType
+    })
+    toast.success(`已批量${isFavorite ? '收藏' : '取消收藏'} ${count} 项`)
+    await fetchData()
+    selectedIds.value = []
+  } catch (err) {
+    toast.error('批量操作失败: ' + err)
+  }
+}
+
+const batchAddTag = async () => {
+  if (selectedIds.value.length === 0) return
+  const tag = window.prompt('请输入要批量追加的标签名称 (例如: core, prompt):')
+  if (!tag || !tag.trim()) return
+  const assetType = activeView.value.includes('memories') ? 'memory' : 'skill'
+  try {
+    const count: number = await invoke('batch_add_tag', {
+      ids: selectedIds.value,
+      tag: tag.trim(),
+      assetType
+    })
+    toast.success(`已为 ${count} 项批量追加标签 #${tag.trim()}`)
+    await fetchData()
+    selectedIds.value = []
+  } catch (err) {
+    toast.error('批量打标签失败: ' + err)
+  }
+}
+
+const batchDelete = async () => {
+  if (selectedIds.value.length === 0) return
+  const confirmed = window.confirm(`确定要批量删除选中的 ${selectedIds.value.length} 项资产吗？此操作不可恢复。`)
+  if (!confirmed) return
+  const assetType = activeView.value.includes('memories') ? 'memory' : 'skill'
+  try {
+    const count: number = await invoke('batch_delete', {
+      ids: selectedIds.value,
+      assetType
+    })
+    toast.success(`已批量删除 ${count} 项`)
+    await fetchData()
+    selectedIds.value = []
+  } catch (err) {
+    toast.error('批量删除失败: ' + err)
+  }
+}
+
 const handleSidebarSelect = (id: string) => {
   activeView.value = id
   searchQuery.value = ''
+  selectedIds.value = []
 }
 
 const uniqueSources = computed(() => {
@@ -611,6 +692,32 @@ onUnmounted(() => {
             </button>
           </div>
 
+          <!-- Batch Mode Toggle Button -->
+          <button
+            @click="toggleBatchMode"
+            class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+            :class="isBatchMode ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)]' : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'"
+          >
+            <CheckSquare :size="13" />
+            <span>{{ isBatchMode ? '退出批量' : '批量管理' }}</span>
+          </button>
+
+          <!-- Select All / Deselect buttons in batch mode -->
+          <template v-if="isBatchMode">
+            <button 
+              @click="selectAllCurrent"
+              class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs font-mono transition-colors"
+            >
+              全选
+            </button>
+            <button 
+              @click="deselectAll"
+              class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs font-mono transition-colors"
+            >
+              清空选择
+            </button>
+          </template>
+
           <!-- Active Tag Badge -->
           <div v-if="selectedTag" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 text-xs font-mono">
             <Tag :size="12" />
@@ -640,9 +747,12 @@ onUnmounted(() => {
               :skill="skill"
               :search-query="searchQuery"
               :view-mode="viewMode"
+              :is-select-mode="isBatchMode"
+              :is-selected="selectedIds.includes(skill.id)"
               @open-detail="(s) => openAssetDetail(s, 'skill')"
               @favorite-toggled="handleFavoriteToggled"
               @select-tag="selectedTag = $event"
+              @toggle-select="toggleSelectId"
             />
           </div>
           
@@ -678,9 +788,12 @@ onUnmounted(() => {
               :memory="memory" 
               :search-query="searchQuery"
               :view-mode="viewMode"
+              :is-select-mode="isBatchMode"
+              :is-selected="selectedIds.includes(memory.id)"
               @open-detail="(m) => openAssetDetail(m, 'memory')"
               @favorite-toggled="(id, v) => handleFavoriteToggled(id, v, 'memory')"
               @select-tag="selectedTag = $event"
+              @toggle-select="toggleSelectId"
             />
           </div>
           
@@ -824,6 +937,56 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+
+      <!-- Floating Batch Action Toolbar -->
+      <Transition
+        enter-active-class="transition-all duration-300 ease-out"
+        leave-active-class="transition-all duration-200 ease-in"
+        enter-from-class="translate-y-16 opacity-0"
+        leave-to-class="translate-y-16 opacity-0"
+      >
+        <div 
+          v-if="isBatchMode && selectedIds.length > 0"
+          class="absolute bottom-6 inset-x-8 z-30 flex items-center justify-between px-6 py-3.5 bg-[#161922]/95 backdrop-blur-2xl border border-indigo-500/40 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)]"
+        >
+          <div class="flex items-center gap-3">
+            <span class="px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-mono font-medium">
+              已选 {{ selectedIds.length }} 项
+            </span>
+            <span class="text-xs text-white/50">快捷批量执行：</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              @click="batchToggleFavorite(true)"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-300 text-xs font-medium transition-colors"
+            >
+              <Star :size="13" class="fill-current" />
+              <span>设为收藏</span>
+            </button>
+            <button
+              @click="batchToggleFavorite(false)"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs transition-colors"
+            >
+              <span>取消收藏</span>
+            </button>
+            <button
+              @click="batchAddTag"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-medium transition-colors"
+            >
+              <Tag :size="13" />
+              <span>追加标签</span>
+            </button>
+            <button
+              @click="batchDelete"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-medium transition-colors"
+            >
+              <Trash2 :size="13" />
+              <span>批量删除</span>
+            </button>
+          </div>
+        </div>
+      </Transition>
     </main>
     <SkillDrawer 
       :skill="drawerAsset" 

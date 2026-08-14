@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from '../composables/useI18n'
-import { Activity, Zap, BookOpen, BarChart3 } from 'lucide-vue-next'
+import { Activity, Zap, BookOpen, BarChart3, AlertTriangle, ShieldCheck, RefreshCw } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -11,11 +11,23 @@ interface SourceStat {
   count: number
 }
 
+interface ConflictReport {
+  skill_name: string
+  count: number
+  sources: string[]
+  highest_priority: number
+  winning_source: string
+  description: string
+}
+
 const stats = ref({
   total_skills: 0,
   total_memories: 0,
   sources: [] as SourceStat[]
 })
+
+const conflicts = ref<ConflictReport[]>([])
+const loadingConflicts = ref(false)
 
 const fetchStats = async () => {
   try {
@@ -35,12 +47,27 @@ const fetchStats = async () => {
   }
 }
 
+const fetchConflicts = async () => {
+  loadingConflicts.value = true
+  try {
+    conflicts.value = await invoke('inspect_skill_conflicts')
+  } catch (err) {
+    console.warn('Conflict check error:', err)
+  } finally {
+    loadingConflicts.value = false
+  }
+}
+
+const refreshAll = async () => {
+  await Promise.all([fetchStats(), fetchConflicts()])
+}
+
 const sourceColors = [
   { bg: 'from-blue-500/20 to-cyan-500/10', border: 'border-blue-500/20', text: 'text-blue-300/80', shadow: 'shadow-[0_8px_30px_rgba(59,130,246,0.15)]', icon: 'text-blue-500/20' },
   { bg: 'from-purple-500/20 to-pink-500/10', border: 'border-purple-500/20', text: 'text-purple-300/80', shadow: 'shadow-[0_8px_30px_rgba(168,85,247,0.15)]', icon: 'text-purple-500/20' },
   { bg: 'from-amber-500/20 to-orange-500/10', border: 'border-amber-500/20', text: 'text-amber-300/80', shadow: 'shadow-[0_8px_30px_rgba(245,158,11,0.15)]', icon: 'text-amber-500/20' },
   { bg: 'from-rose-500/20 to-red-500/10', border: 'border-rose-500/20', text: 'text-rose-300/80', shadow: 'shadow-[0_8px_30px_rgba(244,63,94,0.15)]', icon: 'text-rose-500/20' },
-  { bg: 'from-teal-500/20 to-green-500/10', border: 'border-teal-500/20', text: 'text-teal-300/80', shadow: 'shadow-[0_8px_30px_rgba(20,184,166,0.15)]', icon: 'text-teal-500/20' },
+  { bg: 'from-teal-500/20 to-emerald-500/10', border: 'border-teal-500/20', text: 'text-teal-300/80', shadow: 'shadow-[0_8px_30px_rgba(20,184,166,0.15)]', icon: 'text-teal-500/20' }
 ]
 
 const getColor = (index: number) => sourceColors[index % sourceColors.length]
@@ -69,7 +96,7 @@ const donutSegments = computed(() => {
 })
 
 onMounted(() => {
-  fetchStats()
+  refreshAll()
 })
 </script>
 
@@ -133,47 +160,99 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Donut Chart -->
-    <div v-if="stats.sources.length" class="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
-      <h4 class="text-sm font-medium text-white/50 tracking-widest uppercase mb-6">资产分布</h4>
-      <div class="flex items-center justify-center gap-12">
-        <!-- SVG Donut -->
-        <div class="relative w-48 h-48">
-          <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
-            <circle cx="21" cy="21" r="15.9155" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="5" />
-            <circle 
-              v-for="(seg, i) in donutSegments" 
-              :key="i"
-              cx="21" cy="21" r="15.9155" 
-              fill="none" 
-              :stroke="seg.color" 
-              stroke-width="5"
-              :stroke-dasharray="`${seg.percent} ${100 - seg.percent}`"
-              :stroke-dashoffset="`${-seg.offset}`"
-              stroke-linecap="round"
-              class="transition-all duration-700"
-            />
-          </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-3xl font-bold text-white">{{ stats.total_skills }}</span>
-            <span class="text-xs text-white/40">总计</span>
+    <!-- Donut Chart & Conflict Diagnostics Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      
+      <!-- Donut Chart -->
+      <div v-if="stats.sources.length" class="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl flex flex-col justify-between">
+        <h4 class="text-sm font-medium text-white/50 tracking-widest uppercase mb-6">框架资产分布</h4>
+        <div class="flex items-center justify-center gap-10 flex-1">
+          <!-- SVG Donut -->
+          <div class="relative w-44 h-44 shrink-0">
+            <svg viewBox="0 0 42 42" class="w-full h-full -rotate-90">
+              <circle cx="21" cy="21" r="15.9155" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="5" />
+              <circle 
+                v-for="(seg, i) in donutSegments" 
+                :key="i"
+                cx="21" cy="21" r="15.9155" 
+                fill="none" 
+                :stroke="seg.color" 
+                stroke-width="5"
+                :stroke-dasharray="`${seg.percent} ${100 - seg.percent}`"
+                :stroke-dashoffset="`${-seg.offset}`"
+                stroke-linecap="round"
+                class="transition-all duration-700"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="text-3xl font-bold text-white">{{ stats.total_skills }}</span>
+              <span class="text-xs text-white/40">总计</span>
+            </div>
+          </div>
+          
+          <!-- Legend -->
+          <div class="space-y-2.5">
+            <div v-for="(seg, i) in donutSegments" :key="i" class="flex items-center gap-3">
+              <div class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: seg.color }"></div>
+              <span class="text-xs text-white/70 w-20 truncate">{{ seg.name }}</span>
+              <span class="text-xs font-mono text-white/50">{{ seg.count }}</span>
+              <span class="text-[11px] text-white/30">({{ seg.percent.toFixed(1) }}%)</span>
+            </div>
           </div>
         </div>
-        
-        <!-- Legend -->
-        <div class="space-y-3">
-          <div v-for="(seg, i) in donutSegments" :key="i" class="flex items-center gap-3">
-            <div class="w-3 h-3 rounded-full shrink-0" :style="{ backgroundColor: seg.color }"></div>
-            <span class="text-sm text-white/70 w-24">{{ seg.name.charAt(0).toUpperCase() + seg.name.slice(1) }}</span>
-            <span class="text-sm font-mono text-white/50">{{ seg.count }}</span>
-            <span class="text-xs text-white/30">({{ seg.percent.toFixed(1) }}%)</span>
+      </div>
+
+      <!-- Health & Conflict Diagnostics Card -->
+      <div class="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl flex flex-col">
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-2.5">
+            <ShieldCheck v-if="conflicts.length === 0" :size="18" class="text-emerald-400" />
+            <AlertTriangle v-else :size="18" class="text-amber-400" />
+            <h4 class="text-sm font-medium text-white/90 tracking-wider">多源覆盖与冲突诊断</h4>
           </div>
+          <button
+            @click="fetchConflicts"
+            class="text-xs text-white/40 hover:text-white flex items-center gap-1 transition-colors"
+            title="重新诊断"
+          >
+            <RefreshCw :size="12" :class="{ 'animate-spin': loadingConflicts }" />
+            <span>重新检测</span>
+          </button>
+        </div>
+
+        <div v-if="conflicts.length > 0" class="space-y-3 overflow-y-auto max-h-60 pr-1 flex-1">
+          <div
+            v-for="c in conflicts"
+            :key="c.skill_name"
+            class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90 leading-relaxed"
+          >
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-medium text-white font-mono">{{ c.skill_name }}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
+                由 {{ c.winning_source }} 生效
+              </span>
+            </div>
+            <p class="text-[11px] text-white/60 mb-1.5">{{ c.description }}</p>
+            <div class="flex flex-wrap gap-1">
+              <span v-for="s in c.sources" :key="s" class="text-[10px] px-1.5 py-0.5 rounded bg-black/30 text-white/50">
+                {{ s }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="flex-1 flex flex-col items-center justify-center py-8 text-center">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+            <ShieldCheck :size="24" />
+          </div>
+          <p class="text-sm font-medium text-white/80">全库资产状态健康</p>
+          <p class="text-xs text-white/40 mt-1 max-w-xs">未检测到同名跨源覆盖或未解决的规则冲突，优先级调度正常运作中。</p>
         </div>
       </div>
     </div>
 
     <!-- Empty state if no sources -->
-    <div v-else class="h-48 bg-black/10 backdrop-blur-md border border-white/5 rounded-2xl flex items-center justify-center shadow-inner">
+    <div v-if="stats.sources.length === 0" class="h-48 bg-black/10 backdrop-blur-md border border-white/5 rounded-2xl flex items-center justify-center shadow-inner">
       <p class="text-white/30 tracking-widest text-sm uppercase flex items-center gap-2">
         <Activity :size="16" />
         {{ t('hub.empty.desc') }}

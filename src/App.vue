@@ -795,11 +795,11 @@ onUnmounted(() => {
           <!-- Skill Grid / List -->
           <div v-if="filteredSkills.length" 
                class="animate-in fade-in zoom-in-95 duration-500 pb-12"
-               :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-3'">
+               :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-2'">
             <SkillCard 
               v-for="skill in filteredSkills" 
               :key="skill.id" 
-              :skill="skill"
+              :skill="skill" 
               :search-query="searchQuery"
               :view-mode="viewMode"
               :is-select-mode="isBatchMode"
@@ -836,7 +836,7 @@ onUnmounted(() => {
           <!-- Memories Flat View -->
           <div v-if="filteredMemories.length && memoryClusterMode === 'flat'" 
                class="animate-in fade-in zoom-in-95 duration-500 pb-12"
-               :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-3'">
+               :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-2'">
             <MemoryCard 
               v-for="memory in filteredMemories" 
               :key="memory.id" 

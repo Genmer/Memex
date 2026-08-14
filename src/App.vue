@@ -15,7 +15,7 @@ import CommandPalette from './components/CommandPalette.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { useTheme } from './composables/useTheme'
-import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight, Loader2 } from 'lucide-vue-next'
 
 const toast = useToast()
 const { t } = useI18n()
@@ -422,6 +422,36 @@ const batchDelete = async () => {
   }
 }
 
+const isBatchAnalyzing = ref(false)
+
+const batchAnalyzeAi = async () => {
+  if (selectedIds.value.length === 0 || isBatchAnalyzing.value) return
+  isBatchAnalyzing.value = true
+  toast.info(`正在批量提炼选中的 ${selectedIds.value.length} 个技能，请稍候...`)
+  try {
+    const results: any[] = await invoke('batch_analyze_skills_ai', {
+      skillIds: selectedIds.value
+    })
+    toast.success(`已成功批量提炼 ${results.length} 个技能的中文用途与分类！`)
+    await fetchData()
+    selectedIds.value = []
+  } catch (err: any) {
+    toast.error(typeof err === 'string' ? err : `批量 AI 解析失败: ${JSON.stringify(err)}`)
+  } finally {
+    isBatchAnalyzing.value = false
+  }
+}
+
+const handleAiAnalyzed = (result: any) => {
+  const target = skills.value.find(s => s.id === result.skill_id)
+  if (target) {
+    target.summary_zh = result.summary_zh
+    target.category_zh = result.category_zh
+    target.tags_zh = result.tags_zh.join(', ')
+    target.tags = result.merged_tags
+  }
+}
+
 const handleSidebarSelect = (id: string) => {
   activeView.value = id
   searchQuery.value = ''
@@ -450,7 +480,13 @@ const filteredSkills = computed(() => {
   
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
-    list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
+    list = list.filter(s => 
+      s.name.toLowerCase().includes(q) || 
+      s.content.toLowerCase().includes(q) || 
+      (s.tags && s.tags.toLowerCase().includes(q)) ||
+      (s.summary_zh && s.summary_zh.toLowerCase().includes(q)) ||
+      (s.category_zh && s.category_zh.toLowerCase().includes(q))
+    )
   }
   if (selectedTag.value) {
     const t = selectedTag.value.toLowerCase().trim()
@@ -877,6 +913,7 @@ onUnmounted(() => {
               @favorite-toggled="handleFavoriteToggled"
               @select-tag="handleTagSelect($event)"
               @toggle-select="toggleSelectId"
+              @ai-analyzed="handleAiAnalyzed"
             />
           </div>
 
@@ -1143,6 +1180,17 @@ onUnmounted(() => {
           </div>
 
           <div class="flex items-center gap-2">
+            <button
+              v-if="activeView.includes('skills')"
+              @click="batchAnalyzeAi"
+              :disabled="isBatchAnalyzing"
+              class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/25 to-purple-500/25 hover:from-indigo-500/35 hover:to-purple-500/35 border border-indigo-500/40 text-indigo-200 text-xs font-semibold transition-all shadow-md disabled:opacity-50"
+              title="批量由 AI 解析中文释义与分类"
+            >
+              <Loader2 v-if="isBatchAnalyzing" :size="13" class="animate-spin" />
+              <Sparkles v-else :size="13" />
+              <span>{{ isBatchAnalyzing ? 'AI 解析中...' : '批量 AI 解析' }}</span>
+            </button>
             <button
               @click="batchToggleFavorite(true)"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-yellow-300 text-xs font-medium transition-colors"

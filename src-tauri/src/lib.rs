@@ -196,7 +196,7 @@ fn save_config(
 fn get_skills(state: State<'_, DbState>) -> Result<Vec<Skill>, String> {
     let db = state.db.lock().unwrap();
     let conn = db.as_ref().unwrap();
-    let mut stmt = conn.prepare("SELECT id, name, content, source_tool, local_path, prefix_template, tags, priority, is_favorite, created_at, updated_at FROM skills ORDER BY priority DESC, updated_at DESC").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, content, source_tool, local_path, prefix_template, tags, summary_zh, category_zh, tags_zh, priority, is_favorite, created_at, updated_at FROM skills ORDER BY priority DESC, updated_at DESC").map_err(|e| e.to_string())?;
 
     let skills_iter = stmt
         .query_map([], |row| {
@@ -208,10 +208,13 @@ fn get_skills(state: State<'_, DbState>) -> Result<Vec<Skill>, String> {
                 local_path: row.get(4)?,
                 prefix_template: row.get(5)?,
                 tags: row.get(6)?,
-                priority: row.get(7)?,
-                is_favorite: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                summary_zh: row.get(7)?,
+                category_zh: row.get(8)?,
+                tags_zh: row.get(9)?,
+                priority: row.get(10)?,
+                is_favorite: row.get(11)?,
+                created_at: row.get(12)?,
+                updated_at: row.get(13)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -228,7 +231,7 @@ fn get_skills(state: State<'_, DbState>) -> Result<Vec<Skill>, String> {
 fn get_memories(state: State<'_, DbState>) -> Result<Vec<models::Memory>, String> {
     let db = state.db.lock().unwrap();
     let conn = db.as_ref().unwrap();
-    let mut stmt = conn.prepare("SELECT id, name, source_tool, session_id, content, tags, priority, is_favorite, extracted_at, updated_at FROM memories ORDER BY priority DESC, extracted_at DESC").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, name, source_tool, session_id, content, tags, summary_zh, category_zh, priority, is_favorite, extracted_at, updated_at FROM memories ORDER BY priority DESC, extracted_at DESC").map_err(|e| e.to_string())?;
 
     let iter = stmt
         .query_map([], |row| {
@@ -239,10 +242,12 @@ fn get_memories(state: State<'_, DbState>) -> Result<Vec<models::Memory>, String
                 session_id: row.get(3)?,
                 content: row.get(4)?,
                 tags: row.get(5)?,
-                priority: row.get(6)?,
-                is_favorite: row.get(7)?,
-                extracted_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                summary_zh: row.get(6)?,
+                category_zh: row.get(7)?,
+                priority: row.get(8)?,
+                is_favorite: row.get(9)?,
+                extracted_at: row.get(10)?,
+                updated_at: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -1137,6 +1142,234 @@ async fn chat_with_ai(
     Ok(())
 }
 
+#[tauri::command]
+async fn analyze_skill_ai(
+    state: State<'_, DbState>,
+    skill_id: i64,
+) -> Result<models::SkillAiAnalysisResult, String> {
+    // 1. Retrieve skill and AI configs
+    let (skill_name, skill_content, skill_source, existing_tags, api_key, model) = {
+        let db = state.db.lock().unwrap();
+        let conn = db.as_ref().unwrap();
+
+        let (name, content, source, tags): (String, String, String, Option<String>) = conn
+            .query_row(
+                "SELECT name, content, source_tool, tags FROM skills WHERE id = ?1",
+                params![skill_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .map_err(|e| format!("未找到该技能: {}", e))?;
+
+        let key = conn
+            .query_row(
+                "SELECT key_value FROM configs WHERE key_name = ?1",
+                params!["DEEPSEEK_API_KEY"],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_default();
+
+        let mdl = conn
+            .query_row(
+                "SELECT key_value FROM configs WHERE key_name = ?1",
+                params!["AI_MODEL"],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_else(|_| "deepseek-v4-flash".to_string());
+
+        (name, content, source, tags, key, mdl)
+    };
+
+    if api_key.trim().is_empty() {
+        return Err("请先在【设置】或右上角 AI 助手面板中配置 DeepSeek API Key".to_string());
+    }
+
+    // 2. Build high-precision Prompt
+    let system_prompt = "你是一名顶级 AI Agent 技能分析专家。
+用户提供了一个开发工具/Agent 技能（Skill）的名称和配置指令（通常包含英文 Prompt、工作流规则、YAML 元数据或脚本逻辑）。
+
+请对该技能进行深度解析，提取出通俗直白的中文释义、分类和标签：
+
+【核心要求】：
+1. summary_zh（中文用途说明）：
+   - 必须通俗易懂、一针见血！避免晦涩的英文术语直译或空洞套话。
+   - 必须说明：“这个技能在什么场景下派上用场、具体帮开发者或 AI 解决了什么实际痛点”。
+   - 长度严格控制在 20 ~ 45 个汉字以内，简明扼要，适合作为卡片摘要和悬浮提示。
+   - 例如对于 monorepo-management，不要只写'管理单体仓库'，而是写'专用于跨包依赖分析、工作区脚本批量运行与 Monorepo 版本拓扑构建'。
+
+2. category_zh（中文分类）：
+   - 从以下标准大类中选择最匹配的 1 个（或精准提炼 2-4 字的中文业务领域）：
+     [代码架构, 前端研发, 后端工程, 测试部署, 系统运维, 调试排错, 数据分析, 文档规范, 安全合规, 工作流自动化]
+
+3. tags_zh（中文标签列表）：
+   - 提炼 2~4 个高频、精准的中文技术与场景标签（如：['依赖分析', '代码审查', '自动化']）。
+
+【输出格式要求】：
+必须严格返回合法纯 JSON，严禁输出 Markdown 代码块标记（```json），严禁输出任何额外寒暄：
+{
+  \"summary_zh\": \"20-45字通俗中文用途解释\",
+  \"category_zh\": \"分类名称\",
+  \"tags_zh\": [\"标签1\", \"标签2\", \"标签3\"]
+}";
+
+    let user_content = format!(
+        "技能名称: {}\n来源工具: {}\n技能配置与指令内容:\n{}",
+        skill_name,
+        skill_source,
+        if skill_content.len() > 3000 {
+            &skill_content[..3000]
+        } else {
+            &skill_content
+        }
+    );
+
+    // 3. Request DeepSeek Completion
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "model": model,
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": user_content }
+        ],
+        "temperature": 0.2
+    });
+
+    let resp = client
+        .post("https://api.deepseek.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .timeout(std::time::Duration::from_secs(45))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("网络请求失败: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let err_body = resp.text().await.unwrap_or_default();
+        return Err(format!("AI 接口响应错误 ({}): {}", status, err_body));
+    }
+
+    let json_resp: serde_json::Value = resp.json().await.map_err(|e| format!("解析响应失败: {}", e))?;
+    let raw_text = json_resp["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or_default()
+        .trim();
+
+    // 4. Robust JSON extraction
+    let clean_json = if let Some(start) = raw_text.find('{') {
+        if let Some(end) = raw_text.rfind('}') {
+            &raw_text[start..=end]
+        } else {
+            raw_text
+        }
+    } else {
+        raw_text
+    };
+
+    let parsed_data: serde_json::Value = serde_json::from_str(clean_json)
+        .map_err(|e| format!("AI 返回的内容无法解析为 JSON: {} (原文: {})", e, raw_text))?;
+
+    let summary_zh = parsed_data["summary_zh"]
+        .as_str()
+        .unwrap_or("暂无中文解析")
+        .trim()
+        .to_string();
+
+    let category_zh = parsed_data["category_zh"]
+        .as_str()
+        .unwrap_or("通用技能")
+        .trim()
+        .to_string();
+
+    let tags_zh_vec: Vec<String> = parsed_data["tags_zh"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.trim().to_string()))
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let tags_zh_str = tags_zh_vec.join(", ");
+
+    // Merge Chinese tags into general tags field for universal search & tag cloud
+    let mut current_tags_list: Vec<String> = existing_tags
+        .unwrap_or_default()
+        .split(',')
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .collect();
+
+    for zh_tag in &tags_zh_vec {
+        if !current_tags_list.iter().any(|t| t.eq_ignore_ascii_case(zh_tag)) {
+            current_tags_list.push(zh_tag.clone());
+        }
+    }
+    let merged_tags = current_tags_list.join(", ");
+
+    // 5. Update Database
+    {
+        let db = state.db.lock().unwrap();
+        let conn = db.as_ref().unwrap();
+        conn.execute(
+            "UPDATE skills SET summary_zh = ?1, category_zh = ?2, tags_zh = ?3, tags = ?4, updated_at = CURRENT_TIMESTAMP WHERE id = ?5",
+            params![summary_zh, category_zh, tags_zh_str, merged_tags, skill_id],
+        )
+        .map_err(|e| format!("保存 AI 解析结果失败: {}", e))?;
+    }
+
+    Ok(models::SkillAiAnalysisResult {
+        skill_id,
+        summary_zh,
+        category_zh,
+        tags_zh: tags_zh_vec,
+        merged_tags,
+    })
+}
+
+#[tauri::command]
+async fn batch_analyze_skills_ai(
+    state: State<'_, DbState>,
+    skill_ids: Vec<i64>,
+) -> Result<Vec<models::SkillAiAnalysisResult>, String> {
+    let mut results = Vec::new();
+    let mut last_err = None;
+
+    for id in skill_ids {
+        match analyze_skill_ai(state.clone(), id).await {
+            Ok(res) => results.push(res),
+            Err(e) => {
+                last_err = Some(e);
+            }
+        }
+    }
+
+    if results.is_empty() && last_err.is_some() {
+        return Err(last_err.unwrap());
+    }
+
+    Ok(results)
+}
+
+#[tauri::command]
+fn update_skill_ai_summary(
+    state: State<'_, DbState>,
+    skill_id: i64,
+    summary_zh: String,
+    category_zh: Option<String>,
+    tags_zh: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute(
+        "UPDATE skills SET summary_zh = ?1, category_zh = ?2, tags_zh = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?4",
+        params![summary_zh, category_zh, tags_zh, skill_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1175,7 +1408,10 @@ pub fn run() {
             import_assets,
             open_in_finder,
             open_in_editor,
-            chat_with_ai
+            chat_with_ai,
+            analyze_skill_ai,
+            batch_analyze_skills_ai,
+            update_skill_ai_summary
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

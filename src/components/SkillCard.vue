@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { Copy, Link, Rocket, Star, FolderOpen, FileEdit, Terminal } from 'lucide-vue-next'
+import { Copy, Link, Rocket, Star, FolderOpen, FileEdit, Terminal, Sparkles, Loader2 } from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
 
 const toast = useToast()
@@ -15,6 +15,9 @@ const props = defineProps<{
     local_path?: string
     prefix_template?: string
     tags?: string
+    summary_zh?: string
+    category_zh?: string
+    tags_zh?: string
     is_favorite: boolean
   },
   searchQuery?: string,
@@ -23,7 +26,9 @@ const props = defineProps<{
   isSelected?: boolean
 }>()
 
-const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag', 'toggle-select'])
+const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag', 'toggle-select', 'ai-analyzed'])
+
+const isAnalyzing = ref(false)
 
 const sourceColor = computed(() => {
   const source = props.skill.source_tool.toLowerCase()
@@ -48,6 +53,24 @@ const highlightText = (text: string) => {
   const q = props.searchQuery.trim()
   const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
   return text.replace(regex, '<mark class="bg-yellow-500/40 text-yellow-200 rounded px-0.5">$1</mark>')
+}
+
+const analyzeAi = async () => {
+  if (isAnalyzing.value) return
+  isAnalyzing.value = true
+  try {
+    const res: any = await invoke('analyze_skill_ai', { skillId: props.skill.id })
+    props.skill.summary_zh = res.summary_zh
+    props.skill.category_zh = res.category_zh
+    props.skill.tags_zh = res.tags_zh.join(', ')
+    props.skill.tags = res.merged_tags
+    emit('ai-analyzed', res)
+    toast.success(`已提炼用途: ${res.summary_zh}`)
+  } catch (err: any) {
+    toast.error(typeof err === 'string' ? err : `AI 解析失败: ${JSON.stringify(err)}`)
+  } finally {
+    isAnalyzing.value = false
+  }
 }
 
 const copyContent = async () => {
@@ -139,17 +162,40 @@ const openInEditor = async () => {
     </span>
 
     <!-- Skill Name / Title -->
-    <div class="w-60 xl:w-72 shrink-0 min-w-0">
+    <div class="w-52 xl:w-60 shrink-0 min-w-0">
       <h3 class="font-medium text-white/90 text-sm truncate" :title="skill.name">
         <span v-html="highlightText(skill.name)"></span>
       </h3>
+    </div>
+
+    <!-- AI Summary / Category Insight Column -->
+    <div class="w-64 xl:w-80 shrink-0 min-w-0 flex items-center gap-2">
+      <div v-if="skill.summary_zh" class="flex items-center gap-1.5 min-w-0 flex-1" :title="`【${skill.category_zh || '用途'}】${skill.summary_zh}`">
+        <span v-if="skill.category_zh" class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shrink-0">
+          {{ skill.category_zh }}
+        </span>
+        <span class="text-xs text-white/70 truncate flex-1 font-sans">
+          {{ skill.summary_zh }}
+        </span>
+      </div>
+      <button 
+        v-else 
+        @click.stop="analyzeAi"
+        :disabled="isAnalyzing"
+        class="shrink-0 px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all flex items-center gap-1 opacity-80 hover:opacity-100"
+        title="点击由 AI 提炼通俗中文用途与分类"
+      >
+        <Loader2 v-if="isAnalyzing" :size="11" class="animate-spin" />
+        <Sparkles v-else :size="11" />
+        <span>{{ isAnalyzing ? '解析中...' : 'AI解读' }}</span>
+      </button>
     </div>
 
     <!-- Tags Row -->
     <div class="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden">
       <template v-if="parsedTags.length">
         <button 
-          v-for="tag in parsedTags.slice(0, 4)" 
+          v-for="tag in parsedTags.slice(0, 3)" 
           :key="tag" 
           @click.stop="emit('select-tag', tag)"
           class="shrink-0 px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300/80 hover:text-indigo-200 border border-indigo-500/20 transition-colors"
@@ -157,19 +203,24 @@ const openInEditor = async () => {
         >
           #{{ tag }}
         </button>
-        <span v-if="parsedTags.length > 4" class="text-[10px] text-white/30 font-mono shrink-0">
-          +{{ parsedTags.length - 4 }}
+        <span v-if="parsedTags.length > 3" class="text-[10px] text-white/30 font-mono shrink-0">
+          +{{ parsedTags.length - 3 }}
         </span>
       </template>
     </div>
 
-    <!-- Local Path (truncated) -->
-    <div v-if="skill.local_path" class="hidden 2xl:block max-w-[240px] shrink-0 text-[11px] text-white/30 font-mono truncate" :title="skill.local_path">
-      {{ skill.local_path }}
-    </div>
-
     <!-- Quick Hover Actions -->
     <div class="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button 
+        v-if="!skill.summary_zh"
+        @click.stop="analyzeAi"
+        :disabled="isAnalyzing"
+        class="p-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 rounded-lg transition-colors border border-indigo-500/30"
+        title="AI 智能解析用途"
+      >
+        <Loader2 v-if="isAnalyzing" :size="14" class="animate-spin" />
+        <Sparkles v-else :size="14" />
+      </button>
       <button 
         @click.stop="copyContent"
         class="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
@@ -199,7 +250,7 @@ const openInEditor = async () => {
   <!-- ================= GRID CARD VIEW ================= -->
   <div 
     v-else
-    class="perf-contain-card group relative flex flex-col h-72 overflow-hidden rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/50 hover:bg-white/[0.06] transition-colors duration-150 shadow-lg hover:shadow-indigo-500/10"
+    class="perf-contain-card group relative flex flex-col h-80 overflow-hidden rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/50 hover:bg-white/[0.06] transition-colors duration-150 shadow-lg hover:shadow-indigo-500/10"
   >
     <!-- Selection checkbox overlay in batch mode -->
     <div 
@@ -216,14 +267,14 @@ const openInEditor = async () => {
     </div>
 
     <!-- Header -->
-    <div class="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0"
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-white/5 shrink-0"
          :class="isSelectMode ? 'pl-11' : ''">
-      <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center gap-3 min-w-0 flex-1 mr-2">
         <div 
-          class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner border"
+          class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner border"
           :class="sourceColor"
         >
-          <component :is="Terminal" :size="20" />
+          <component :is="Terminal" :size="18" />
         </div>
         <div class="min-w-0 flex-1">
           <h3 class="font-medium text-white/90 truncate tracking-wide text-[15px]" :title="skill.name">
@@ -241,7 +292,7 @@ const openInEditor = async () => {
           <Star :size="16" :class="{ 'fill-current': skill.is_favorite }" />
         </button>
         <span 
-          class="px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wider uppercase border"
+          class="px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase border"
           :class="sourceColor"
         >
           {{ skill.source_tool }}
@@ -251,77 +302,111 @@ const openInEditor = async () => {
 
     <!-- Body (clickable to open drawer or toggle select in batch mode) -->
     <div 
-      class="flex-1 cursor-pointer flex flex-col justify-center min-w-0 p-5 space-y-4" 
+      class="flex-1 cursor-pointer flex flex-col justify-between min-w-0 p-4 space-y-2.5 overflow-hidden" 
       @click="isSelectMode ? emit('toggle-select', skill.id) : emit('open-detail', skill)"
     >
-      <!-- Tags -->
-      <div v-if="parsedTags.length" class="flex flex-wrap gap-2">
+      <!-- AI Insight Banner if available -->
+      <div v-if="skill.summary_zh" class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs leading-relaxed flex items-start gap-2 shadow-inner" :title="skill.summary_zh">
+        <Sparkles :size="13" class="text-indigo-400 shrink-0 mt-0.5" />
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 mb-0.5">
+            <span v-if="skill.category_zh" class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/25 text-indigo-200 font-medium">
+              {{ skill.category_zh }}
+            </span>
+            <span class="text-[10px] text-indigo-300/60 font-mono">用途释义</span>
+          </div>
+          <p class="text-xs text-indigo-200/90 line-clamp-2 leading-relaxed font-sans">
+            {{ skill.summary_zh }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Quick AI Trigger if no summary -->
+      <div v-else class="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] border border-dashed border-white/10 hover:border-indigo-500/40 transition-colors">
+        <span class="text-[11px] text-white/40">暂未提炼中文释义</span>
         <button 
-          v-for="tag in parsedTags" 
+          @click.stop="analyzeAi"
+          :disabled="isAnalyzing"
+          class="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/25 transition-all flex items-center gap-1"
+        >
+          <Loader2 v-if="isAnalyzing" :size="10" class="animate-spin" />
+          <Sparkles v-else :size="10" />
+          <span>{{ isAnalyzing ? '解析中...' : 'AI解析' }}</span>
+        </button>
+      </div>
+
+      <!-- Content Preview Codeblock -->
+      <div class="bg-black/20 rounded-xl p-3 border border-white/5 shadow-inner flex-1 min-h-0 overflow-hidden">
+        <pre class="text-xs font-mono text-white/70 line-clamp-3 whitespace-pre-wrap leading-relaxed" v-html="highlightText(skill.content.substring(0, 250))"></pre>
+      </div>
+
+      <!-- Tags -->
+      <div v-if="parsedTags.length" class="flex flex-wrap gap-1.5">
+        <button 
+          v-for="tag in parsedTags.slice(0, 4)" 
           :key="tag" 
           @click.stop="emit('select-tag', tag)"
-          class="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-colors"
+          class="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-colors truncate max-w-[120px]"
           title="按此标签筛选"
         >
           #{{ tag }}
         </button>
       </div>
-
-      <div class="bg-black/20 rounded-xl p-4 border border-white/5 shadow-inner">
-        <pre class="text-sm font-mono text-white/70 line-clamp-4 whitespace-pre-wrap leading-relaxed" v-html="highlightText(skill.content.substring(0, 300))"></pre>
-      </div>
-      
-      <div v-if="skill.local_path" class="text-[11px] text-white/40 font-mono truncate px-1" :title="skill.local_path">
-        {{ skill.local_path }}
-      </div>
     </div>
 
     <!-- Footer -->
-    <div class="flex items-center justify-between px-5 bg-black/20 border-t border-white/5 shrink-0 py-3">
+    <div class="flex items-center justify-between px-4 bg-black/20 border-t border-white/5 shrink-0 py-2.5">
       <div class="flex items-center gap-1.5">
         <button 
           @click="copyContent"
-          class="p-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
+          class="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
           title="复制内容"
         >
-          <Copy :size="16" />
+          <Copy :size="14" />
         </button>
         <button 
           v-if="skill.local_path"
           @click="openInFinder"
-          class="p-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
+          class="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
           title="在 Finder 中打开"
         >
-          <FolderOpen :size="16" />
+          <FolderOpen :size="14" />
         </button>
         <button 
           v-if="skill.local_path"
           @click="openInEditor"
-          class="p-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
+          class="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
           title="在 VS Code 中打开"
         >
-          <FileEdit :size="16" />
+          <FileEdit :size="14" />
         </button>
         <button 
           v-if="skill.local_path"
           @click="copyPath"
-          class="p-2 bg-white/5 hover:bg-white/10 text-indigo-400 hover:text-indigo-300 rounded-lg transition-colors"
+          class="p-1.5 bg-white/5 hover:bg-white/10 text-indigo-400 hover:text-indigo-300 rounded-lg transition-colors"
           title="复制路径"
         >
-          <Link :size="16" />
+          <Link :size="14" />
         </button>
         <button 
           @click="copyWithPrefix"
-          class="p-2 bg-white/5 hover:bg-white/10 text-purple-400 hover:text-purple-300 rounded-lg transition-colors"
+          class="p-1.5 bg-white/5 hover:bg-white/10 text-purple-400 hover:text-purple-300 rounded-lg transition-colors"
           title="复制（含前缀模板）"
         >
-          <Rocket :size="16" />
+          <Rocket :size="14" />
         </button>
       </div>
       
-      <div class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-200">
-        <component :is="Terminal" :size="14" class="text-white/40" />
-      </div>
+      <button 
+        @click.stop="analyzeAi"
+        :disabled="isAnalyzing"
+        class="px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[10px] flex items-center gap-1 transition-all"
+        title="AI 智能提炼中文释义与分类"
+      >
+        <Loader2 v-if="isAnalyzing" :size="11" class="animate-spin" />
+        <Sparkles v-else :size="11" />
+        <span>{{ skill.summary_zh ? '重新解析' : 'AI解析' }}</span>
+      </button>
     </div>
   </div>
 </template>

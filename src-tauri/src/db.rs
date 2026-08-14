@@ -39,8 +39,12 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             session_id TEXT,
             content TEXT NOT NULL,
             tags TEXT,
+            summary_zh TEXT,
+            category_zh TEXT,
             priority INTEGER DEFAULT 10,
-            extracted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            is_favorite BOOLEAN DEFAULT 0,
+            extracted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS skills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,6 +54,9 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             local_path TEXT,
             prefix_template TEXT,
             tags TEXT,
+            summary_zh TEXT,
+            category_zh TEXT,
+            tags_zh TEXT,
             priority INTEGER DEFAULT 10,
             is_favorite BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -64,6 +71,13 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     // Personal memory management: enable favorites & timestamps on memories
     let _ = conn.execute("ALTER TABLE memories ADD COLUMN is_favorite BOOLEAN DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE memories ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP", []);
+
+    // AI Semantic Enrichment columns for Chinese explanation, category & tags
+    let _ = conn.execute("ALTER TABLE skills ADD COLUMN summary_zh TEXT", []);
+    let _ = conn.execute("ALTER TABLE skills ADD COLUMN category_zh TEXT", []);
+    let _ = conn.execute("ALTER TABLE skills ADD COLUMN tags_zh TEXT", []);
+    let _ = conn.execute("ALTER TABLE memories ADD COLUMN summary_zh TEXT", []);
+    let _ = conn.execute("ALTER TABLE memories ADD COLUMN category_zh TEXT", []);
 
     // Migrate old configs to scan_targets
     let _ = conn.execute(

@@ -18,6 +18,8 @@ pub struct Memory {
     pub session_id: Option<String>,
     pub content: String,
     pub tags: Option<String>,
+    pub summary_zh: Option<String>,
+    pub category_zh: Option<String>,
     pub priority: i32,
     pub is_favorite: bool,
     pub extracted_at: String,
@@ -33,6 +35,9 @@ pub struct Skill {
     pub local_path: Option<String>,
     pub prefix_template: Option<String>,
     pub tags: Option<String>,
+    pub summary_zh: Option<String>,
+    pub category_zh: Option<String>,
+    pub tags_zh: Option<String>,
     pub priority: i32,
     pub is_favorite: bool,
     pub created_at: String,
@@ -47,4 +52,13 @@ pub struct ScanTarget {
     pub priority: i32,
     pub is_enabled: bool,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SkillAiAnalysisResult {
+    pub skill_id: i64,
+    pub summary_zh: String,
+    pub category_zh: String,
+    pub tags_zh: Vec<String>,
+    pub merged_tags: String,
 }

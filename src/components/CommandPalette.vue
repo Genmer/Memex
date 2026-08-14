@@ -123,7 +123,7 @@ const filteredItems = computed<PaletteItem[]>(() => {
       type: 'skill',
       asset: s,
       title: s.name,
-      subtitle: s.content ? s.content.substring(0, 80).replace(/\n/g, ' ') : '',
+      subtitle: s.summary_zh ? `【${s.category_zh || 'AI解读'}】${s.summary_zh}` : (s.content ? s.content.substring(0, 80).replace(/\n/g, ' ') : ''),
       source_tool: s.source_tool || 'custom'
     }))
 
@@ -140,6 +140,8 @@ const filteredItems = computed<PaletteItem[]>(() => {
     .filter(s => 
       s.name.toLowerCase().includes(q) || 
       (s.tags && s.tags.toLowerCase().includes(q)) ||
+      (s.summary_zh && s.summary_zh.toLowerCase().includes(q)) ||
+      (s.category_zh && s.category_zh.toLowerCase().includes(q)) ||
       (s.content && s.content.toLowerCase().includes(q))
     )
     .slice(0, 10)
@@ -148,7 +150,7 @@ const filteredItems = computed<PaletteItem[]>(() => {
       type: 'skill',
       asset: s,
       title: s.name,
-      subtitle: s.content ? s.content.substring(0, 80).replace(/\n/g, ' ') : '',
+      subtitle: s.summary_zh ? `【${s.category_zh || 'AI解读'}】${s.summary_zh}` : (s.content ? s.content.substring(0, 80).replace(/\n/g, ' ') : ''),
       source_tool: s.source_tool || 'custom'
     }))
 
@@ -224,11 +226,11 @@ const executeItem = (item: PaletteItem) => {
 
 const getToolBadgeColor = (tool: string) => {
   const t = tool.toLowerCase()
-  if (t.includes('zcode')) return 'text-blue-600 dark:text-blue-400 bg-blue-500/15 border-blue-500/30'
-  if (t.includes('claude')) return 'text-orange-600 dark:text-orange-400 bg-orange-500/15 border-orange-500/30'
-  if (t.includes('trae')) return 'text-sky-600 dark:text-sky-400 bg-sky-500/15 border-sky-500/30'
-  if (t.includes('agents')) return 'text-teal-600 dark:text-teal-400 bg-teal-500/15 border-teal-500/30'
-  return 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 border-indigo-500/30'
+  if (t.includes('zcode')) return 'text-blue-400 bg-blue-500/15 border-blue-500/30'
+  if (t.includes('claude')) return 'text-orange-400 bg-orange-500/15 border-orange-500/30'
+  if (t.includes('trae')) return 'text-sky-400 bg-sky-500/15 border-sky-500/30'
+  if (t.includes('agents')) return 'text-teal-400 bg-teal-500/15 border-teal-500/30'
+  return 'text-indigo-400 bg-indigo-500/15 border-indigo-500/30'
 }
 </script>
 
@@ -241,24 +243,24 @@ const getToolBadgeColor = (tool: string) => {
   >
     <div 
       v-if="show"
-      class="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/50 dark:bg-black/60 backdrop-blur-md"
+      class="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/60 backdrop-blur-md"
       @click.self="emit('close')"
       @keydown="handleKeydown"
     >
       <div 
-        class="w-full max-w-2xl bg-white/95 dark:bg-[#141720]/95 backdrop-blur-2xl border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[580px] animate-in fade-in zoom-in-95 duration-200"
+        class="w-full max-w-2xl bg-[#141720]/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-[-20px_0_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[580px] animate-in fade-in zoom-in-95 duration-200 text-white"
       >
         <!-- Search Input Header -->
-        <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
-          <Search :size="18" class="text-indigo-600 dark:text-indigo-400 shrink-0" />
+        <div class="flex items-center gap-3 px-5 py-4 border-b border-white/10 bg-white/[0.02]">
+          <Search :size="18" class="text-indigo-400 shrink-0" />
           <input
             ref="inputRef"
             v-model="searchQuery"
             type="text"
-            placeholder="搜索技能、记忆、工程规则，或输入动作指令..."
-            class="flex-1 bg-transparent border-none outline-none text-slate-800 dark:text-white text-[15px] placeholder:text-slate-400 dark:placeholder:text-white/40 font-normal"
+            placeholder="搜索技能、记忆、中文释义、工程规则，或输入动作指令..."
+            class="flex-1 bg-transparent border-none outline-none text-white text-[15px] placeholder:text-white/40 font-normal"
           />
-          <div class="flex items-center gap-1 text-[11px] font-mono text-slate-400 dark:text-white/40 px-2 py-1 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 shrink-0">
+          <div class="flex items-center gap-1 text-[11px] font-mono text-white/40 px-2 py-1 rounded bg-white/5 border border-white/10 shrink-0">
             <Command :size="11" />
             <span>K</span>
           </div>
@@ -273,13 +275,13 @@ const getToolBadgeColor = (tool: string) => {
               @click="executeItem(item)"
               @mouseenter="selectedIndex = index"
               class="flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-all select-none"
-              :class="selectedIndex === index ? 'bg-indigo-500/15 dark:bg-indigo-600/30 border border-indigo-500/40 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'"
+              :class="selectedIndex === index ? 'bg-indigo-600/30 border border-indigo-500/40 text-white' : 'text-white/70 hover:bg-white/5 border border-transparent'"
             >
               <div class="flex items-center gap-3 min-w-0 flex-1">
                 <!-- Icon -->
                 <div 
                   class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border"
-                  :class="item.type === 'action' ? 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-indigo-600 dark:text-indigo-300' : (item.type === 'skill' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-400')"
+                  :class="item.type === 'action' ? 'bg-white/5 border-white/10 text-indigo-300' : (item.type === 'skill' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-orange-500/10 border-orange-500/20 text-orange-400')"
                 >
                   <component :is="item.type === 'action' ? item.icon : (item.type === 'skill' ? Terminal : BookOpen)" :size="15" />
                 </div>
@@ -287,7 +289,7 @@ const getToolBadgeColor = (tool: string) => {
                 <!-- Text -->
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
-                    <span class="font-medium text-sm text-slate-800 dark:text-white/90 truncate">{{ item.title }}</span>
+                    <span class="font-medium text-sm text-white/90 truncate">{{ item.title }}</span>
                     <span 
                       v-if="item.type !== 'action'" 
                       class="px-1.5 py-0.2 rounded text-[10px] uppercase font-mono font-semibold border"
@@ -296,28 +298,28 @@ const getToolBadgeColor = (tool: string) => {
                       {{ item.source_tool }}
                     </span>
                   </div>
-                  <p class="text-xs text-slate-400 dark:text-white/40 truncate mt-0.5">{{ item.subtitle }}</p>
+                  <p class="text-xs text-white/40 truncate mt-0.5">{{ item.subtitle }}</p>
                 </div>
               </div>
 
               <!-- Shortcut / Action hint -->
               <div class="shrink-0 flex items-center gap-1.5 pl-3">
-                <span v-if="selectedIndex === index" class="text-[11px] text-indigo-600 dark:text-indigo-300 font-mono flex items-center gap-1">
+                <span v-if="selectedIndex === index" class="text-[11px] text-indigo-300 font-mono flex items-center gap-1">
                   <span>执行</span>
                   <CornerDownLeft :size="12" />
                 </span>
-                <ArrowRight v-else :size="14" class="text-slate-300 dark:text-white/20" />
+                <ArrowRight v-else :size="14" class="text-white/20" />
               </div>
             </div>
           </template>
 
           <!-- Empty State in Palette -->
           <div v-else class="py-12 flex flex-col items-center justify-center text-center">
-            <Sparkles :size="24" class="text-indigo-500 dark:text-indigo-400/60 mb-2" />
-            <p class="text-sm text-slate-600 dark:text-white/70">没有找到匹配的结果</p>
+            <Sparkles :size="24" class="text-indigo-400/60 mb-2" />
+            <p class="text-sm text-white/70">没有找到匹配的结果</p>
             <button 
               @click="emit('ask-ai', searchQuery); emit('close')"
-              class="mt-3 px-3.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 text-xs font-medium transition-colors flex items-center gap-1.5"
+              class="mt-3 px-3.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition-colors flex items-center gap-1.5"
             >
               <Sparkles :size="13" />
               在内置 AI 助手中搜索 "{{ searchQuery }}"
@@ -326,19 +328,19 @@ const getToolBadgeColor = (tool: string) => {
         </div>
 
         <!-- Footer Hints -->
-        <div class="px-5 py-2.5 bg-slate-50 dark:bg-black/40 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-400 dark:text-white/40 font-mono">
+        <div class="px-5 py-2.5 bg-black/40 border-t border-white/10 flex items-center justify-between text-[11px] text-white/40 font-mono">
           <div class="flex items-center gap-4">
             <span class="flex items-center gap-1">
-              <span class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70">↑</span>
-              <span class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70">↓</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/70">↑</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/70">↓</span>
               <span>导航</span>
             </span>
             <span class="flex items-center gap-1">
-              <span class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70">↵</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/70">↵</span>
               <span>打开/执行</span>
             </span>
             <span class="flex items-center gap-1">
-              <span class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white/70">ESC</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/70">ESC</span>
               <span>关闭</span>
             </span>
           </div>

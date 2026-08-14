@@ -7,7 +7,7 @@ use models::{Config, Skill};
 use rusqlite::params;
 use std::env;
 use tauri::State;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 #[derive(serde::Serialize, Clone)]
 pub struct ScanProgress {

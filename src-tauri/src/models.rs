@@ -130,3 +130,58 @@ pub struct AiUsageDashboardStats {
     pub daily_trends: Vec<DailyTrendItem>,
     pub model_breakdown: Vec<ModelUsageItem>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Memo {
+    pub id: i64,
+    pub title: String,
+    pub content: String,
+    pub folder: String,
+    pub note_type: String,
+    pub color: String,
+    pub tags: Option<String>,
+    pub is_pinned: bool,
+    pub is_favorite: bool,
+    pub is_archived: bool,
+    pub todo_total: i32,
+    pub todo_completed: i32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NewMemoPayload {
+    pub title: String,
+    pub content: String,
+    pub folder: Option<String>,
+    pub note_type: Option<String>,
+    pub color: Option<String>,
+    pub tags: Option<String>,
+    pub is_pinned: Option<bool>,
+    pub is_favorite: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UpdateMemoPayload {
+    pub title: Option<String>,
+    pub content: Option<String>,
+    pub folder: Option<String>,
+    pub note_type: Option<String>,
+    pub color: Option<String>,
+    pub tags: Option<String>,
+    pub is_pinned: Option<bool>,
+    pub is_favorite: Option<bool>,
+    pub is_archived: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MemoFolderSummary {
+    pub name: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MemoTagSummary {
+    pub name: String,
+    pub count: i64,
+}

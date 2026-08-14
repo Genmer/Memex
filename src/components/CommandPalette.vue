@@ -19,7 +19,8 @@ const emit = defineEmits([
   'export', 
   'import', 
   'navigate',
-  'ask-ai'
+  'ask-ai',
+  'switch-mode'
 ])
 
 const searchQuery = ref('')
@@ -30,7 +31,7 @@ interface ActionItem {
   id: string
   type: 'action'
   title: string
-  subtitle?: string
+  subtitle: string
   icon: any
   action: () => void
 }
@@ -47,6 +48,22 @@ interface AssetResultItem {
 type PaletteItem = ActionItem | AssetResultItem
 
 const standardActions: ActionItem[] = [
+  {
+    id: 'act-mode-memo',
+    type: 'action',
+    title: '切换至备忘录与开发日志模式 (Switch to Memos & Logs)',
+    subtitle: '记录个人架构灵感、工作日志与待办清单',
+    icon: BookOpen,
+    action: () => emit('switch-mode', 'memo')
+  },
+  {
+    id: 'act-mode-agent',
+    type: 'action',
+    title: '切换至 Agent 武器库模式 (Switch to AI Arsenal)',
+    subtitle: '管理 Skills 技能库与 Agent 记忆资产',
+    icon: Terminal,
+    action: () => emit('switch-mode', 'agent')
+  },
   {
     id: 'act-scan',
     type: 'action',

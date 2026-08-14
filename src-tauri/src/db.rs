@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result};
+use rusqlite::{params, Connection, Result};
 use std::fs;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
@@ -84,6 +84,22 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             error_message TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS memos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            folder TEXT DEFAULT '默认备忘',
+            note_type TEXT DEFAULT 'markdown',
+            color TEXT DEFAULT 'default',
+            tags TEXT,
+            is_pinned BOOLEAN DEFAULT 0,
+            is_favorite BOOLEAN DEFAULT 0,
+            is_archived BOOLEAN DEFAULT 0,
+            todo_total INTEGER DEFAULT 0,
+            todo_completed INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         ",
     )?;
 
@@ -140,6 +156,60 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 action, target, model, prompt_t, compl_t, total_t, dur, time_expr
             );
             let _ = conn.execute(&sql, []);
+        }
+    }
+
+    // Seed initial memos if table is empty
+    let memos_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM memos", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    if memos_count == 0 {
+        let sample_memos = vec![
+            (
+                "🚀 欢迎使用 Memex 备忘与开发日志",
+                "# 欢迎来到个人独立备忘库\n\n在这里，你可以完全自由地记录：\n- 💡 **灵感与闪念**：随手记下架构设计想法\n- 🛠️ **开发排障备忘**：踩坑记录与快速指令\n- ✅ **任务代办清单**：支持 Markdown 勾选进度\n- 🏷️ **多色标签分类**：支持置顶、收藏与多种主题色彩\n\n点击右上角 `+ 新建备忘` 或随时按 `⌘N` 快速起草！",
+                "使用指南",
+                "markdown",
+                "indigo",
+                "置顶推荐,使用技巧",
+                1,
+                1,
+                0,
+                0
+            ),
+            (
+                "⚡ 本地 Rust 与 Tauri 跨进程架构要点",
+                "### 核心设计备忘\n1. **Tauri IPC Command** 保持异步与轻量，耗时操作一律使用 Tokio 或后台线程。\n2. **SQLite 本地锁机制**：使用 `Mutex<Option<Connection>>` 保证多线程与批处理一致性。\n3. **日志与持久化**：每次 AI 调用与画像自动落库，无需网络上报，百分百私密。\n\n```rust\n#[tauri::command]\nasync fn sync_vault() -> Result<(), String> {\n    // background sync\n    Ok(())\n}\n```",
+                "架构设计",
+                "markdown",
+                "emerald",
+                "Rust,Tauri,架构",
+                1,
+                0,
+                0,
+                0
+            ),
+            (
+                "🎯 本周研发重点与待办任务",
+                "- [x] 完成 SQLite 宏观分类画像持久化存储\n- [x] 完成大模型使用统计与 Token 消耗监控大盘\n- [ ] 开发日志与全功能高自由度备忘录模式\n- [ ] 备忘录标签聚合与全文混合快速检索\n- [ ] 导出 Markdown 与本地归档能力",
+                "工作日志",
+                "todo",
+                "amber",
+                "待办,周报,规划",
+                0,
+                1,
+                5,
+                2
+            )
+        ];
+
+        for (title, content, folder, note_type, color, tags, is_pinned, is_fav, todo_tot, todo_comp) in sample_memos {
+            let _ = conn.execute(
+                "INSERT INTO memos (title, content, folder, note_type, color, tags, is_pinned, is_favorite, todo_total, todo_completed) 
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![title, content, folder, note_type, color, tags, is_pinned, is_fav, todo_tot, todo_comp],
+            );
         }
     }
 

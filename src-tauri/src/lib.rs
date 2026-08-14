@@ -1960,6 +1960,363 @@ fn clear_ai_usage_logs(state: State<'_, DbState>) -> Result<(), String> {
     Ok(())
 }
 
+fn parse_todo_counts(content: &str) -> (i32, i32) {
+    let mut total = 0;
+    let mut completed = 0;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("- [ ] ") || trimmed.starts_with("* [ ] ") {
+            total += 1;
+        } else if trimmed.starts_with("- [x] ") || trimmed.starts_with("- [X] ") || trimmed.starts_with("* [x] ") || trimmed.starts_with("* [X] ") {
+            total += 1;
+            completed += 1;
+        }
+    }
+    (total, completed)
+}
+
+#[tauri::command]
+fn get_memos(
+    state: State<'_, DbState>,
+    folder: Option<String>,
+    tag: Option<String>,
+    search: Option<String>,
+    filter_type: Option<String>,
+) -> Result<Vec<models::Memo>, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut sql = "SELECT id, title, content, folder, note_type, color, tags, is_pinned, is_favorite, is_archived, todo_total, todo_completed, created_at, updated_at FROM memos WHERE is_archived = 0".to_string();
+
+    if let Some(ref f) = folder {
+        if !f.is_empty() && f != "全部" && f != "all" {
+            sql.push_str(&format!(" AND folder = '{}'", f.replace('\'', "''")));
+        }
+    }
+
+    if let Some(ref t) = tag {
+        if !t.is_empty() && t != "all" {
+            sql.push_str(&format!(" AND tags LIKE '%{}%'", t.replace('\'', "''")));
+        }
+    }
+
+    if let Some(ref s) = search {
+        if !s.trim().is_empty() {
+            let escaped = s.trim().replace('\'', "''");
+            sql.push_str(&format!(" AND (title LIKE '%{}%' OR content LIKE '%{}%' OR tags LIKE '%{}%')", escaped, escaped, escaped));
+        }
+    }
+
+    if let Some(ref ft) = filter_type {
+        match ft.as_str() {
+            "pinned" => sql.push_str(" AND is_pinned = 1"),
+            "favorite" => sql.push_str(" AND is_favorite = 1"),
+            "todo" => sql.push_str(" AND (note_type = 'todo' OR todo_total > 0)"),
+            "journal" => sql.push_str(" AND note_type = 'journal'"),
+            "archived" => {
+                sql = sql.replace("WHERE is_archived = 0", "WHERE is_archived = 1");
+            },
+            _ => {}
+        }
+    }
+
+    sql.push_str(" ORDER BY is_pinned DESC, updated_at DESC, id DESC");
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| {
+        Ok(models::Memo {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            content: row.get(2)?,
+            folder: row.get(3)?,
+            note_type: row.get(4)?,
+            color: row.get(5)?,
+            tags: row.get(6)?,
+            is_pinned: row.get(7)?,
+            is_favorite: row.get(8)?,
+            is_archived: row.get(9)?,
+            todo_total: row.get(10)?,
+            todo_completed: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    let mut list = Vec::new();
+    for r in rows {
+        if let Ok(memo) = r {
+            list.push(memo);
+        }
+    }
+    Ok(list)
+}
+
+#[tauri::command]
+fn get_memo_folders(state: State<'_, DbState>) -> Result<Vec<models::MemoFolderSummary>, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut stmt = conn.prepare(
+        "SELECT folder, COUNT(*) FROM memos WHERE is_archived = 0 GROUP BY folder ORDER BY COUNT(*) DESC"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok(models::MemoFolderSummary {
+            name: row.get(0)?,
+            count: row.get(1)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    let mut list = Vec::new();
+    for r in rows {
+        if let Ok(f) = r {
+            list.push(f);
+        }
+    }
+    Ok(list)
+}
+
+#[tauri::command]
+fn get_memo_tags(state: State<'_, DbState>) -> Result<Vec<models::MemoTagSummary>, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut stmt = conn.prepare(
+        "SELECT tags FROM memos WHERE is_archived = 0 AND tags IS NOT NULL AND tags != ''"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0)).map_err(|e| e.to_string())?;
+    let mut tag_counts = std::collections::HashMap::new();
+
+    for r in rows.flatten() {
+        for t in r.split(',') {
+            let trimmed = t.trim();
+            if !trimmed.is_empty() {
+                *tag_counts.entry(trimmed.to_string()).or_insert(0i64) += 1;
+            }
+        }
+    }
+
+    let mut list: Vec<models::MemoTagSummary> = tag_counts
+        .into_iter()
+        .map(|(name, count)| models::MemoTagSummary { name, count })
+        .collect();
+
+    list.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
+    Ok(list)
+}
+
+#[tauri::command]
+fn create_memo(
+    state: State<'_, DbState>,
+    payload: models::NewMemoPayload,
+) -> Result<models::Memo, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let title = payload.title.trim().to_string();
+    let content = payload.content;
+    let folder = payload.folder.unwrap_or_else(|| "默认备忘".to_string());
+    let note_type = payload.note_type.unwrap_or_else(|| "markdown".to_string());
+    let color = payload.color.unwrap_or_else(|| "default".to_string());
+    let tags = payload.tags;
+    let is_pinned = payload.is_pinned.unwrap_or(false);
+    let is_favorite = payload.is_favorite.unwrap_or(false);
+
+    let (todo_total, todo_completed) = parse_todo_counts(&content);
+
+    conn.execute(
+        "INSERT INTO memos (title, content, folder, note_type, color, tags, is_pinned, is_favorite, is_archived, todo_total, todo_completed) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?10)",
+        params![title, content, folder, note_type, color, tags, is_pinned, is_favorite, todo_total, todo_completed],
+    ).map_err(|e| e.to_string())?;
+
+    let last_id = conn.last_insert_rowid();
+
+    let memo = conn.query_row(
+        "SELECT id, title, content, folder, note_type, color, tags, is_pinned, is_favorite, is_archived, todo_total, todo_completed, created_at, updated_at FROM memos WHERE id = ?1",
+        params![last_id],
+        |row| Ok(models::Memo {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            content: row.get(2)?,
+            folder: row.get(3)?,
+            note_type: row.get(4)?,
+            color: row.get(5)?,
+            tags: row.get(6)?,
+            is_pinned: row.get(7)?,
+            is_favorite: row.get(8)?,
+            is_archived: row.get(9)?,
+            todo_total: row.get(10)?,
+            todo_completed: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
+        })
+    ).map_err(|e| e.to_string())?;
+
+    Ok(memo)
+}
+
+#[tauri::command]
+fn update_memo(
+    state: State<'_, DbState>,
+    id: i64,
+    payload: models::UpdateMemoPayload,
+) -> Result<models::Memo, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut current = conn.query_row(
+        "SELECT id, title, content, folder, note_type, color, tags, is_pinned, is_favorite, is_archived, todo_total, todo_completed, created_at, updated_at FROM memos WHERE id = ?1",
+        params![id],
+        |row| Ok(models::Memo {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            content: row.get(2)?,
+            folder: row.get(3)?,
+            note_type: row.get(4)?,
+            color: row.get(5)?,
+            tags: row.get(6)?,
+            is_pinned: row.get(7)?,
+            is_favorite: row.get(8)?,
+            is_archived: row.get(9)?,
+            todo_total: row.get(10)?,
+            todo_completed: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
+        })
+    ).map_err(|e| format!("未找到该备忘: {}", e))?;
+
+    if let Some(title) = payload.title {
+        current.title = title.trim().to_string();
+    }
+    if let Some(content) = payload.content {
+        current.content = content;
+        let (tot, comp) = parse_todo_counts(&current.content);
+        current.todo_total = tot;
+        current.todo_completed = comp;
+    }
+    if let Some(folder) = payload.folder {
+        current.folder = folder;
+    }
+    if let Some(note_type) = payload.note_type {
+        current.note_type = note_type;
+    }
+    if let Some(color) = payload.color {
+        current.color = color;
+    }
+    if let Some(tags) = payload.tags {
+        current.tags = Some(tags);
+    }
+    if let Some(is_pinned) = payload.is_pinned {
+        current.is_pinned = is_pinned;
+    }
+    if let Some(is_favorite) = payload.is_favorite {
+        current.is_favorite = is_favorite;
+    }
+    if let Some(is_archived) = payload.is_archived {
+        current.is_archived = is_archived;
+    }
+
+    conn.execute(
+        "UPDATE memos SET title = ?1, content = ?2, folder = ?3, note_type = ?4, color = ?5, tags = ?6, is_pinned = ?7, is_favorite = ?8, is_archived = ?9, todo_total = ?10, todo_completed = ?11, updated_at = CURRENT_TIMESTAMP WHERE id = ?12",
+        params![
+            current.title,
+            current.content,
+            current.folder,
+            current.note_type,
+            current.color,
+            current.tags,
+            current.is_pinned,
+            current.is_favorite,
+            current.is_archived,
+            current.todo_total,
+            current.todo_completed,
+            id
+        ],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(current)
+}
+
+#[tauri::command]
+fn delete_memo(state: State<'_, DbState>, id: i64) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute("DELETE FROM memos WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn toggle_memo_pinned(state: State<'_, DbState>, id: i64, is_pinned: bool) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute(
+        "UPDATE memos SET is_pinned = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+        params![is_pinned, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn toggle_memo_favorite(state: State<'_, DbState>, id: i64, is_favorite: bool) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute(
+        "UPDATE memos SET is_favorite = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+        params![is_favorite, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn batch_delete_memos(state: State<'_, DbState>, ids: Vec<i64>) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    for id in ids {
+        let _ = conn.execute("DELETE FROM memos WHERE id = ?1", params![id]);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn export_memos_markdown(state: State<'_, DbState>) -> Result<String, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let mut stmt = conn.prepare(
+        "SELECT title, content, folder, note_type, tags, created_at FROM memos WHERE is_archived = 0 ORDER BY updated_at DESC"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, String>(5)?,
+        ))
+    }).map_err(|e| e.to_string())?;
+
+    let mut out = format!("# Memex 个人备忘录与开发日志归档\n\n导出时间: {}\n\n---\n\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+
+    for r in rows.flatten() {
+        let (title, content, folder, note_type, tags, created_at) = r;
+        out.push_str(&format!("## {}\n", title));
+        out.push_str(&format!("> **分类**: {} | **类型**: {} | **标签**: {} | **时间**: {}\n\n", 
+            folder, 
+            note_type, 
+            tags.unwrap_or_else(|| "无".to_string()),
+            created_at
+        ));
+        out.push_str(&content);
+        out.push_str("\n\n---\n\n");
+    }
+
+    Ok(out)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2006,7 +2363,17 @@ pub fn run() {
             get_category_synthesis,
             get_ai_usage_stats,
             get_ai_usage_logs,
-            clear_ai_usage_logs
+            clear_ai_usage_logs,
+            get_memos,
+            get_memo_folders,
+            get_memo_tags,
+            create_memo,
+            update_memo,
+            delete_memo,
+            toggle_memo_pinned,
+            toggle_memo_favorite,
+            batch_delete_memos,
+            export_memos_markdown
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

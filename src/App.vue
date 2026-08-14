@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open, save } from '@tauri-apps/plugin-dialog'
@@ -14,11 +14,12 @@ import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
+import { useTheme } from './composables/useTheme'
 import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight } from 'lucide-vue-next'
 
 const toast = useToast()
-
 const { t } = useI18n()
+const { initTheme } = useTheme()
 
 const activeView = ref('dashboard')
 const showCommandPalette = ref(false)
@@ -493,6 +494,17 @@ const filteredMemories = computed(() => {
   return list
 })
 
+const displaySkillLimit = ref(60)
+const displayMemoryLimit = ref(60)
+
+watch([searchQuery, selectedTag, activeView, favoriteOnly, sortBy], () => {
+  displaySkillLimit.value = 60
+  displayMemoryLimit.value = 60
+})
+
+const displayedSkills = computed(() => filteredSkills.value.slice(0, displaySkillLimit.value))
+const displayedMemories = computed(() => filteredMemories.value.slice(0, displayMemoryLimit.value))
+
 const groupedMemories = computed(() => {
   const groups: Record<string, any[]> = {}
   
@@ -639,6 +651,7 @@ const aiSkillContext = computed(() => {
 })
 
 onMounted(async () => {
+  initTheme()
   await fetchData()
   await fetchConfigs()
   
@@ -666,7 +679,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen w-full text-white/90 selection:bg-indigo-500/30">
+  <div class="flex h-screen w-full text-slate-800 dark:text-white/90 selection:bg-indigo-500/30">
     <!-- Sidebar -->
     <Sidebar 
       :unique-sources="uniqueSources" 
@@ -679,11 +692,11 @@ onUnmounted(() => {
     />
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col min-w-0 bg-white/5 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] border-l border-white/10 relative">
+    <main class="flex-1 flex flex-col min-w-0 bg-white/70 dark:bg-white/5 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.05)] dark:shadow-[-10px_0_30px_rgba(0,0,0,0.5)] border-l border-slate-200/80 dark:border-white/10 relative transition-colors duration-200">
       
       <!-- Topbar / Breadcrumb -->
-      <header class="h-16 shrink-0 flex items-center justify-between px-8 bg-black/10 border-b border-white/5 backdrop-blur-xl">
-        <h2 class="text-xl font-medium tracking-wide text-white/90 drop-shadow-md shrink-0 mr-8">
+      <header class="h-16 shrink-0 flex items-center justify-between px-8 bg-white/80 dark:bg-black/10 border-b border-slate-200/80 dark:border-white/5 backdrop-blur-xl transition-colors duration-200">
+        <h2 class="text-xl font-medium tracking-wide text-slate-800 dark:text-white/90 drop-shadow-sm shrink-0 mr-8">
           {{ viewTitle }}
         </h2>
 
@@ -693,33 +706,33 @@ onUnmounted(() => {
           class="flex-1 max-w-xl relative hidden md:block cursor-pointer group" 
           v-if="activeView.includes('skills') || activeView.includes('memories') || activeView === 'dashboard'"
         >
-          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/40 group-hover:text-indigo-400 transition-colors">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-white/40 group-hover:text-indigo-500 transition-colors">
             <Search :size="16" />
           </div>
           <input 
             v-model="searchQuery" 
             type="text" 
             :placeholder="t('search.placeholder') + ' (⌘K 命令面板)'"
-            class="w-full bg-white/5 group-hover:bg-white/[0.08] border border-white/10 group-hover:border-indigo-500/40 rounded-full py-1.5 pl-10 pr-12 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all shadow-inner"
+            class="w-full bg-slate-100/90 dark:bg-white/5 group-hover:bg-slate-200/70 dark:group-hover:bg-white/[0.08] border border-slate-300/70 dark:border-white/10 group-hover:border-indigo-500/40 rounded-full py-1.5 pl-10 pr-12 text-sm text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all shadow-inner"
           />
           <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <span class="text-[10px] font-mono text-white/30 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 group-hover:text-white/60">⌘K</span>
+            <span class="text-[10px] font-mono text-slate-400 dark:text-white/30 px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 group-hover:text-slate-700 dark:group-hover:text-white/60">⌘K</span>
           </div>
         </div>
         
         <div class="flex items-center gap-4 ml-8 shrink-0">
-          <div class="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10" v-if="activeView.includes('skills') || activeView.includes('memories')">
-            <button @click="viewMode = 'grid'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'grid' ? 'bg-white/10 text-white shadow' : 'text-white/40 hover:text-white/70'" title="网格视图">
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10" v-if="activeView.includes('skills') || activeView.includes('memories')">
+            <button @click="viewMode = 'grid'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'grid' ? 'bg-white dark:bg-white/10 text-slate-800 dark:text-white shadow-sm' : 'text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/70'" title="网格视图">
               <LayoutGrid :size="16" />
             </button>
-            <button @click="viewMode = 'list'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'list' ? 'bg-white/10 text-white shadow' : 'text-white/40 hover:text-white/70'" title="列表视图">
+            <button @click="viewMode = 'list'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'list' ? 'bg-white dark:bg-white/10 text-slate-800 dark:text-white shadow-sm' : 'text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/70'" title="列表视图">
               <List :size="16" />
             </button>
           </div>
           <button 
             v-if="activeView.includes('skills') || activeView.includes('memories')"
             @click="openNewAsset(activeView.includes('skills') ? 'skill' : 'memory')"
-            class="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+            class="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 hover:text-emerald-700 dark:hover:text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2"
             title="新建资产"
           >
             <span class="text-base leading-none">+</span> 新建
@@ -727,15 +740,15 @@ onUnmounted(() => {
           <button 
             v-if="activeView.includes('skills') || activeView.includes('memories') || activeView === 'settings'"
             @click="scanNow" 
-            class="px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] backdrop-blur-md disabled:opacity-50"
+            class="px-5 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 border border-slate-200 dark:border-white/20 text-slate-700 dark:text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm disabled:opacity-50"
             :disabled="isScanning"
           >
-            <svg v-if="isScanning" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <svg v-if="isScanning" class="animate-spin h-4 w-4 text-indigo-500 dark:text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             {{ isScanning ? t('header.syncing') : t('header.sync') }}
           </button>
           <button
             @click="openAiChat()"
-            class="p-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-indigo-300 hover:text-white rounded-lg transition-all duration-300 shadow-[0_0_15px_rgba(99,102,241,0.1)] hover:shadow-[0_0_20px_rgba(99,102,241,0.2)]"
+            class="p-2 bg-gradient-to-r from-indigo-500/15 to-purple-500/15 hover:from-indigo-500/25 hover:to-purple-500/25 border border-indigo-500/30 text-indigo-600 dark:text-indigo-300 rounded-lg transition-colors"
             title="AI 助手"
           >
             <Sparkles :size="18" />
@@ -749,35 +762,35 @@ onUnmounted(() => {
         <!-- Scanning Progress Overlay -->
         <div v-if="isScanning" class="absolute inset-x-8 top-8 z-20 bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 rounded-xl p-4 shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-indigo-300 flex items-center gap-2">
+            <span class="text-sm font-medium text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
               <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               Neural Scan in Progress
             </span>
-            <span class="text-xs font-mono text-indigo-300/70">Found: {{ scanProgressCount }}</span>
+            <span class="text-xs font-mono text-indigo-600 dark:text-indigo-300/70">Found: {{ scanProgressCount }}</span>
           </div>
           <!-- Indeterminate Progress Bar -->
-          <div class="w-full bg-black/20 rounded-full h-1.5 mb-2 overflow-hidden relative">
-            <div class="absolute top-0 left-0 h-full bg-indigo-500 rounded-full w-1/3 animate-[slide_1.5s_ease-in-out_infinite]"></div>
+          <div class="w-full bg-slate-200 dark:bg-black/20 rounded-full h-1.5 mb-2 overflow-hidden relative">
+            <div class="absolute top-0 left-0 h-full bg-indigo-500 rounded-full w-1/3 animate-slide-progress"></div>
           </div>
-          <div class="text-[10px] text-white/40 font-mono truncate w-full" :title="scanProgressMessage">{{ scanProgressMessage }}</div>
+          <div class="text-[10px] text-slate-500 dark:text-white/40 font-mono truncate w-full" :title="scanProgressMessage">{{ scanProgressMessage }}</div>
         </div>
 
         <!-- Filter / Sort Bar -->
-        <div v-if="activeView.includes('skills') || activeView.includes('memories')" class="flex items-center gap-3 mb-6 flex-wrap animate-in fade-in duration-300">
+        <div v-if="activeView.includes('skills') || activeView.includes('memories')" class="flex items-center gap-3 mb-6 flex-wrap">
           <button 
             @click="favoriteOnly = !favoriteOnly"
             class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
-            :class="favoriteOnly ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'"
+            :class="favoriteOnly ? 'bg-amber-500/15 text-amber-600 dark:text-yellow-300 border-amber-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/50 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white/80'"
           >
             <Star :size="12" :class="{ 'fill-current': favoriteOnly }" /> 只看收藏
           </button>
-          <div class="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
             <button 
               v-for="opt in sortOptions" 
               :key="opt.value"
               @click="sortBy = opt.value"
               class="px-3 py-1 rounded-md text-xs transition-colors"
-              :class="sortBy === opt.value ? 'bg-indigo-500/25 text-indigo-200' : 'text-white/50 hover:text-white/80'"
+              :class="sortBy === opt.value ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-200 font-medium' : 'text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80'"
             >
               {{ opt.label }}
             </button>
@@ -787,7 +800,7 @@ onUnmounted(() => {
           <button
             @click="toggleBatchMode"
             class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
-            :class="isBatchMode ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)]' : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'"
+            :class="isBatchMode ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white'"
           >
             <CheckSquare :size="13" />
             <span>{{ isBatchMode ? '退出批量' : '批量管理' }}</span>
@@ -797,24 +810,24 @@ onUnmounted(() => {
           <template v-if="isBatchMode">
             <button 
               @click="selectAllCurrent"
-              class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs font-mono transition-colors"
+              class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white text-xs font-mono transition-colors"
             >
               全选
             </button>
             <button 
               @click="deselectAll"
-              class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs font-mono transition-colors"
+              class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white text-xs font-mono transition-colors"
             >
               清空选择
             </button>
           </template>
 
           <!-- Memory Cluster Mode Switch -->
-          <div v-if="activeView.includes('memories')" class="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
+          <div v-if="activeView.includes('memories')" class="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
             <button
               @click="memoryClusterMode = 'flat'"
               class="px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
-              :class="memoryClusterMode === 'flat' ? 'bg-indigo-500/25 text-indigo-200' : 'text-white/50 hover:text-white/80'"
+              :class="memoryClusterMode === 'flat' ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-200 font-medium' : 'text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80'"
             >
               <LayoutGrid :size="12" />
               <span>平铺</span>
@@ -822,7 +835,7 @@ onUnmounted(() => {
             <button
               @click="memoryClusterMode = 'project'"
               class="px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
-              :class="memoryClusterMode === 'project' ? 'bg-indigo-500/25 text-indigo-200' : 'text-white/50 hover:text-white/80'"
+              :class="memoryClusterMode === 'project' ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-200 font-medium' : 'text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80'"
             >
               <FolderTree :size="12" />
               <span>按项目聚类</span>
@@ -830,16 +843,16 @@ onUnmounted(() => {
           </div>
 
           <!-- Active Tag Badge -->
-          <div v-if="selectedTag" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 text-xs font-mono">
+          <div v-if="selectedTag" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-indigo-200 text-xs font-mono">
             <Tag :size="12" />
             <span>{{ selectedTag }}</span>
-            <button @click="selectedTag = null" class="ml-1 hover:text-white hover:bg-white/10 p-0.5 rounded transition-colors">
+            <button @click="selectedTag = null" class="ml-1 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 p-0.5 rounded transition-colors">
               <X :size="12" />
             </button>
           </div>
 
           <div class="flex-1"></div>
-          <span class="text-xs text-white/40 font-mono">{{ currentCount }} 项</span>
+          <span class="text-xs text-slate-400 dark:text-white/40 font-mono">{{ currentCount }} 项</span>
         </div>
 
         <!-- DASHBOARD VIEW -->
@@ -850,10 +863,10 @@ onUnmounted(() => {
         <div v-else-if="activeView.includes('skills')" class="h-full">
           <!-- Skill Grid / List -->
           <div v-if="filteredSkills.length" 
-               class="animate-in fade-in zoom-in-95 duration-500 pb-12"
+               class="pb-12"
                :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-2'">
             <SkillCard 
-              v-for="skill in filteredSkills" 
+              v-for="skill in displayedSkills" 
               :key="skill.id" 
               :skill="skill" 
               :search-query="searchQuery"
@@ -866,14 +879,24 @@ onUnmounted(() => {
               @toggle-select="toggleSelectId"
             />
           </div>
+
+          <!-- Load More / Pagination -->
+          <div v-if="filteredSkills.length > displaySkillLimit" class="pt-2 pb-12 flex justify-center">
+            <button 
+              @click="displaySkillLimit += 60"
+              class="px-5 py-2.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-xs font-medium transition-colors shadow-sm"
+            >
+              加载更多 (已显示 {{ displayedSkills.length }} / {{ filteredSkills.length }} 项)
+            </button>
+          </div>
           
           <!-- Empty State -->
-          <div v-else class="h-full flex flex-col items-center justify-center py-20 opacity-80">
-            <div class="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-inner">
-              <svg class="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+          <div v-if="!filteredSkills.length" class="h-full flex flex-col items-center justify-center py-20 opacity-80">
+            <div class="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center mb-6 shadow-inner">
+              <svg class="w-8 h-8 text-slate-400 dark:text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
             </div>
-            <h3 class="text-xl font-medium tracking-wide">{{ t('hub.empty.title') }}</h3>
-            <p class="text-white/50 mt-2 max-w-sm text-center text-sm">
+            <h3 class="text-xl font-medium tracking-wide text-slate-800 dark:text-white">{{ t('hub.empty.title') }}</h3>
+            <p class="text-slate-500 dark:text-white/50 mt-2 max-w-sm text-center text-sm">
               {{ searchQuery ? '没有找到匹配的技能' : t('hub.empty.desc') }}
             </p>
             <button 
@@ -891,10 +914,10 @@ onUnmounted(() => {
         <div v-else-if="activeView.includes('memories')" class="h-full">
           <!-- Memories Flat View -->
           <div v-if="filteredMemories.length && memoryClusterMode === 'flat'" 
-               class="animate-in fade-in zoom-in-95 duration-500 pb-12"
+               class="pb-12"
                :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-2'">
             <MemoryCard 
-              v-for="memory in filteredMemories" 
+              v-for="memory in displayedMemories" 
               :key="memory.id" 
               :memory="memory" 
               :search-query="searchQuery"
@@ -908,22 +931,32 @@ onUnmounted(() => {
             />
           </div>
 
+          <!-- Memories Flat Load More -->
+          <div v-if="memoryClusterMode === 'flat' && filteredMemories.length > displayMemoryLimit" class="pt-2 pb-12 flex justify-center">
+            <button 
+              @click="displayMemoryLimit += 60"
+              class="px-5 py-2.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-xs font-medium transition-colors shadow-sm"
+            >
+              加载更多 (已显示 {{ displayedMemories.length }} / {{ filteredMemories.length }} 项)
+            </button>
+          </div>
+
           <!-- Memories Project Clustered View -->
-          <div v-else-if="filteredMemories.length && memoryClusterMode === 'project'" class="space-y-6 pb-12 animate-in fade-in zoom-in-95 duration-500">
+          <div v-else-if="filteredMemories.length && memoryClusterMode === 'project'" class="space-y-6 pb-12">
             <div 
               v-for="(groupList, groupKey) in groupedMemories" 
               :key="groupKey"
-              class="bg-black/20 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl shadow-xl transition-all"
+              class="bg-white/80 dark:bg-black/20 border border-slate-200/80 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm transition-all"
             >
               <!-- Group Header (collapsible) -->
               <div 
                 @click="toggleProjectCollapse(groupKey as string)"
-                class="flex items-center justify-between px-6 py-4 bg-white/[0.03] hover:bg-white/[0.06] cursor-pointer border-b border-white/5 transition-colors select-none"
+                class="flex items-center justify-between px-6 py-4 bg-slate-50/60 dark:bg-white/[0.03] hover:bg-slate-100 dark:hover:bg-white/[0.06] cursor-pointer border-b border-slate-200/80 dark:border-white/5 transition-colors select-none"
               >
                 <div class="flex items-center gap-3">
-                  <component :is="collapsedProjects[groupKey as string] ? ChevronRight : ChevronDown" :size="16" class="text-white/40" />
-                  <span class="font-medium text-white/90 text-[15px]">{{ groupKey }}</span>
-                  <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-mono font-medium">
+                  <component :is="collapsedProjects[groupKey as string] ? ChevronRight : ChevronDown" :size="16" class="text-slate-400 dark:text-white/40" />
+                  <span class="font-medium text-slate-800 dark:text-white/90 text-[15px]">{{ groupKey }}</span>
+                  <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-xs font-mono font-medium">
                     {{ groupList.length }} 项
                   </span>
                 </div>
@@ -963,15 +996,15 @@ onUnmounted(() => {
         </div>
 
         <!-- SETTINGS VIEW -->
-        <div v-else-if="activeView === 'settings'" class="max-w-2xl mx-auto mt-4 animate-in fade-in zoom-in-95 duration-500">
-          <div class="bg-black/20 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-2xl">
-            <h3 class="text-xl font-medium mb-2 text-white/90">{{ t('settings.title') }}</h3>
-            <p class="text-sm text-white/50 mb-8 leading-relaxed">{{ t('settings.desc') }}</p>
+        <div v-else-if="activeView === 'settings'" class="max-w-2xl mx-auto mt-4">
+          <div class="bg-white/80 dark:bg-black/20 p-8 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xl">
+            <h3 class="text-xl font-medium mb-2 text-slate-800 dark:text-white/90">{{ t('settings.title') }}</h3>
+            <p class="text-sm text-slate-500 dark:text-white/50 mb-8 leading-relaxed">{{ t('settings.desc') }}</p>
             
             <div class="space-y-4">
               <div class="flex items-center justify-between mb-2">
-                <label class="block text-sm font-medium text-white/70 tracking-wide uppercase text-xs">扫描目标管理器 (Scan Targets)</label>
-                <button @click="addTarget" class="px-3 py-1.5 bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 rounded-lg text-xs font-medium border border-indigo-500/30 transition-colors flex items-center gap-1.5">
+                <label class="block text-sm font-medium text-slate-600 dark:text-white/70 tracking-wide uppercase text-xs">扫描目标管理器 (Scan Targets)</label>
+                <button @click="addTarget" class="px-3 py-1.5 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/25 rounded-lg text-xs font-medium border border-indigo-500/30 transition-colors flex items-center gap-1.5">
                   <Folder :size="14" />
                   添加路径
                 </button>
@@ -979,81 +1012,81 @@ onUnmounted(() => {
               
               <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
                 <div v-for="target in scanTargets" :key="target.id" 
-                     class="flex items-center justify-between px-4 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors group">
+                     class="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors group">
                   <div class="flex flex-col min-w-0 flex-1 mr-4">
                     <div class="flex items-center gap-2 mb-1">
-                      <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded border border-white/20 bg-white/10" 
-                            :class="target.override_tool === 'zcode' ? 'text-indigo-400' : target.override_tool === 'trae' ? 'text-blue-400' : 'text-emerald-400'">
+                      <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded border border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/10" 
+                            :class="target.override_tool === 'zcode' ? 'text-indigo-600 dark:text-indigo-400' : target.override_tool === 'trae' ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'">
                         {{ target.override_tool || 'Auto' }}
                       </span>
-                      <span class="text-[10px] text-white/40">Priority: {{ target.priority }}</span>
+                      <span class="text-[10px] text-slate-400 dark:text-white/40">Priority: {{ target.priority }}</span>
                     </div>
-                    <span class="text-xs text-white/70 font-mono truncate" :title="target.path">{{ target.path }}</span>
+                    <span class="text-xs text-slate-600 dark:text-white/70 font-mono truncate" :title="target.path">{{ target.path }}</span>
                   </div>
                   
                   <div class="flex items-center gap-2 shrink-0">
                     <button @click="toggleTarget(target.id, !target.is_enabled)" 
                             class="px-3 py-1 rounded text-xs font-medium border transition-colors"
-                            :class="target.is_enabled ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-white/20 text-white/40 bg-white/5 hover:bg-white/10'">
+                            :class="target.is_enabled ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-slate-300 dark:border-white/20 text-slate-400 dark:text-white/40 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10'">
                       {{ target.is_enabled ? '已启用' : '已停用' }}
                     </button>
-                    <button @click="removeTarget(target.id)" class="p-1.5 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                    <button @click="removeTarget(target.id)" class="p-1.5 text-slate-400 dark:text-white/30 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
                   </div>
                 </div>
                 
-                <div v-if="scanTargets.length === 0" class="text-center py-6 text-white/40 text-sm border border-dashed border-white/10 rounded-xl">
+                <div v-if="scanTargets.length === 0" class="text-center py-6 text-slate-400 dark:text-white/40 text-sm border border-dashed border-slate-300 dark:border-white/10 rounded-xl">
                   当前无扫描目标，将自动侦测默认路径。
                 </div>
               </div>
             </div>
 
             <!-- AI Configuration Section -->
-            <div class="pt-8 mt-8 border-t border-white/10">
+            <div class="pt-8 mt-8 border-t border-slate-200/80 dark:border-white/10">
               <div class="flex items-center gap-3 mb-4">
                 <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center">
-                  <Sparkles :size="16" class="text-indigo-400" />
+                  <Sparkles :size="16" class="text-indigo-500 dark:text-indigo-400" />
                 </div>
                 <div>
-                  <h4 class="text-sm font-semibold text-white/90">AI 助手配置</h4>
-                  <p class="text-[11px] text-white/40">DeepSeek API 配置，安全存储在本地数据库中</p>
+                  <h4 class="text-sm font-semibold text-slate-800 dark:text-white/90">AI 助手配置</h4>
+                  <p class="text-[11px] text-slate-400 dark:text-white/40">DeepSeek API 配置，安全存储在本地数据库中</p>
                 </div>
               </div>
               <div class="space-y-4">
                 <div class="space-y-1.5">
-                  <label class="block text-xs font-medium text-white/60 uppercase tracking-wider">DeepSeek API Key</label>
-                  <input v-model="aiApiKey" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" class="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-all text-white placeholder-white/20 shadow-inner font-mono" />
+                  <label class="block text-xs font-medium text-slate-600 dark:text-white/60 uppercase tracking-wider">DeepSeek API Key</label>
+                  <input v-model="aiApiKey" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" class="w-full px-5 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white dark:focus:bg-white/10 transition-all text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/20 shadow-inner font-mono" />
                 </div>
                 <div class="space-y-1.5">
-                  <label class="block text-xs font-medium text-white/60 uppercase tracking-wider">模型名称</label>
-                  <input v-model="aiModel" type="text" placeholder="deepseek-v4-flash" class="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-all text-white placeholder-white/20 shadow-inner font-mono" />
+                  <label class="block text-xs font-medium text-slate-600 dark:text-white/60 uppercase tracking-wider">模型名称</label>
+                  <input v-model="aiModel" type="text" placeholder="deepseek-v4-flash" class="w-full px-5 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white dark:focus:bg-white/10 transition-all text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/20 shadow-inner font-mono" />
                 </div>
               </div>
             </div>
             
             <!-- Backup / Restore Section -->
-            <div class="pt-8 mt-8 border-t border-white/10">
+            <div class="pt-8 mt-8 border-t border-slate-200/80 dark:border-white/10">
               <div class="flex items-center gap-3 mb-2">
                 <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
-                  <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                  <svg class="w-4 h-4 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                 </div>
                 <div>
-                  <h4 class="text-sm font-semibold text-white/90">数据备份与恢复</h4>
-                  <p class="text-[11px] text-white/40">将全部技能与记忆导出为 JSON 归档，或从归档恢复</p>
+                  <h4 class="text-sm font-semibold text-slate-800 dark:text-white/90">数据备份与恢复</h4>
+                  <p class="text-[11px] text-slate-400 dark:text-white/40">将全部技能与记忆导出为 JSON 归档，或从归档恢复</p>
                 </div>
               </div>
               <div class="flex items-center gap-3 mt-4">
                 <button
                   @click="exportAssets"
-                  class="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                  class="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 hover:text-emerald-700 dark:hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                   导出备份
                 </button>
                 <button
                   @click="importAssets"
-                  class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                  class="px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:text-slate-900 dark:hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                   导入恢复
@@ -1061,8 +1094,8 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="flex items-center justify-end pt-8 mt-8 border-t border-white/10">
-              <button @click="saveAllConfigs" class="px-6 py-2.5 bg-white text-black font-semibold rounded-xl text-sm hover:bg-white/90 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+            <div class="flex items-center justify-end pt-8 mt-8 border-t border-slate-200/80 dark:border-white/10">
+              <button @click="saveAllConfigs" class="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-black font-semibold rounded-xl text-sm hover:opacity-90 transition-all shadow-md">
                 {{ t('settings.save') }}
               </button>
             </div>
@@ -1073,17 +1106,17 @@ onUnmounted(() => {
 
       <!-- Welcome / Scan Prompt Overlay -->
       <div v-if="showWelcomePrompt" class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-        <div class="bg-black/40 backdrop-blur-xl border border-white/20 p-8 rounded-2xl shadow-2xl max-w-md w-full animate-in fade-in zoom-in-95 duration-300">
-          <div class="w-12 h-12 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mb-6 border border-indigo-500/30">
+        <div class="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/20 p-8 rounded-2xl shadow-2xl max-w-md w-full animate-in fade-in zoom-in-95 duration-300">
+          <div class="w-12 h-12 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-6 border border-indigo-500/30">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
           </div>
-          <h3 class="text-2xl font-semibold mb-3">{{ t('prompt.title') }}</h3>
-          <p class="text-white/70 mb-8 leading-relaxed">{{ t('prompt.desc') }}</p>
+          <h3 class="text-2xl font-semibold mb-3 text-slate-800 dark:text-white">{{ t('prompt.title') }}</h3>
+          <p class="text-slate-600 dark:text-white/70 mb-8 leading-relaxed">{{ t('prompt.desc') }}</p>
           <div class="flex justify-end gap-3">
-            <button @click="showWelcomePrompt = false" class="px-5 py-2 rounded-lg text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors border border-transparent">
+            <button @click="showWelcomePrompt = false" class="px-5 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors border border-transparent">
               {{ t('prompt.cancel') }}
             </button>
-            <button @click="scanNow" class="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all flex items-center gap-2">
+            <button @click="scanNow" class="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-all flex items-center gap-2">
               <svg v-if="isScanning" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               {{ t('prompt.confirm') }}
             </button>
@@ -1100,39 +1133,39 @@ onUnmounted(() => {
       >
         <div 
           v-if="isBatchMode && selectedIds.length > 0"
-          class="absolute bottom-6 inset-x-8 z-30 flex items-center justify-between px-6 py-3.5 bg-[#161922]/95 backdrop-blur-2xl border border-indigo-500/40 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)]"
+          class="absolute bottom-6 inset-x-8 z-30 flex items-center justify-between px-6 py-3.5 bg-white/95 dark:bg-[#161922]/95 backdrop-blur-2xl border border-slate-200 dark:border-indigo-500/40 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.8)]"
         >
           <div class="flex items-center gap-3">
-            <span class="px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-mono font-medium">
+            <span class="px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-mono font-medium">
               已选 {{ selectedIds.length }} 项
             </span>
-            <span class="text-xs text-white/50">快捷批量执行：</span>
+            <span class="text-xs text-slate-500 dark:text-white/50">快捷批量执行：</span>
           </div>
 
           <div class="flex items-center gap-2">
             <button
               @click="batchToggleFavorite(true)"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/30 text-yellow-300 text-xs font-medium transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-600 dark:text-yellow-300 text-xs font-medium transition-colors"
             >
               <Star :size="13" class="fill-current" />
               <span>设为收藏</span>
             </button>
             <button
               @click="batchToggleFavorite(false)"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:text-slate-900 dark:hover:text-white text-xs transition-colors"
             >
               <span>取消收藏</span>
             </button>
             <button
               @click="batchAddTag"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-medium transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-600 dark:text-indigo-300 text-xs font-medium transition-colors"
             >
               <Tag :size="13" />
               <span>追加标签</span>
             </button>
             <button
               @click="batchDelete"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-medium transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-600 dark:text-red-300 text-xs font-medium transition-colors"
             >
               <Trash2 :size="13" />
               <span>批量删除</span>

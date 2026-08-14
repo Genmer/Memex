@@ -91,7 +91,12 @@ Memex 的诞生正是为了解决这些“记忆孤岛”。
 
 ## 📝 更新日志 (Changelog)
 
-### v1.1.0 (Latest)
+### v1.2.0 (Latest)
+- **[Theme]** 全新支持**浅色模式 (Light ☀️)、深色模式 (Dark 🌙) 与跟随系统 (Auto 💻)** 三档主题一键切换，完美适配 macOS 浅色与深邃 Midnight 空间美学。
+- **[Performance]** 突破性性能重构：引入 `content-visibility: auto` 与硬件加速，优化超大列表分批流式挂载（消除百项 DOM 瞬间初始化冻结），移除重复卡片的高开销 GPU backdrop-filter，标签切换与滚动帧率稳定在 60 FPS！
+- **[Markdown]** 集成全新的 GFM Markdown 渲染引擎，支持深浅双主题代码语法高亮与一键复制代码块。
+
+### v1.1.0
 - **[Feature]** 新增 **⌘K 全局命令面板 (Command Palette / Omnibar)**，支持模糊搜索、动作直达与纯键盘流畅操作。
 - **[Feature]** 列表视图全新升级为**单行紧凑数据表格流 (Single-Row Data Table)**，信息密度提升 300%，彻底消除文字重叠。
 - **[Feature]** 记忆库支持**按项目聚类视图 (Project Clustered View)**，自动解析 Trae / ZCode 工程哈希目录为真实项目名。

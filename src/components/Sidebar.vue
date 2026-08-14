@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Folder, Database, Code, Settings, ChevronRight, Zap, Globe, Package, Pin, Tag, X } from 'lucide-vue-next'
+import { Folder, Database, Code, Settings, ChevronRight, Zap, Globe, Package, Pin, Tag, X, Sun, Moon, Monitor } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
+import { useTheme } from '../composables/useTheme'
 
 const props = defineProps<{
   uniqueSources: string[],
@@ -12,6 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['select', 'toggle-pin', 'select-tag'])
 const { t, toggleLanguage } = useI18n()
+const { themeMode, setThemeMode } = useTheme()
 
 const menu = computed(() => {
   const base = [
@@ -41,7 +43,7 @@ const menu = computed(() => {
         id: source,
         name: source.charAt(0).toUpperCase() + source.slice(1),
         icon: icon,
-        isGroup: false, // Not a core group, allows pinning
+        isGroup: false,
         isPinned: pinnedList.includes(source),
         children: [
           { id: `${source}-skills`, name: t('sidebar.skills') },
@@ -50,7 +52,6 @@ const menu = computed(() => {
       }
     })
     
-  // Sort sources: Pinned first, then alphabetical
   sources.sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
@@ -80,7 +81,6 @@ const expanded = ref<Record<string, boolean>>({
   'tags': true
 })
 
-// Auto-expand new sources
 watch(() => props.uniqueSources, (newSources) => {
   if (newSources) {
     newSources.forEach(s => {
@@ -112,18 +112,15 @@ const handleTagClick = (tagName: string) => {
 </script>
 
 <template>
-  <div class="w-64 h-screen flex flex-col bg-white/5 backdrop-blur-3xl border-r border-white/10 shrink-0">
+  <div class="w-64 h-screen flex flex-col bg-slate-50/90 dark:bg-white/5 border-r border-slate-200/80 dark:border-white/10 shrink-0 select-none transition-colors duration-200">
     <!-- Header -->
-    <div class="h-16 flex items-center justify-between px-6 border-b border-white/5 shrink-0">
+    <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200/80 dark:border-white/5 shrink-0">
       <div class="flex items-center">
         <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg text-sm mr-3">
           M
         </div>
-        <span class="font-semibold text-lg tracking-wide text-white/90">{{ t('app.title') }}</span>
+        <span class="font-semibold text-lg tracking-wide text-slate-800 dark:text-white/90">{{ t('app.title') }}</span>
       </div>
-      <button @click="toggleLanguage" class="text-white/40 hover:text-white/80 transition-colors" title="Toggle Language">
-        <Globe :size="16" />
-      </button>
     </div>
 
     <!-- Scrollable Menu -->
@@ -131,7 +128,7 @@ const handleTagClick = (tagName: string) => {
       <div v-for="group in menu" :key="group.id" class="space-y-1">
         <div 
           @click="toggleGroup(group.id)"
-          class="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-white/50 hover:text-white/80 cursor-pointer transition-colors uppercase tracking-wider group"
+          class="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80 cursor-pointer transition-colors uppercase tracking-wider group"
         >
           <div class="flex items-center gap-2">
             <component :is="group.icon" :size="14" />
@@ -142,14 +139,14 @@ const handleTagClick = (tagName: string) => {
               v-if="!group.isGroup" 
               @click.stop="emit('toggle-pin', group.id)" 
               class="opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 p-0.5 rounded"
-              :class="{ 'opacity-100 text-indigo-400': group.isPinned, 'hover:bg-white/10': !group.isPinned }"
+              :class="{ 'opacity-100 text-indigo-500 dark:text-indigo-400': group.isPinned, 'hover:bg-slate-200/60 dark:hover:bg-white/10': !group.isPinned }"
               :title="group.isPinned ? 'Unpin' : 'Pin to top'"
             >
               <Pin :size="12" :class="{ 'fill-current': group.isPinned }" />
             </button>
             <ChevronRight 
               :size="14" 
-              class="transition-transform duration-200"
+              class="transition-transform duration-200 text-slate-400 dark:text-white/40"
               :class="{ 'rotate-90': expanded[group.id] }"
             />
           </div>
@@ -160,11 +157,11 @@ const handleTagClick = (tagName: string) => {
             v-for="child in group.children" 
             :key="child.id"
             @click="selectItem(child.id)"
-            class="px-8 py-2 rounded-lg text-sm cursor-pointer transition-all duration-200"
+            class="px-8 py-2 rounded-lg text-sm cursor-pointer transition-all duration-150"
             :class="[
               activeItem === child.id 
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium shadow-[0_0_15px_rgba(99,102,241,0.1)]' 
-                : 'text-white/60 hover:text-white/90 hover:bg-white/5 border border-transparent'
+                ? 'bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 font-medium shadow-sm' 
+                : 'text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white/90 hover:bg-slate-200/50 dark:hover:bg-white/5 border border-transparent'
             ]"
           >
             {{ child.name }}
@@ -173,10 +170,10 @@ const handleTagClick = (tagName: string) => {
       </div>
 
       <!-- Tag Cloud Section -->
-      <div v-if="allTags && allTags.length > 0" class="pt-4 border-t border-white/5 space-y-2">
+      <div v-if="allTags && allTags.length > 0" class="pt-4 border-t border-slate-200/80 dark:border-white/5 space-y-2">
         <div 
           @click="toggleGroup('tags')"
-          class="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-white/50 hover:text-white/80 cursor-pointer transition-colors uppercase tracking-wider"
+          class="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80 cursor-pointer transition-colors uppercase tracking-wider"
         >
           <div class="flex items-center gap-2">
             <Tag :size="14" />
@@ -186,14 +183,14 @@ const handleTagClick = (tagName: string) => {
             <button 
               v-if="selectedTag" 
               @click.stop="emit('select-tag', null)"
-              class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] hover:bg-indigo-500/30 flex items-center gap-0.5"
+              class="px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-[10px] hover:bg-indigo-500/25 flex items-center gap-0.5"
               title="Clear Tag Filter"
             >
               清除 <X :size="10" />
             </button>
             <ChevronRight 
               :size="14" 
-              class="transition-transform duration-200"
+              class="transition-transform duration-200 text-slate-400 dark:text-white/40"
               :class="{ 'rotate-90': expanded['tags'] }"
             />
           </div>
@@ -207,8 +204,8 @@ const handleTagClick = (tagName: string) => {
             class="px-2 py-1 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 border"
             :class="[
               selectedTag === tagItem.name
-                ? 'bg-indigo-500/30 border-indigo-400 text-indigo-200 shadow-sm shadow-indigo-500/30'
-                : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90 border-white/5'
+                ? 'bg-indigo-500/20 border-indigo-400 text-indigo-700 dark:text-indigo-200 shadow-sm'
+                : 'bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white/90 border-slate-200/80 dark:border-white/5'
             ]"
           >
             <span>{{ tagItem.name }}</span>
@@ -216,6 +213,41 @@ const handleTagClick = (tagName: string) => {
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- Footer Theme Switcher & Language -->
+    <div class="p-3 border-t border-slate-200/80 dark:border-white/5 shrink-0 bg-slate-100/50 dark:bg-black/10 flex items-center justify-between gap-2">
+      <!-- Theme 3-way toggle -->
+      <div class="flex items-center bg-slate-200/60 dark:bg-white/5 rounded-lg p-0.5 border border-slate-300/40 dark:border-white/5">
+        <button 
+          @click="setThemeMode('light')"
+          class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+          :class="themeMode === 'light' ? 'bg-white text-indigo-600 shadow-sm font-medium' : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white/80'"
+          title="浅色模式 (Light)"
+        >
+          <Sun :size="13" />
+        </button>
+        <button 
+          @click="setThemeMode('dark')"
+          class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+          :class="themeMode === 'dark' ? 'bg-indigo-600 text-white shadow-sm font-medium' : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white/80'"
+          title="深色模式 (Dark)"
+        >
+          <Moon :size="13" />
+        </button>
+        <button 
+          @click="setThemeMode('auto')"
+          class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+          :class="themeMode === 'auto' ? 'bg-white dark:bg-white/20 text-slate-800 dark:text-white shadow-sm font-medium' : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white/80'"
+          title="跟随系统 (Auto)"
+        >
+          <Monitor :size="13" />
+        </button>
+      </div>
+
+      <button @click="toggleLanguage" class="p-1.5 text-slate-400 dark:text-white/40 hover:text-slate-800 dark:hover:text-white/80 hover:bg-slate-200/60 dark:hover:bg-white/5 rounded-lg transition-colors" title="切换语言 / Toggle Language">
+        <Globe :size="15" />
+      </button>
     </div>
   </div>
 </template>

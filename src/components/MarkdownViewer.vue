@@ -29,9 +29,9 @@ const renderedHtml = computed(() => {
 const copyRawContent = async () => {
   try {
     await navigator.clipboard.writeText(props.content)
-    toast.show('已复制全部内容', 'success')
+    toast.success('已复制全部内容')
   } catch (err) {
-    toast.show('复制失败: ' + err, 'error')
+    toast.error('复制失败: ' + err)
   }
 }
 
@@ -46,12 +46,12 @@ const handleContainerClick = async (event: MouseEvent) => {
       try {
         await navigator.clipboard.writeText(codeText)
         const origHtml = copyBtn.innerHTML
-        copyBtn.innerHTML = '<span class="text-emerald-400 text-xs flex items-center gap-1">已复制 ✓</span>'
+        copyBtn.innerHTML = '<span class="text-emerald-500 dark:text-emerald-400 text-xs flex items-center gap-1">已复制 ✓</span>'
         setTimeout(() => {
           copyBtn.innerHTML = origHtml
         }, 2000)
       } catch (err) {
-        toast.show('复制失败: ' + err, 'error')
+        toast.error('复制失败: ' + err)
       }
     }
   }
@@ -61,12 +61,12 @@ const handleContainerClick = async (event: MouseEvent) => {
 <template>
   <div class="flex flex-col">
     <!-- View Switcher & Action bar -->
-    <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/5">
-      <div class="flex items-center gap-1 bg-white/5 rounded-lg p-0.5 border border-white/10">
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/80 dark:border-white/5">
+      <div class="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-lg p-0.5 border border-slate-200 dark:border-white/10">
         <button
           @click="viewType = 'rendered'"
           class="px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1.5"
-          :class="viewType === 'rendered' ? 'bg-indigo-600 text-white shadow' : 'text-white/50 hover:text-white'"
+          :class="viewType === 'rendered' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white'"
         >
           <Eye :size="13" />
           <span>富文本渲染</span>
@@ -74,7 +74,7 @@ const handleContainerClick = async (event: MouseEvent) => {
         <button
           @click="viewType = 'raw'"
           class="px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1.5"
-          :class="viewType === 'raw' ? 'bg-indigo-600 text-white shadow' : 'text-white/50 hover:text-white'"
+          :class="viewType === 'raw' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white'"
         >
           <Code :size="13" />
           <span>原始 Markdown</span>
@@ -83,7 +83,7 @@ const handleContainerClick = async (event: MouseEvent) => {
 
       <button
         @click="copyRawContent"
-        class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-xs font-medium transition-colors flex items-center gap-1.5"
+        class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10 text-xs font-medium transition-colors flex items-center gap-1.5"
         title="复制全部内容"
       >
         <Copy :size="13" />
@@ -94,14 +94,14 @@ const handleContainerClick = async (event: MouseEvent) => {
     <!-- Rendered Markdown View -->
     <div 
       v-if="viewType === 'rendered'"
-      class="markdown-body text-white/90 text-sm leading-relaxed space-y-3 select-text"
+      class="markdown-body text-slate-800 dark:text-white/90 text-sm leading-relaxed space-y-3 select-text"
       v-html="renderedHtml"
       @click="handleContainerClick"
     ></div>
 
     <!-- Raw Plaintext View -->
-    <div v-else class="bg-black/30 rounded-xl p-4 border border-white/5 shadow-inner">
-      <pre class="text-sm font-mono text-white/80 whitespace-pre-wrap leading-relaxed break-words">{{ content }}</pre>
+    <div v-else class="bg-slate-50 dark:bg-black/30 rounded-xl p-4 border border-slate-200/80 dark:border-white/5 shadow-inner">
+      <pre class="text-sm font-mono text-slate-800 dark:text-white/80 whitespace-pre-wrap leading-relaxed break-words">{{ content }}</pre>
     </div>
   </div>
 </template>
@@ -114,29 +114,25 @@ const handleContainerClick = async (event: MouseEvent) => {
 .markdown-body h1 {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #f3f4f6;
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
   padding-bottom: 0.3rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(150, 150, 150, 0.2);
 }
 .markdown-body h2 {
   font-size: 1.15rem;
   font-weight: 600;
-  color: #e5e7eb;
   margin-top: 1rem;
   margin-bottom: 0.4rem;
 }
 .markdown-body h3 {
   font-size: 1rem;
   font-weight: 600;
-  color: #d1d5db;
   margin-top: 0.75rem;
   margin-bottom: 0.3rem;
 }
 .markdown-body p {
   margin-bottom: 0.6rem;
-  color: rgba(255, 255, 255, 0.85);
   line-height: 1.6;
 }
 .markdown-body ul, .markdown-body ol {
@@ -151,11 +147,8 @@ const handleContainerClick = async (event: MouseEvent) => {
 }
 .markdown-body li {
   margin-bottom: 0.25rem;
-  color: rgba(255, 255, 255, 0.8);
 }
 .markdown-body pre {
-  background-color: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.75rem;
   padding: 0.85rem 1rem;
   overflow-x: auto;
@@ -168,20 +161,16 @@ const handleContainerClick = async (event: MouseEvent) => {
 .markdown-body code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.825rem;
-  background-color: rgba(255, 255, 255, 0.08);
   padding: 0.15rem 0.35rem;
   border-radius: 0.35rem;
-  color: #a5b4fc;
 }
 .markdown-body pre code {
   background-color: transparent;
   padding: 0;
-  color: rgba(255, 255, 255, 0.9);
 }
 .markdown-body blockquote {
   border-left: 3px solid #6366f1;
   padding-left: 0.85rem;
-  color: rgba(255, 255, 255, 0.65);
   margin: 0.6rem 0;
   font-style: italic;
 }
@@ -192,26 +181,87 @@ const handleContainerClick = async (event: MouseEvent) => {
   font-size: 0.85rem;
 }
 .markdown-body th, .markdown-body td {
-  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.4rem 0.75rem;
   text-align: left;
 }
 .markdown-body th {
-  background-color: rgba(255, 255, 255, 0.05);
   font-weight: 600;
-  color: #e0e7ff;
 }
 .markdown-body hr {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(150, 150, 150, 0.2);
   margin: 1rem 0;
 }
 .markdown-body a {
-  color: #818cf8;
+  color: #4f46e5;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.markdown-body a:hover {
+html.dark .markdown-body a {
+  color: #818cf8;
+}
+
+/* Light Theme Markdown Colors */
+html.light .markdown-body h1,
+html.light .markdown-body h2,
+html.light .markdown-body h3 {
+  color: #0f172a;
+}
+html.light .markdown-body p,
+html.light .markdown-body li {
+  color: #334155;
+}
+html.light .markdown-body pre {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+html.light .markdown-body code {
+  background-color: #f1f5f9;
+  color: #4338ca;
+  border: 1px solid #e2e8f0;
+}
+html.light .markdown-body pre code {
+  color: #0f172a;
+  border: none;
+}
+html.light .markdown-body blockquote {
+  color: #64748b;
+}
+html.light .markdown-body th,
+html.light .markdown-body td {
+  border: 1px solid #e2e8f0;
+}
+html.light .markdown-body th {
+  background-color: #f1f5f9;
+  color: #1e293b;
+}
+
+/* Dark Theme Markdown Colors */
+html.dark .markdown-body h1 { color: #f3f4f6; }
+html.dark .markdown-body h2 { color: #e5e7eb; }
+html.dark .markdown-body h3 { color: #d1d5db; }
+html.dark .markdown-body p { color: rgba(255, 255, 255, 0.85); }
+html.dark .markdown-body li { color: rgba(255, 255, 255, 0.8); }
+html.dark .markdown-body pre {
+  background-color: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+html.dark .markdown-body code {
+  background-color: rgba(255, 255, 255, 0.08);
   color: #a5b4fc;
+}
+html.dark .markdown-body pre code {
+  color: rgba(255, 255, 255, 0.9);
+}
+html.dark .markdown-body blockquote {
+  color: rgba(255, 255, 255, 0.65);
+}
+html.dark .markdown-body th,
+html.dark .markdown-body td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+html.dark .markdown-body th {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #e0e7ff;
 }
 </style>

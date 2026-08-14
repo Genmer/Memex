@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Folder, Database, Code, Settings, ChevronRight, Zap, Globe, Package, Pin } from 'lucide-vue-next'
+import { Folder, Database, Code, Settings, ChevronRight, Zap, Globe, Package, Pin, Tag, X } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
 
 const props = defineProps<{
   uniqueSources: string[],
-  pinnedSources?: string[]
+  pinnedSources?: string[],
+  allTags?: { name: string, count: number }[],
+  selectedTag?: string | null
 }>()
 
-const emit = defineEmits(['select', 'toggle-pin'])
+const emit = defineEmits(['select', 'toggle-pin', 'select-tag'])
 const { t, toggleLanguage } = useI18n()
 
 const menu = computed(() => {
@@ -74,7 +76,8 @@ const menu = computed(() => {
 const expanded = ref<Record<string, boolean>>({
   'core': true,
   'zcode': true,
-  'claude': true
+  'claude': true,
+  'tags': true
 })
 
 // Auto-expand new sources
@@ -97,6 +100,14 @@ const toggleGroup = (id: string) => {
 const selectItem = (id: string) => {
   activeItem.value = id
   emit('select', id)
+}
+
+const handleTagClick = (tagName: string) => {
+  if (props.selectedTag === tagName) {
+    emit('select-tag', null)
+  } else {
+    emit('select-tag', tagName)
+  }
 }
 </script>
 
@@ -158,6 +169,51 @@ const selectItem = (id: string) => {
           >
             {{ child.name }}
           </div>
+        </div>
+      </div>
+
+      <!-- Tag Cloud Section -->
+      <div v-if="allTags && allTags.length > 0" class="pt-4 border-t border-white/5 space-y-2">
+        <div 
+          @click="toggleGroup('tags')"
+          class="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-white/50 hover:text-white/80 cursor-pointer transition-colors uppercase tracking-wider"
+        >
+          <div class="flex items-center gap-2">
+            <Tag :size="14" />
+            标签检索 (Tags)
+          </div>
+          <div class="flex items-center gap-1">
+            <button 
+              v-if="selectedTag" 
+              @click.stop="emit('select-tag', null)"
+              class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] hover:bg-indigo-500/30 flex items-center gap-0.5"
+              title="Clear Tag Filter"
+            >
+              清除 <X :size="10" />
+            </button>
+            <ChevronRight 
+              :size="14" 
+              class="transition-transform duration-200"
+              :class="{ 'rotate-90': expanded['tags'] }"
+            />
+          </div>
+        </div>
+
+        <div v-show="expanded['tags']" class="flex flex-wrap gap-1.5 px-2 pt-1">
+          <button 
+            v-for="tagItem in allTags.slice(0, 20)" 
+            :key="tagItem.name"
+            @click="handleTagClick(tagItem.name)"
+            class="px-2 py-1 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 border"
+            :class="[
+              selectedTag === tagItem.name
+                ? 'bg-indigo-500/30 border-indigo-400 text-indigo-200 shadow-sm shadow-indigo-500/30'
+                : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90 border-white/5'
+            ]"
+          >
+            <span>{{ tagItem.name }}</span>
+            <span class="text-[10px] opacity-50">{{ tagItem.count }}</span>
+          </button>
         </div>
       </div>
     </div>

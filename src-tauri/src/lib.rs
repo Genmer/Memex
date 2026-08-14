@@ -515,6 +515,90 @@ fn delete_skill(state: State<'_, DbState>, id: i64) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn deploy_skill_to_target(
+    state: State<'_, DbState>,
+    skill_id: i64,
+    target_tool: String,
+) -> Result<String, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let (name, content, tags): (String, String, Option<String>) = conn
+        .query_row(
+            "SELECT name, content, tags FROM skills WHERE id = ?1",
+            params![skill_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| format!("Skill not found: {}", e))?;
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let clean_name = sanitize_filename(&name);
+
+    let (target_file_path, formatted_content) = match target_tool.as_str() {
+        "claude" => {
+            let path = std::path::PathBuf::from(&home)
+                .join(".claude")
+                .join("skills")
+                .join(&clean_name)
+                .join("SKILL.md");
+            let mut text = format!("---\nname: \"{}\"\n", name);
+            if let Some(t) = tags {
+                text.push_str(&format!("tags: \"{}\"\n", t));
+            }
+            text.push_str("---\n\n");
+            text.push_str(&content);
+            (path, text)
+        }
+        "agents" => {
+            let path = std::path::PathBuf::from(&home)
+                .join(".agents")
+                .join("skills")
+                .join(&clean_name)
+                .join("SKILL.md");
+            let mut text = format!("---\nname: \"{}\"\n", name);
+            if let Some(t) = tags {
+                text.push_str(&format!("description: \"{}\"\n", t));
+            }
+            text.push_str("---\n\n");
+            text.push_str(&content);
+            (path, text)
+        }
+        "zcode" => {
+            let path = std::path::PathBuf::from(&home)
+                .join(".gemini")
+                .join("config")
+                .join("plugins")
+                .join(&clean_name)
+                .join("skills")
+                .join(&clean_name)
+                .join("SKILL.md");
+            let mut text = format!("---\nname: \"{}\"\n", name);
+            if let Some(t) = tags {
+                text.push_str(&format!("tags: \"{}\"\n", t));
+            }
+            text.push_str("---\n\n");
+            text.push_str(&content);
+            (path, text)
+        }
+        "cursor" => {
+            let path = std::path::PathBuf::from(&home)
+                .join(format!("{}.cursorrules", clean_name));
+            (path, content)
+        }
+        _ => return Err(format!("Unsupported target tool: {}", target_tool)),
+    };
+
+    if let Some(parent) = target_file_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
+    std::fs::write(&target_file_path, formatted_content)
+        .map_err(|e| format!("Failed to write skill file: {}", e))?;
+
+    Ok(target_file_path.to_string_lossy().to_string())
+}
+
 // ---- Memory CRUD ----
 
 #[tauri::command]
@@ -931,6 +1015,7 @@ pub fn run() {
             create_skill,
             update_skill,
             delete_skill,
+            deploy_skill_to_target,
             create_memory,
             update_memory,
             delete_memory,

@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { X, Copy, FolderOpen, FileEdit, Star, ExternalLink, Pencil, Trash2, Save, BookOpen, Terminal } from 'lucide-vue-next'
+import { 
+  X, Copy, FolderOpen, FileEdit, Star, ExternalLink, Pencil, Trash2, 
+  Save, BookOpen, Terminal, Sparkles, Link as LinkIcon, Sliders, Check,
+  ChevronDown, Rocket
+} from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
 
 const toast = useToast()
@@ -10,24 +14,36 @@ const props = defineProps<{
   skill: any
   type?: 'skill' | 'memory'
   isNew?: boolean
+  allSkills?: any[]
+  allMemories?: any[]
 }>()
 
-const emit = defineEmits(['close', 'favorite-toggled', 'saved', 'deleted'])
+const emit = defineEmits(['close', 'favorite-toggled', 'saved', 'deleted', 'select-asset', 'run-in-ai'])
 
 const isSkill = computed(() => props.type !== 'memory')
 const asset = computed(() => props.skill || {})
+
+const activeTab = ref<'content' | 'composer' | 'related'>('content')
 
 const editing = ref(false)
 const draftName = ref('')
 const draftTags = ref('')
 const draftContent = ref('')
 
+// Composer state
+const composerPrefix = ref('')
+const composerUserTask = ref('')
+const copiedComposer = ref(false)
+
 watch(() => props.skill, () => {
   if (props.skill) {
     draftName.value = props.skill.name || ''
     draftTags.value = props.skill.tags || ''
     draftContent.value = props.skill.content || ''
+    composerPrefix.value = props.skill.prefix_template || (isSkill.value ? '请严格遵守以下 Skill 规范回答：' : '')
+    composerUserTask.value = ''
     editing.value = !!props.isNew
+    activeTab.value = 'content'
   }
 }, { immediate: true })
 
@@ -42,6 +58,91 @@ const sourceColor = computed(() => {
 
 const typeIcon = computed(() => isSkill.value ? Terminal : BookOpen)
 const typeLabel = computed(() => isSkill.value ? '技能' : '记忆')
+
+// Composed prompt preview
+const composedPrompt = computed(() => {
+  const parts: string[] = []
+  if (composerPrefix.value.trim()) {
+    parts.push(composerPrefix.value.trim())
+  }
+  if (asset.value.content) {
+    parts.push(asset.value.content)
+  }
+  if (composerUserTask.value.trim()) {
+    parts.push(`\n## 用户实际任务/需求：\n${composerUserTask.value.trim()}`)
+  }
+  return parts.join('\n\n')
+})
+
+const copyComposedPrompt = async () => {
+  try {
+    await navigator.clipboard.writeText(composedPrompt.value)
+    copiedComposer.value = true
+    setTimeout(() => { copiedComposer.value = false }, 2000)
+    toast.success('组装后提示词已复制')
+  } catch (err) {
+    toast.error('复制失败')
+  }
+}
+
+const runInAiAssistant = () => {
+  emit('run-in-ai', composedPrompt.value)
+  emit('close')
+}
+
+// Related assets calculation
+const relatedAssets = computed(() => {
+  if (!asset.value || !asset.value.id) return []
+  const currentTags = (asset.value.tags || '').toLowerCase().split(',').map((t: string) => t.trim()).filter(Boolean)
+  const currentName = (asset.value.name || '').toLowerCase()
+
+  const list: { asset: any, type: 'skill' | 'memory', score: number }[] = []
+
+  const check = (item: any, itemType: 'skill' | 'memory') => {
+    if (item.id === asset.value.id && itemType === props.type) return
+    let score = 0
+    const itemTags = (item.tags || '').toLowerCase().split(',').map((t: string) => t.trim()).filter(Boolean)
+    
+    // Tag overlap
+    currentTags.forEach((t: string) => {
+      if (itemTags.includes(t)) score += 3
+    })
+    
+    // Name keyword match
+    if (item.name.toLowerCase().includes(currentName) || currentName.includes(item.name.toLowerCase())) {
+      score += 2
+    }
+
+    if (score > 0) {
+      list.push({ asset: item, type: itemType, score })
+    }
+  }
+
+  if (props.allSkills) props.allSkills.forEach(s => check(s, 'skill'))
+  if (props.allMemories) props.allMemories.forEach(m => check(m, 'memory'))
+
+  return list.sort((a, b) => b.score - a.score).slice(0, 8)
+})
+
+const isDeploying = ref(false)
+const showDeployMenu = ref(false)
+
+const deploySkill = async (target: 'claude' | 'zcode' | 'agents' | 'cursor') => {
+  if (!asset.value.id) return
+  isDeploying.value = true
+  try {
+    const destPath = await invoke<string>('deploy_skill_to_target', {
+      skillId: asset.value.id,
+      targetTool: target
+    })
+    toast.success(`已成功部署分发至: ${destPath}`)
+    showDeployMenu.value = false
+  } catch (err) {
+    toast.error('分发部署失败: ' + err)
+  } finally {
+    isDeploying.value = false
+  }
+}
 
 const copyContent = async () => {
   if (asset.value.content) {
@@ -153,7 +254,7 @@ const remove = async () => {
   >
     <div
       v-if="skill"
-      class="fixed top-0 right-0 z-50 w-[560px] max-w-[85vw] h-screen flex flex-col bg-[#0f1117]/95 backdrop-blur-3xl border-l border-white/10 shadow-[-20px_0_60px_rgba(0,0,0,0.8)]"
+      class="fixed top-0 right-0 z-50 w-[600px] max-w-[90vw] h-screen flex flex-col bg-[#0f1117]/95 backdrop-blur-3xl border-l border-white/10 shadow-[-20px_0_60px_rgba(0,0,0,0.8)]"
       @keydown.escape="emit('close')"
       tabindex="0"
     >
@@ -183,8 +284,36 @@ const remove = async () => {
         </button>
       </div>
 
+      <!-- Navigation Tabs (Only in view mode) -->
+      <div v-if="!editing && !props.isNew" class="flex items-center px-6 border-b border-white/10 shrink-0 bg-black/10">
+        <button
+          @click="activeTab = 'content'"
+          class="px-4 py-3 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5"
+          :class="activeTab === 'content' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-white/50 hover:text-white/80'"
+        >
+          <FileEdit :size="13" />
+          资产内容
+        </button>
+        <button
+          @click="activeTab = 'composer'"
+          class="px-4 py-3 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5"
+          :class="activeTab === 'composer' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-white/50 hover:text-white/80'"
+        >
+          <Sliders :size="13" />
+          组装/试运行 (Playground)
+        </button>
+        <button
+          @click="activeTab = 'related'"
+          class="px-4 py-3 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5"
+          :class="activeTab === 'related' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-white/50 hover:text-white/80'"
+        >
+          <LinkIcon :size="13" />
+          关联资产 ({{ relatedAssets.length }})
+        </button>
+      </div>
+
       <!-- Meta bar -->
-      <div class="px-6 py-3 flex items-center gap-3 border-b border-white/5 shrink-0 flex-wrap">
+      <div class="px-6 py-3 flex items-center gap-3 border-b border-white/5 shrink-0 flex-wrap bg-black/5">
         <span
           class="px-3 py-1 rounded-lg text-xs font-semibold tracking-wider uppercase border backdrop-blur-sm"
           :class="sourceColor"
@@ -209,41 +338,138 @@ const remove = async () => {
       <div class="flex-1 overflow-y-auto p-6">
         <!-- View Mode -->
         <template v-if="!editing">
-          <div class="bg-black/30 rounded-xl p-6 border border-white/5 shadow-inner">
-            <pre class="text-sm font-mono text-white/80 whitespace-pre-wrap leading-relaxed break-words">{{ asset.content }}</pre>
-          </div>
+          <!-- TAB 1: CONTENT PREVIEW -->
+          <div v-if="activeTab === 'content'">
+            <div class="bg-black/30 rounded-xl p-6 border border-white/5 shadow-inner">
+              <pre class="text-sm font-mono text-white/80 whitespace-pre-wrap leading-relaxed break-words">{{ asset.content }}</pre>
+            </div>
 
-          <!-- File path (skills only) -->
-          <div v-if="isSkill && asset.local_path" class="mt-4 px-1">
-            <p class="text-[10px] text-white/30 uppercase tracking-widest mb-1.5">文件路径</p>
-            <div class="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
-              <code class="text-xs text-white/50 font-mono truncate flex-1">{{ asset.local_path }}</code>
-              <button
-                @click="openInFinder"
-                class="p-1.5 text-white/40 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-all shrink-0"
-                title="在文件管理器中显示"
-              >
-                <FolderOpen :size="14" />
-              </button>
-              <button
-                @click="openInEditor"
-                class="p-1.5 text-white/40 hover:text-green-400 hover:bg-green-500/10 rounded transition-all shrink-0"
-                title="用编辑器打开"
-              >
-                <FileEdit :size="14" />
-              </button>
+            <!-- File path (skills only) -->
+            <div v-if="isSkill && asset.local_path" class="mt-4 px-1">
+              <p class="text-[10px] text-white/30 uppercase tracking-widest mb-1.5">文件路径</p>
+              <div class="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
+                <code class="text-xs text-white/50 font-mono truncate flex-1">{{ asset.local_path }}</code>
+                <button
+                  @click="openInFinder"
+                  class="p-1.5 text-white/40 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-all shrink-0"
+                  title="在文件管理器中显示"
+                >
+                  <FolderOpen :size="14" />
+                </button>
+                <button
+                  @click="openInEditor"
+                  class="p-1.5 text-white/40 hover:text-green-400 hover:bg-green-500/10 rounded transition-all shrink-0"
+                  title="用编辑器打开"
+                >
+                  <FileEdit :size="14" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Timestamps -->
+            <div class="mt-4 grid grid-cols-2 gap-4 text-xs text-white/30 px-1">
+              <div v-if="isSkill">
+                <p class="uppercase tracking-widest text-[10px] mb-1">创建于</p>
+                <p class="font-mono">{{ asset.created_at ? new Date(asset.created_at).toLocaleString() : '—' }}</p>
+              </div>
+              <div>
+                <p class="uppercase tracking-widest text-[10px] mb-1">更新于</p>
+                <p class="font-mono">{{ new Date(asset.updated_at || asset.extracted_at).toLocaleString() }}</p>
+              </div>
             </div>
           </div>
 
-          <!-- Timestamps -->
-          <div class="mt-4 grid grid-cols-2 gap-4 text-xs text-white/30 px-1">
-            <div v-if="isSkill">
-              <p class="uppercase tracking-widest text-[10px] mb-1">创建于</p>
-              <p class="font-mono">{{ asset.created_at ? new Date(asset.created_at).toLocaleString() : '—' }}</p>
+          <!-- TAB 2: PROMPT COMPOSER & PLAYGROUND -->
+          <div v-else-if="activeTab === 'composer'" class="space-y-4 animate-in fade-in duration-200">
+            <div class="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 leading-relaxed flex items-start gap-2.5">
+              <Sparkles :size="16" class="shrink-0 mt-0.5" />
+              <span>动态提示词组装器：支持输入具体的任务参数，自动结合前缀规范与技能核心逻辑生成最终 Prompt，可一键发送给 AI 运行。</span>
             </div>
-            <div>
-              <p class="uppercase tracking-widest text-[10px] mb-1">更新于</p>
-              <p class="font-mono">{{ new Date(asset.updated_at || asset.extracted_at).toLocaleString() }}</p>
+
+            <div class="space-y-1.5">
+              <label class="block text-xs font-medium text-white/60 uppercase tracking-wider">前缀约束模板 (Prefix Template)</label>
+              <input
+                v-model="composerPrefix"
+                type="text"
+                placeholder="例如：请严格遵守以下 Skill 规范回答："
+                class="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="block text-xs font-medium text-white/60 uppercase tracking-wider">实际需求 / 待处理任务 (User Task)</label>
+              <textarea
+                v-model="composerUserTask"
+                rows="3"
+                placeholder="输入你要让 AI 依据此技能解决的具体需求或代码片段..."
+                class="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 resize-none font-mono"
+              ></textarea>
+            </div>
+
+            <div class="space-y-1.5 pt-2 border-t border-white/5">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-medium text-white/60 uppercase tracking-wider">实时完整提示词预览 (Composed Prompt)</label>
+                <button
+                  @click="copyComposedPrompt"
+                  class="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs transition-colors flex items-center gap-1 font-mono"
+                >
+                  <component :is="copiedComposer ? Check : Copy" :size="12" />
+                  {{ copiedComposer ? '已复制' : '复制完整提示词' }}
+                </button>
+              </div>
+              <div class="bg-black/40 rounded-xl p-4 border border-white/10 max-h-56 overflow-y-auto font-mono text-xs text-white/80 leading-relaxed whitespace-pre-wrap">
+                {{ composedPrompt }}
+              </div>
+            </div>
+
+            <button
+              @click="runInAiAssistant"
+              class="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium rounded-xl text-xs shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all flex items-center justify-center gap-2"
+            >
+              <Sparkles :size="14" />
+              在内置 AI 助手测试运行
+            </button>
+          </div>
+
+          <!-- TAB 3: RELATED ASSETS -->
+          <div v-else-if="activeTab === 'related'" class="space-y-3 animate-in fade-in duration-200">
+            <p class="text-xs text-white/40 mb-3">基于标签关联度与命名语义自动挖掘的相似 Agent 资产：</p>
+            
+            <div v-if="relatedAssets.length > 0" class="space-y-2.5">
+              <div
+                v-for="rel in relatedAssets"
+                :key="rel.asset.id + rel.type"
+                @click="emit('select-asset', rel.asset, rel.type)"
+                class="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/40 transition-all cursor-pointer group"
+              >
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <component :is="rel.type === 'skill' ? Terminal : BookOpen" :size="14" class="text-indigo-400 shrink-0" />
+                    <span class="text-sm font-medium text-white/90 group-hover:text-indigo-300 transition-colors truncate">
+                      {{ rel.asset.name }}
+                    </span>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-white/50 uppercase font-mono">
+                    {{ rel.asset.source_tool }}
+                  </span>
+                </div>
+                <p class="text-xs text-white/50 line-clamp-2 font-mono leading-relaxed">
+                  {{ rel.asset.content }}
+                </p>
+                <div v-if="rel.asset.tags" class="flex flex-wrap gap-1 mt-2">
+                  <span
+                    v-for="t in rel.asset.tags.split(',')"
+                    :key="t"
+                    class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/40"
+                  >
+                    #{{ t.trim() }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="py-12 text-center text-white/30 text-xs border border-dashed border-white/10 rounded-xl">
+              暂未检测到具有相同标签的相关资产
             </div>
           </div>
         </template>
@@ -283,39 +509,93 @@ const remove = async () => {
       </div>
 
       <!-- Bottom Action Bar -->
-      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0 bg-black/20">
+      <div class="flex items-center justify-between px-6 py-4 border-t border-white/10 shrink-0 bg-black/20">
         <template v-if="!editing">
-          <button
-            v-if="asset.id"
-            @click="remove"
-            class="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-sm transition-all"
-          >
-            <Trash2 :size="14" />
-            删除
-          </button>
-          <button
-            v-if="isSkill && asset.local_path"
-            @click="openInEditor"
-            class="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-white/70 hover:text-white transition-all"
-          >
-            <ExternalLink :size="14" />
-            打开文件
-          </button>
-          <button
-            v-if="asset.content"
-            @click="copyContent"
-            class="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-white/70 hover:text-white transition-all"
-          >
-            <Copy :size="14" />
-            复制
-          </button>
-          <button
-            @click="startEditing"
-            class="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-          >
-            <Pencil :size="14" />
-            编辑
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="asset.id"
+              @click="remove"
+              class="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-xs transition-all"
+              title="删除资产"
+            >
+              <Trash2 :size="13" />
+              删除
+            </button>
+
+            <!-- Deploy to Target Dropdown (Skills only) -->
+            <div v-if="isSkill && asset.id" class="relative">
+              <button
+                @click="showDeployMenu = !showDeployMenu"
+                class="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 rounded-xl text-xs font-medium transition-all"
+                :disabled="isDeploying"
+              >
+                <Rocket :size="13" />
+                <span>分发至工具</span>
+                <ChevronDown :size="12" />
+              </button>
+
+              <div
+                v-if="showDeployMenu"
+                class="absolute bottom-full left-0 mb-2 w-52 bg-[#161922] border border-white/15 rounded-xl shadow-2xl p-1.5 z-30 space-y-1 animate-in zoom-in-95 fade-in duration-150"
+              >
+                <p class="px-2 py-1 text-[10px] uppercase font-mono text-white/40 tracking-wider">选择分发环境</p>
+                <button
+                  @click="deploySkill('claude')"
+                  class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+                >
+                  <span>Claude Code</span>
+                  <code class="text-[10px] text-white/40">~/.claude</code>
+                </button>
+                <button
+                  @click="deploySkill('agents')"
+                  class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+                >
+                  <span>Agents CLI</span>
+                  <code class="text-[10px] text-white/40">~/.agents</code>
+                </button>
+                <button
+                  @click="deploySkill('zcode')"
+                  class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+                >
+                  <span>ZCode Plugin</span>
+                  <code class="text-[10px] text-white/40">~/.gemini</code>
+                </button>
+                <button
+                  @click="deploySkill('cursor')"
+                  class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-between"
+                >
+                  <span>Cursor Rules</span>
+                  <code class="text-[10px] text-white/40">.cursorrules</code>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              v-if="isSkill && asset.local_path"
+              @click="openInEditor"
+              class="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/70 hover:text-white transition-all"
+            >
+              <ExternalLink :size="13" />
+              打开文件
+            </button>
+            <button
+              v-if="asset.content"
+              @click="copyContent"
+              class="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/70 hover:text-white transition-all"
+            >
+              <Copy :size="13" />
+              复制
+            </button>
+            <button
+              @click="startEditing"
+              class="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
+            >
+              <Pencil :size="13" />
+              编辑
+            </button>
+          </div>
         </template>
         <template v-else>
           <button

@@ -12,7 +12,7 @@ const props = defineProps<{
   viewMode?: 'grid' | 'list'
 }>()
 
-const emit = defineEmits(['open-detail', 'favorite-toggled'])
+const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag'])
 
 const sourceColor = computed(() => {
   if (props.memory.source_tool === 'zcode') return 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30'
@@ -80,9 +80,15 @@ const toggleFavorite = async () => {
       
       <!-- Tags -->
       <div v-if="memory.tags" class="flex flex-wrap gap-2" :class="viewMode === 'list' ? 'order-2 mt-2' : ''">
-        <span v-for="tag in memory.tags.split(',')" :key="tag" class="px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white/70 border border-white/5">
-          {{ tag.trim() }}
-        </span>
+        <button 
+          v-for="tag in memory.tags.split(',')" 
+          :key="tag" 
+          @click.stop="emit('select-tag', tag.trim())"
+          class="px-2 py-0.5 rounded text-xs font-medium bg-white/10 hover:bg-white/20 text-white/70 hover:text-white border border-white/5 transition-colors"
+          title="按此标签筛选"
+        >
+          #{{ tag.trim() }}
+        </button>
       </div>
 
       <!-- Content Preview -->

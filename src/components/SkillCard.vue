@@ -21,7 +21,7 @@ const props = defineProps<{
   viewMode?: 'grid' | 'list'
 }>()
 
-const emit = defineEmits(['open-detail', 'favorite-toggled'])
+const emit = defineEmits(['open-detail', 'favorite-toggled', 'select-tag'])
 
 const sourceColor = computed(() => {
   const source = props.skill.source_tool.toLowerCase()
@@ -135,9 +135,15 @@ const openInEditor = async () => {
       
       <!-- Tags -->
       <div v-if="skill.tags" class="flex flex-wrap gap-2" :class="viewMode === 'list' ? 'order-2 mt-2' : ''">
-        <span v-for="tag in skill.tags.split(',')" :key="tag" class="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+        <button 
+          v-for="tag in skill.tags.split(',')" 
+          :key="tag" 
+          @click.stop="emit('select-tag', tag.trim())"
+          class="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-colors"
+          title="按此标签筛选"
+        >
           #{{ tag.trim() }}
-        </span>
+        </button>
       </div>
 
       <div v-if="viewMode !== 'list'" class="bg-black/20 rounded-xl p-4 border border-white/5 shadow-inner">

@@ -13,7 +13,7 @@ import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
-import { Search, Folder, Sparkles, LayoutGrid, List, Star } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X } from 'lucide-vue-next'
 
 const toast = useToast()
 
@@ -27,6 +27,7 @@ const showWelcomePrompt = ref(false)
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
 const favoriteOnly = ref(false)
+const selectedTag = ref<string | null>(null)
 const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
 
 const sortOptions: { value: 'recent' | 'name' | 'favorite', label: string }[] = [
@@ -34,6 +35,23 @@ const sortOptions: { value: 'recent' | 'name' | 'favorite', label: string }[] = 
   { value: 'name', label: '名称' },
   { value: 'favorite', label: '收藏优先' }
 ]
+
+const allTags = computed(() => {
+  const counts: Record<string, number> = {}
+  const collect = (tagsStr?: string | null) => {
+    if (!tagsStr) return
+    tagsStr.split(',').forEach(raw => {
+      const tag = raw.trim()
+      if (tag) counts[tag] = (counts[tag] || 0) + 1
+    })
+  }
+  skills.value.forEach(s => collect(s.tags))
+  memories.value.forEach(m => collect(m.tags))
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+})
+
 const currentCount = computed(() => activeView.value.includes('skills') ? filteredSkills.value.length : filteredMemories.value.length)
 
 // Drawer / create state
@@ -312,6 +330,10 @@ const filteredSkills = computed(() => {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
   }
+  if (selectedTag.value) {
+    const t = selectedTag.value.toLowerCase()
+    list = list.filter(s => s.tags && s.tags.toLowerCase().split(',').map((x: string) => x.trim()).includes(t))
+  }
   if (favoriteOnly.value) {
     list = list.filter(s => s.is_favorite)
   }
@@ -330,6 +352,10 @@ const filteredMemories = computed(() => {
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(s => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || (s.tags && s.tags.toLowerCase().includes(q)))
+  }
+  if (selectedTag.value) {
+    const t = selectedTag.value.toLowerCase()
+    list = list.filter(s => s.tags && s.tags.toLowerCase().split(',').map((x: string) => x.trim()).includes(t))
   }
   if (favoriteOnly.value) {
     list = list.filter(s => s.is_favorite)
@@ -476,7 +502,15 @@ onUnmounted(() => {
 <template>
   <div class="flex h-screen w-full text-white/90 selection:bg-indigo-500/30">
     <!-- Sidebar -->
-    <Sidebar :unique-sources="uniqueSources" :pinned-sources="pinnedSources" @select="handleSidebarSelect" @toggle-pin="togglePin" />
+    <Sidebar 
+      :unique-sources="uniqueSources" 
+      :pinned-sources="pinnedSources" 
+      :all-tags="allTags"
+      :selected-tag="selectedTag"
+      @select="handleSidebarSelect" 
+      @toggle-pin="togglePin"
+      @select-tag="selectedTag = $event"
+    />
 
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col min-w-0 bg-white/5 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] border-l border-white/10 relative">
@@ -576,6 +610,16 @@ onUnmounted(() => {
               {{ opt.label }}
             </button>
           </div>
+
+          <!-- Active Tag Badge -->
+          <div v-if="selectedTag" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 text-xs font-mono">
+            <Tag :size="12" />
+            <span>{{ selectedTag }}</span>
+            <button @click="selectedTag = null" class="ml-1 hover:text-white hover:bg-white/10 p-0.5 rounded transition-colors">
+              <X :size="12" />
+            </button>
+          </div>
+
           <div class="flex-1"></div>
           <span class="text-xs text-white/40 font-mono">{{ currentCount }} 项</span>
         </div>
@@ -598,6 +642,7 @@ onUnmounted(() => {
               :view-mode="viewMode"
               @open-detail="(s) => openAssetDetail(s, 'skill')"
               @favorite-toggled="handleFavoriteToggled"
+              @select-tag="selectedTag = $event"
             />
           </div>
           
@@ -635,6 +680,7 @@ onUnmounted(() => {
               :view-mode="viewMode"
               @open-detail="(m) => openAssetDetail(m, 'memory')"
               @favorite-toggled="(id, v) => handleFavoriteToggled(id, v, 'memory')"
+              @select-tag="selectedTag = $event"
             />
           </div>
           
@@ -783,10 +829,14 @@ onUnmounted(() => {
       :skill="drawerAsset" 
       :type="drawerType"
       :is-new="drawerIsNew"
+      :all-skills="skills"
+      :all-memories="memories"
       @close="closeDrawer" 
       @favorite-toggled="handleFavoriteToggled"
       @saved="handleDrawerSaved"
       @deleted="handleDrawerDeleted"
+      @select-asset="(asset, type) => openAssetDetail(asset, type)"
+      @run-in-ai="(prompt) => openAiChat(prompt)"
     />
     <AiChatPanel 
       :visible="showAiChat" 

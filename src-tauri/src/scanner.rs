@@ -107,6 +107,43 @@ pub fn scan_directory(app: &tauri::AppHandle, db: &DbState, dir_path: &str, over
                     }
                 }
 
+                if is_memory {
+                    if local_path.contains("/projects/") || local_path.contains("\\projects\\") {
+                        let sep = if local_path.contains("/projects/") { "/projects/" } else { "\\projects\\" };
+                        if let Some(pos) = local_path.find(sep) {
+                            let sub = &local_path[pos + sep.len()..];
+                            let parts: Vec<&str> = sub.split(|c| c == '/' || c == '\\').collect();
+                            if parts.len() > 1 {
+                                let project_folder = parts[0];
+                                let mut proj_clean = project_folder.to_string();
+                                if let Some(last_dash) = proj_clean.rfind('-') {
+                                    if proj_clean.len() - last_dash > 15 {
+                                        proj_clean = proj_clean[..last_dash].to_string();
+                                    }
+                                }
+                                if let Some(last_slash) = proj_clean.rfind('-') {
+                                    proj_clean = proj_clean[last_slash + 1..].to_string();
+                                }
+                                
+                                let file_info = parts[1..].join("/");
+                                name = format!("{} / {}", proj_clean, file_info);
+                                
+                                let proj_tag = format!("project:{}", proj_clean);
+                                tags = match tags {
+                                    Some(t) => Some(format!("{}, {}", t, proj_tag)),
+                                    None => Some(proj_tag),
+                                };
+                            }
+                        }
+                    } else if local_path.contains("user_profile.md") {
+                        name = "Global User Profile (全域偏好)".to_string();
+                        tags = match tags {
+                            Some(t) => Some(format!("{}, global-profile", t)),
+                            None => Some("global-profile".to_string()),
+                        };
+                    }
+                }
+
                 if source_tool == "zcode" {
                     prefix_template = Some("请严格遵守以下 Skill 规范回答：".to_string());
                 } else if source_tool == "claude" {

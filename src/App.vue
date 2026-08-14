@@ -13,7 +13,7 @@ import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
-import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2 } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight } from 'lucide-vue-next'
 
 const toast = useToast()
 
@@ -26,6 +26,8 @@ const isScanning = ref(false)
 const showWelcomePrompt = ref(false)
 const searchQuery = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
+const memoryClusterMode = ref<'flat' | 'project'>('flat')
+const collapsedProjects = ref<Record<string, boolean>>({})
 const favoriteOnly = ref(false)
 const selectedTag = ref<string | null>(null)
 const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
@@ -445,6 +447,39 @@ const filteredMemories = computed(() => {
   return list
 })
 
+const groupedMemories = computed(() => {
+  const groups: Record<string, any[]> = {}
+  
+  filteredMemories.value.forEach(mem => {
+    let groupKey = '通用全局记忆 (General)'
+    
+    if (mem.tags) {
+      const projTag = mem.tags.split(',').map((t: string) => t.trim()).find((t: string) => t.startsWith('project:'))
+      if (projTag) {
+        groupKey = projTag.replace('project:', '')
+      }
+    }
+    
+    if (groupKey === '通用全局记忆 (General)' && mem.name.includes(' / ')) {
+      const parts = mem.name.split(' / ')
+      groupKey = parts[0]
+    } else if (mem.name.toLowerCase().includes('global') || mem.name.toLowerCase().includes('user_profile')) {
+      groupKey = '🌐 全局偏好规则 (Global Profile)'
+    }
+    
+    if (!groups[groupKey]) {
+      groups[groupKey] = []
+    }
+    groups[groupKey].push(mem)
+  })
+  
+  return groups
+})
+
+const toggleProjectCollapse = (key: string) => {
+  collapsedProjects.value[key] = !collapsedProjects.value[key]
+}
+
 const sortSkills = (mode: string) => (a: any, b: any) => {
   if (mode === 'favorite') {
     const fa = a.is_favorite ? 1 : 0, fb = b.is_favorite ? 1 : 0
@@ -718,6 +753,26 @@ onUnmounted(() => {
             </button>
           </template>
 
+          <!-- Memory Cluster Mode Switch -->
+          <div v-if="activeView.includes('memories')" class="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
+            <button
+              @click="memoryClusterMode = 'flat'"
+              class="px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
+              :class="memoryClusterMode === 'flat' ? 'bg-indigo-500/25 text-indigo-200' : 'text-white/50 hover:text-white/80'"
+            >
+              <LayoutGrid :size="12" />
+              <span>平铺</span>
+            </button>
+            <button
+              @click="memoryClusterMode = 'project'"
+              class="px-2.5 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
+              :class="memoryClusterMode === 'project' ? 'bg-indigo-500/25 text-indigo-200' : 'text-white/50 hover:text-white/80'"
+            >
+              <FolderTree :size="12" />
+              <span>按项目聚类</span>
+            </button>
+          </div>
+
           <!-- Active Tag Badge -->
           <div v-if="selectedTag" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 text-xs font-mono">
             <Tag :size="12" />
@@ -778,8 +833,8 @@ onUnmounted(() => {
 
         <!-- MEMORIES VIEW -->
         <div v-else-if="activeView.includes('memories')" class="h-full">
-          <!-- Memories Grid / List -->
-          <div v-if="filteredMemories.length" 
+          <!-- Memories Flat View -->
+          <div v-if="filteredMemories.length && memoryClusterMode === 'flat'" 
                class="animate-in fade-in zoom-in-95 duration-500 pb-12"
                :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-3'">
             <MemoryCard 
@@ -795,6 +850,48 @@ onUnmounted(() => {
               @select-tag="selectedTag = $event"
               @toggle-select="toggleSelectId"
             />
+          </div>
+
+          <!-- Memories Project Clustered View -->
+          <div v-else-if="filteredMemories.length && memoryClusterMode === 'project'" class="space-y-6 pb-12 animate-in fade-in zoom-in-95 duration-500">
+            <div 
+              v-for="(groupList, groupKey) in groupedMemories" 
+              :key="groupKey"
+              class="bg-black/20 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl shadow-xl transition-all"
+            >
+              <!-- Group Header (collapsible) -->
+              <div 
+                @click="toggleProjectCollapse(groupKey as string)"
+                class="flex items-center justify-between px-6 py-4 bg-white/[0.03] hover:bg-white/[0.06] cursor-pointer border-b border-white/5 transition-colors select-none"
+              >
+                <div class="flex items-center gap-3">
+                  <component :is="collapsedProjects[groupKey as string] ? ChevronRight : ChevronDown" :size="16" class="text-white/40" />
+                  <span class="font-medium text-white/90 text-[15px]">{{ groupKey }}</span>
+                  <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-mono font-medium">
+                    {{ groupList.length }} 项
+                  </span>
+                </div>
+              </div>
+
+              <!-- Group Body -->
+              <div v-show="!collapsedProjects[groupKey as string]" class="p-6">
+                <div :class="viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' : 'flex flex-col gap-3'">
+                  <MemoryCard 
+                    v-for="memory in groupList" 
+                    :key="memory.id" 
+                    :memory="memory" 
+                    :search-query="searchQuery"
+                    :view-mode="viewMode"
+                    :is-select-mode="isBatchMode"
+                    :is-selected="selectedIds.includes(memory.id)"
+                    @open-detail="(m) => openAssetDetail(m, 'memory')"
+                    @favorite-toggled="(id, v) => handleFavoriteToggled(id, v, 'memory')"
+                    @select-tag="selectedTag = $event"
+                    @toggle-select="toggleSelectId"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           
           <!-- Empty State -->

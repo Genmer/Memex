@@ -212,16 +212,6 @@ const openInEditor = async () => {
     <!-- Quick Hover Actions -->
     <div class="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
       <button 
-        v-if="!skill.summary_zh"
-        @click.stop="analyzeAi"
-        :disabled="isAnalyzing"
-        class="p-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 rounded-lg transition-colors border border-indigo-500/30"
-        title="AI 智能解析用途"
-      >
-        <Loader2 v-if="isAnalyzing" :size="14" class="animate-spin" />
-        <Sparkles v-else :size="14" />
-      </button>
-      <button 
         @click.stop="copyContent"
         class="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg transition-colors"
         title="复制内容"
@@ -250,7 +240,7 @@ const openInEditor = async () => {
   <!-- ================= GRID CARD VIEW ================= -->
   <div 
     v-else
-    class="perf-contain-card group relative flex flex-col h-80 overflow-hidden rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/50 hover:bg-white/[0.06] transition-colors duration-150 shadow-lg hover:shadow-indigo-500/10"
+    class="perf-contain-card group relative flex flex-col h-76 overflow-hidden rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/50 hover:bg-white/[0.06] transition-colors duration-150 shadow-lg hover:shadow-indigo-500/10"
   >
     <!-- Selection checkbox overlay in batch mode -->
     <div 
@@ -305,7 +295,7 @@ const openInEditor = async () => {
       class="flex-1 cursor-pointer flex flex-col justify-between min-w-0 p-4 space-y-2.5 overflow-hidden" 
       @click="isSelectMode ? emit('toggle-select', skill.id) : emit('open-detail', skill)"
     >
-      <!-- AI Insight Banner if available -->
+      <!-- AI Insight Banner (Only shown when parsed) -->
       <div v-if="skill.summary_zh" class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs leading-relaxed flex items-start gap-2 shadow-inner" :title="skill.summary_zh">
         <Sparkles :size="13" class="text-indigo-400 shrink-0 mt-0.5" />
         <div class="min-w-0 flex-1">
@@ -321,23 +311,9 @@ const openInEditor = async () => {
         </div>
       </div>
 
-      <!-- Quick AI Trigger if no summary -->
-      <div v-else class="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] border border-dashed border-white/10 hover:border-indigo-500/40 transition-colors">
-        <span class="text-[11px] text-white/40">暂未提炼中文释义</span>
-        <button 
-          @click.stop="analyzeAi"
-          :disabled="isAnalyzing"
-          class="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/25 transition-all flex items-center gap-1"
-        >
-          <Loader2 v-if="isAnalyzing" :size="10" class="animate-spin" />
-          <Sparkles v-else :size="10" />
-          <span>{{ isAnalyzing ? '解析中...' : 'AI解析' }}</span>
-        </button>
-      </div>
-
       <!-- Content Preview Codeblock -->
       <div class="bg-black/20 rounded-xl p-3 border border-white/5 shadow-inner flex-1 min-h-0 overflow-hidden">
-        <pre class="text-xs font-mono text-white/70 line-clamp-3 whitespace-pre-wrap leading-relaxed" v-html="highlightText(skill.content.substring(0, 250))"></pre>
+        <pre class="text-xs font-mono text-white/70 line-clamp-4 whitespace-pre-wrap leading-relaxed" v-html="highlightText(skill.content.substring(0, 250))"></pre>
       </div>
 
       <!-- Tags -->
@@ -354,7 +330,7 @@ const openInEditor = async () => {
       </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer: Single AI action on the right -->
     <div class="flex items-center justify-between px-4 bg-black/20 border-t border-white/5 shrink-0 py-2.5">
       <div class="flex items-center gap-1.5">
         <button 
@@ -397,15 +373,16 @@ const openInEditor = async () => {
         </button>
       </div>
       
+      <!-- Single AI Analysis Trigger Button -->
       <button 
         @click.stop="analyzeAi"
         :disabled="isAnalyzing"
-        class="px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[10px] flex items-center gap-1 transition-all"
-        title="AI 智能提炼中文释义与分类"
+        class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+        :title="skill.summary_zh ? '重新由 AI 提炼中文释义与分类' : '由 AI 智能解析中文释义与分类'"
       >
-        <Loader2 v-if="isAnalyzing" :size="11" class="animate-spin" />
-        <Sparkles v-else :size="11" />
-        <span>{{ skill.summary_zh ? '重新解析' : 'AI解析' }}</span>
+        <Loader2 v-if="isAnalyzing" :size="12" class="animate-spin text-indigo-400" />
+        <Sparkles v-else :size="12" class="text-indigo-400" />
+        <span>{{ isAnalyzing ? '解析中...' : (skill.summary_zh ? '重新解析' : 'AI解析') }}</span>
       </button>
     </div>
   </div>

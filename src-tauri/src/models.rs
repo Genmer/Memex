@@ -62,3 +62,12 @@ pub struct SkillAiAnalysisResult {
     pub tags_zh: Vec<String>,
     pub merged_tags: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CategorySynthesisResult {
+    pub category_name: String,
+    pub total_skills: usize,
+    pub overview_zh: String,
+    pub core_capabilities: Vec<String>,
+    pub recommended_workflows: Vec<String>,
+}

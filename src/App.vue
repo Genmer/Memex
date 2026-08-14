@@ -15,7 +15,7 @@ import CommandPalette from './components/CommandPalette.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { useTheme } from './composables/useTheme'
-import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight, Loader2 } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight, Loader2, Bot } from 'lucide-vue-next'
 
 const toast = useToast()
 const { t } = useI18n()
@@ -451,6 +451,73 @@ const handleAiAnalyzed = (result: any) => {
     target.tags = result.merged_tags
   }
 }
+
+const categorySynthesisResult = ref<any>(null)
+const isSynthesizingCategory = ref(false)
+
+const currentCategoryName = computed(() => {
+  if (selectedTag.value) return `标签 #${selectedTag.value} 技能库`
+  if (activeView.value === 'skills') return '全部技能资产库'
+  if (activeView.value === 'memex-skills') return 'Memex Native 原生技能'
+  if (activeView.value.endsWith('-skills')) {
+    const tool = activeView.value.replace('-skills', '')
+    return `${tool.toUpperCase()} 技能库`
+  }
+  return '技能库'
+})
+
+const unparsedSkillsCount = computed(() => {
+  return filteredSkills.value.filter(s => !s.summary_zh).length
+})
+
+const batchAnalyzeCurrentCategory = async (forceAll = false) => {
+  const targetList = forceAll 
+    ? filteredSkills.value 
+    : filteredSkills.value.filter(s => !s.summary_zh)
+  
+  if (targetList.length === 0) {
+    toast.info('当前分类下所有技能均已完成 AI 解析！')
+    return
+  }
+
+  isBatchAnalyzing.value = true
+  toast.info(`正在批量提炼当前分类下的 ${targetList.length} 个技能，请稍候...`)
+  try {
+    const ids = targetList.map(s => s.id)
+    const results: any[] = await invoke('batch_analyze_skills_ai', {
+      skillIds: ids
+    })
+    toast.success(`已成功批量提炼 ${results.length} 个技能的中文用途与分类！`)
+    await fetchData()
+  } catch (err: any) {
+    toast.error(typeof err === 'string' ? err : `批量解析失败: ${JSON.stringify(err)}`)
+  } finally {
+    isBatchAnalyzing.value = false
+  }
+}
+
+const generateCategorySynthesis = async () => {
+  if (filteredSkills.value.length === 0 || isSynthesizingCategory.value) return
+  isSynthesizingCategory.value = true
+  toast.info(`正在生成【${currentCategoryName.value}】的 AI 宏观全景画像...`)
+  try {
+    const ids = filteredSkills.value.map(s => s.id)
+    const res: any = await invoke('synthesize_category_ai', {
+      categoryName: currentCategoryName.value,
+      skillIds: ids
+    })
+    categorySynthesisResult.value = res
+    toast.success('已生成当前分类技能库全景画像报告！')
+  } catch (err: any) {
+    toast.error(typeof err === 'string' ? err : `生成全景画像失败: ${JSON.stringify(err)}`)
+  } finally {
+    isSynthesizingCategory.value = false
+  }
+}
+
+watch([activeView, selectedTag], () => {
+  categorySynthesisResult.value = null
+})
 
 const handleSidebarSelect = (id: string) => {
   activeView.value = id
@@ -897,6 +964,125 @@ onUnmounted(() => {
         </div>
         
         <div v-else-if="activeView.includes('skills')" class="h-full">
+          <!-- Category AI Insight & Batch Parsing Header Banner -->
+          <div v-if="filteredSkills.length" class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/5 border border-indigo-500/25 shadow-xl relative overflow-hidden">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                  <Sparkles :size="20" />
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="text-sm font-semibold text-white/90 font-sans">{{ currentCategoryName }}</h3>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-white/70">
+                      共 {{ filteredSkills.length }} 项 · 已解析 {{ filteredSkills.length - unparsedSkillsCount }} 项
+                    </span>
+                    <span v-if="unparsedSkillsCount > 0" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-yellow-300 border border-amber-500/30">
+                      {{ unparsedSkillsCount }} 项待提炼
+                    </span>
+                    <span v-else class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      全部已完成 AI 解析
+                    </span>
+                  </div>
+                  <p class="text-xs text-white/50 mt-1 truncate">
+                    支持一键批量提取当前分类全部技能的通俗中文用途，或生成宏观全景能力画像报告
+                  </p>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex items-center gap-2 shrink-0">
+                <!-- Batch analyze unparsed in current category -->
+                <button
+                  v-if="unparsedSkillsCount > 0"
+                  @click="batchAnalyzeCurrentCategory(false)"
+                  :disabled="isBatchAnalyzing"
+                  class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md transition-all disabled:opacity-50"
+                  title="批量解析当前分类下所有未提炼中文释义的技能"
+                >
+                  <Loader2 v-if="isBatchAnalyzing" :size="13" class="animate-spin" />
+                  <Sparkles v-else :size="13" />
+                  <span>{{ isBatchAnalyzing ? '批量解析中...' : `一键批量解析未提炼 (${unparsedSkillsCount}项)` }}</span>
+                </button>
+
+                <!-- Batch analyze ALL in current category -->
+                <button
+                  v-else
+                  @click="batchAnalyzeCurrentCategory(true)"
+                  :disabled="isBatchAnalyzing"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 text-xs font-medium border border-white/10 transition-all disabled:opacity-50"
+                  title="重新对当前分类所有技能进行 AI 深度解析"
+                >
+                  <Loader2 v-if="isBatchAnalyzing" :size="13" class="animate-spin" />
+                  <Sparkles v-else :size="13" />
+                  <span>{{ isBatchAnalyzing ? '批量解析中...' : '重新批量解析全部分类' }}</span>
+                </button>
+
+                <!-- Macro Category Synthesis Button -->
+                <button
+                  @click="generateCategorySynthesis"
+                  :disabled="isSynthesizingCategory"
+                  class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 text-xs font-semibold transition-all shadow-md disabled:opacity-50"
+                  title="由 AI 分析当前分类技能库的核心能力定位、技术栈覆盖与推荐工作流"
+                >
+                  <Loader2 v-if="isSynthesizingCategory" :size="13" class="animate-spin" />
+                  <Bot v-else :size="13" />
+                  <span>{{ isSynthesizingCategory ? '生成画像中...' : (categorySynthesisResult ? '刷新全景画像' : '生成分类宏观画像') }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Macro Synthesis Result Display -->
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              leave-active-class="transition-all duration-200 ease-in"
+              enter-from-class="opacity-0 -translate-y-2"
+              leave-to-class="opacity-0 -translate-y-2"
+            >
+              <div v-if="categorySynthesisResult" class="mt-4 pt-4 border-t border-white/10 space-y-3">
+                <div>
+                  <h4 class="text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <Bot :size="13" />
+                    <span>分类核心定位与能力画像</span>
+                  </h4>
+                  <p class="text-xs text-white/90 leading-relaxed font-sans bg-black/20 p-3 rounded-xl border border-white/5 shadow-inner">
+                    {{ categorySynthesisResult.overview_zh }}
+                  </p>
+                </div>
+
+                <!-- Core Capabilities -->
+                <div v-if="categorySynthesisResult.core_capabilities?.length">
+                  <h4 class="text-[11px] font-medium text-white/60 uppercase tracking-wider mb-1.5">主要技术能力域</h4>
+                  <div class="flex flex-wrap gap-2">
+                    <div 
+                      v-for="cap in categorySynthesisResult.core_capabilities" 
+                      :key="cap"
+                      class="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/20 text-indigo-200 text-xs flex items-center gap-1.5"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                      <span>{{ cap }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Recommended Workflows -->
+                <div v-if="categorySynthesisResult.recommended_workflows?.length">
+                  <h4 class="text-[11px] font-medium text-white/60 uppercase tracking-wider mb-1.5">推荐协同工作流 (Agent Workflows)</h4>
+                  <div class="space-y-1.5">
+                    <div 
+                      v-for="(wf, idx) in categorySynthesisResult.recommended_workflows" 
+                      :key="wf"
+                      class="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-200 text-xs flex items-center gap-2"
+                    >
+                      <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-[10px] font-mono text-purple-300">流程 {{ Number(idx) + 1 }}</span>
+                      <span>{{ wf }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
           <!-- Skill Grid / List -->
           <div v-if="filteredSkills.length" 
                class="pb-12"

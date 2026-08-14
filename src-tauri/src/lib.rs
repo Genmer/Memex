@@ -1370,6 +1370,173 @@ fn update_skill_ai_summary(
     Ok(())
 }
 
+#[tauri::command]
+async fn synthesize_category_ai(
+    state: State<'_, DbState>,
+    category_name: String,
+    skill_ids: Vec<i64>,
+) -> Result<models::CategorySynthesisResult, String> {
+    let (api_key, model, skills_data) = {
+        let db = state.db.lock().unwrap();
+        let conn = db.as_ref().unwrap();
+
+        let key = conn
+            .query_row(
+                "SELECT key_value FROM configs WHERE key_name = ?1",
+                params!["DEEPSEEK_API_KEY"],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_default();
+
+        let mdl = conn
+            .query_row(
+                "SELECT key_value FROM configs WHERE key_name = ?1",
+                params!["AI_MODEL"],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_else(|_| "deepseek-v4-flash".to_string());
+
+        // Fetch skills info
+        let mut list = Vec::new();
+        for id in &skill_ids {
+            if let Ok((name, source, summary, cat, tags)) = conn.query_row(
+                "SELECT name, source_tool, summary_zh, category_zh, tags FROM skills WHERE id = ?1",
+                params![id],
+                |row| Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                ))
+            ) {
+                list.push((name, source, summary, cat, tags));
+            }
+        }
+
+        (key, mdl, list)
+    };
+
+    if api_key.trim().is_empty() {
+        return Err("请先在【设置】或右上角 AI 助手面板中配置 DeepSeek API Key".to_string());
+    }
+
+    if skills_data.is_empty() {
+        return Err("当前分类下暂无技能资产可供解析".to_string());
+    }
+
+    let mut list_text = String::new();
+    for (i, (name, src, summary, cat, tags)) in skills_data.iter().enumerate().take(30) {
+        list_text.push_str(&format!(
+            "{}. 技能: {} [工具:{}] [分类:{}] [用途:{}] [标签:{}]\n",
+            i + 1,
+            name,
+            src,
+            cat.as_deref().unwrap_or("未分类"),
+            summary.as_deref().unwrap_or("待提炼"),
+            tags.as_deref().unwrap_or("无")
+        ));
+    }
+
+    let system_prompt = "你是一名顶级 AI Agent 架构与资产分析专家。
+用户提供了当前技能库或特定分类下的技能清单。
+
+请对该分类技能库进行全景画像与宏观综合解析：
+1. overview_zh: 一段通俗生动、一针见血的宏观能力定位总结（80-140字），概括该分类技能库整体形成了怎样的能力矩阵，覆盖了哪些开发阶段与痛点。
+2. core_capabilities: 提炼 3-5 项该库最突出的核心技术能力域（每项为一句简练有力的概括，如：['Monorepo 跨包依赖与版本拓扑协同', 'Spring Boot 自动化测试覆盖率保障']）。
+3. recommended_workflows: 推荐 1-2 条典型 Agent 协同工作流（例如：'代码重构 -> 自动化测试生成 -> 静态安全与规范审查'）。
+
+【输出格式要求】：必须严格返回合法纯 JSON，禁止任何 Markdown 格式或额外寒暄：
+{
+  \"overview_zh\": \"...\",
+  \"core_capabilities\": [\"...\", \"...\", \"...\"],
+  \"recommended_workflows\": [\"...\", \"...\"]
+}";
+
+    let user_content = format!(
+        "分类名称: {}\n技能总数: {}\n技能清单:\n{}",
+        category_name,
+        skills_data.len(),
+        list_text
+    );
+
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "model": model,
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": user_content }
+        ],
+        "temperature": 0.3
+    });
+
+    let resp = client
+        .post("https://api.deepseek.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .timeout(std::time::Duration::from_secs(60))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("网络请求失败: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let err_body = resp.text().await.unwrap_or_default();
+        return Err(format!("AI 接口响应错误 ({}): {}", status, err_body));
+    }
+
+    let json_resp: serde_json::Value = resp.json().await.map_err(|e| format!("解析响应失败: {}", e))?;
+    let raw_text = json_resp["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or_default()
+        .trim();
+
+    let clean_json = if let Some(start) = raw_text.find('{') {
+        if let Some(end) = raw_text.rfind('}') {
+            &raw_text[start..=end]
+        } else {
+            raw_text
+        }
+    } else {
+        raw_text
+    };
+
+    let parsed_data: serde_json::Value = serde_json::from_str(clean_json)
+        .map_err(|e| format!("无法解析 JSON: {} (原文: {})", e, raw_text))?;
+
+    let overview_zh = parsed_data["overview_zh"]
+        .as_str()
+        .unwrap_or("未能生成概览")
+        .to_string();
+
+    let core_capabilities: Vec<String> = parsed_data["core_capabilities"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let recommended_workflows: Vec<String> = parsed_data["recommended_workflows"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(models::CategorySynthesisResult {
+        category_name,
+        total_skills: skills_data.len(),
+        overview_zh,
+        core_capabilities,
+        recommended_workflows,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1411,7 +1578,8 @@ pub fn run() {
             chat_with_ai,
             analyze_skill_ai,
             batch_analyze_skills_ai,
-            update_skill_ai_summary
+            update_skill_ai_summary,
+            synthesize_category_ai
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

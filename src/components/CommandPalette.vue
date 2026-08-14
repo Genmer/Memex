@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { 
   Search, Terminal, BookOpen, Sparkles, Folder, Download, Upload, 
-  Plus, Settings, LayoutDashboard, Command, ArrowRight, CornerDownLeft
+  Plus, Settings, LayoutDashboard, Command, ArrowRight, CornerDownLeft, Flame
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -78,6 +78,14 @@ const standardActions: ActionItem[] = [
     subtitle: '使用 DeepSeek 智能分析技能与记忆库',
     icon: Sparkles,
     action: () => emit('ask-ai', searchQuery.value)
+  },
+  {
+    id: 'act-stats',
+    type: 'action',
+    title: '打开使用统计与 Token 消耗 (Usage & Tokens)',
+    subtitle: '查看大模型调用频次、Token 消耗流向与账单明细',
+    icon: Flame,
+    action: () => emit('navigate', 'ai-stats')
   },
   {
     id: 'act-dashboard',

@@ -1223,6 +1223,7 @@ async fn analyze_skill_ai(
     );
 
     // 3. Request DeepSeek Completion
+    let start_time = std::time::Instant::now();
     let client = reqwest::Client::new();
     let body = serde_json::json!({
         "model": model,
@@ -1243,13 +1244,24 @@ async fn analyze_skill_ai(
         .await
         .map_err(|e| format!("网络请求失败: {}", e))?;
 
+    let duration_ms = start_time.elapsed().as_millis() as i64;
+
     if !resp.status().is_success() {
         let status = resp.status();
         let err_body = resp.text().await.unwrap_or_default();
+        let db = state.db.lock().unwrap();
+        if let Some(conn) = db.as_ref() {
+            record_ai_usage_log(conn, "skill_analysis", Some(&skill_name), &model, 0, 0, 0, duration_ms, "failed", Some(&format!("{}: {}", status, err_body)));
+        }
         return Err(format!("AI 接口响应错误 ({}): {}", status, err_body));
     }
 
     let json_resp: serde_json::Value = resp.json().await.map_err(|e| format!("解析响应失败: {}", e))?;
+    
+    let prompt_tokens = json_resp["usage"]["prompt_tokens"].as_i64().unwrap_or(0);
+    let completion_tokens = json_resp["usage"]["completion_tokens"].as_i64().unwrap_or(0);
+    let total_tokens = json_resp["usage"]["total_tokens"].as_i64().unwrap_or(prompt_tokens + completion_tokens);
+
     let raw_text = json_resp["choices"][0]["message"]["content"]
         .as_str()
         .unwrap_or_default()
@@ -1308,10 +1320,22 @@ async fn analyze_skill_ai(
     }
     let merged_tags = current_tags_list.join(", ");
 
-    // 5. Update Database
+    // 5. Update Database & Record Usage
     {
         let db = state.db.lock().unwrap();
         let conn = db.as_ref().unwrap();
+        record_ai_usage_log(
+            conn,
+            "skill_analysis",
+            Some(&skill_name),
+            &model,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            duration_ms,
+            "success",
+            None,
+        );
         conn.execute(
             "UPDATE skills SET summary_zh = ?1, category_zh = ?2, tags_zh = ?3, tags = ?4, updated_at = CURRENT_TIMESTAMP WHERE id = ?5",
             params![summary_zh, category_zh, tags_zh_str, merged_tags, skill_id],
@@ -1498,6 +1522,7 @@ async fn synthesize_category_ai(
         list_text
     );
 
+    let start_time = std::time::Instant::now();
     let client = reqwest::Client::new();
     let body = serde_json::json!({
         "model": model,
@@ -1518,13 +1543,24 @@ async fn synthesize_category_ai(
         .await
         .map_err(|e| format!("网络请求失败: {}", e))?;
 
+    let duration_ms = start_time.elapsed().as_millis() as i64;
+
     if !resp.status().is_success() {
         let status = resp.status();
         let err_body = resp.text().await.unwrap_or_default();
+        let db = state.db.lock().unwrap();
+        if let Some(conn) = db.as_ref() {
+            record_ai_usage_log(conn, "category_synthesis", Some(&category_name), &model, 0, 0, 0, duration_ms, "failed", Some(&format!("{}: {}", status, err_body)));
+        }
         return Err(format!("AI 接口响应错误 ({}): {}", status, err_body));
     }
 
     let json_resp: serde_json::Value = resp.json().await.map_err(|e| format!("解析响应失败: {}", e))?;
+    
+    let prompt_tokens = json_resp["usage"]["prompt_tokens"].as_i64().unwrap_or(0);
+    let completion_tokens = json_resp["usage"]["completion_tokens"].as_i64().unwrap_or(0);
+    let total_tokens = json_resp["usage"]["total_tokens"].as_i64().unwrap_or(prompt_tokens + completion_tokens);
+
     let raw_text = json_resp["choices"][0]["message"]["content"]
         .as_str()
         .unwrap_or_default()
@@ -1566,10 +1602,22 @@ async fn synthesize_category_ai(
         })
         .unwrap_or_default();
 
-    // Persist to SQLite
+    // Persist to SQLite & Record Usage
     {
         let db = state.db.lock().unwrap();
         let conn = db.as_ref().unwrap();
+        record_ai_usage_log(
+            conn,
+            "category_synthesis",
+            Some(&category_name),
+            &model,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            duration_ms,
+            "success",
+            None,
+        );
         let caps_json = serde_json::to_string(&core_capabilities).unwrap_or_default();
         let wfs_json = serde_json::to_string(&recommended_workflows).unwrap_or_default();
 
@@ -1596,6 +1644,320 @@ async fn synthesize_category_ai(
         recommended_workflows,
         updated_at: Some("刚刚".to_string()),
     })
+}
+
+fn record_ai_usage_log(
+    conn: &rusqlite::Connection,
+    action_type: &str,
+    target_name: Option<&str>,
+    model: &str,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    total_tokens: i64,
+    duration_ms: i64,
+    status: &str,
+    error_message: Option<&str>,
+) {
+    let _ = conn.execute(
+        "INSERT INTO ai_usage_logs (action_type, target_name, model, prompt_tokens, completion_tokens, total_tokens, duration_ms, status, error_message) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            action_type,
+            target_name,
+            model,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            duration_ms,
+            status,
+            error_message
+        ],
+    );
+}
+
+#[tauri::command]
+fn get_ai_usage_stats(
+    state: State<'_, DbState>,
+    time_range: String,
+) -> Result<models::AiUsageDashboardStats, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let (date_filter, trend_days, heatmap_days) = match time_range.as_str() {
+        "7d" => ("datetime('now', '-7 days', 'localtime')", 7, 30),
+        "30d" => ("datetime('now', '-30 days', 'localtime')", 14, 90),
+        _ => ("'1970-01-01'", 30, 90),
+    };
+
+    // 1. Totals
+    let (total_tokens, prompt_tokens, completion_tokens, total_calls): (i64, i64, i64, i64) = conn
+        .query_row(
+            &format!(
+                "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) 
+                 FROM ai_usage_logs WHERE created_at >= {}",
+                date_filter
+            ),
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .unwrap_or((0, 0, 0, 0));
+
+    // 2. Skills analyzed
+    let total_skills_analyzed: i64 = conn
+        .query_row(
+            &format!(
+                "SELECT COUNT(*) FROM ai_usage_logs WHERE action_type = 'skill_analysis' AND created_at >= {}",
+                date_filter
+            ),
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    // 3. Active days
+    let active_days: i64 = conn
+        .query_row(
+            &format!(
+                "SELECT COUNT(DISTINCT date(created_at, 'localtime')) FROM ai_usage_logs WHERE created_at >= {}",
+                date_filter
+            ),
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    // 4. Streak calculation
+    let mut streak_days: i64 = 0;
+    let mut current_check_date = chrono::Local::now().date_naive();
+    loop {
+        let date_str = current_check_date.format("%Y-%m-%d").to_string();
+        let has_activity: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM ai_usage_logs WHERE date(created_at, 'localtime') = ?1",
+                params![date_str],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if has_activity {
+            streak_days += 1;
+            current_check_date = current_check_date - chrono::Duration::days(1);
+        } else {
+            if streak_days == 0 {
+                current_check_date = current_check_date - chrono::Duration::days(1);
+                let yest_str = current_check_date.format("%Y-%m-%d").to_string();
+                let yest_act: bool = conn
+                    .query_row(
+                        "SELECT COUNT(*) > 0 FROM ai_usage_logs WHERE date(created_at, 'localtime') = ?1",
+                        params![yest_str],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(false);
+                if yest_act {
+                    streak_days += 1;
+                    current_check_date = current_check_date - chrono::Duration::days(1);
+                    continue;
+                }
+            }
+            break;
+        }
+    }
+
+    // 5. Model breakdown
+    let mut model_stmt = conn
+        .prepare(&format!(
+            "SELECT model, COALESCE(SUM(total_tokens), 0), COUNT(*) 
+             FROM ai_usage_logs WHERE created_at >= {} GROUP BY model ORDER BY SUM(total_tokens) DESC",
+            date_filter
+        ))
+        .map_err(|e| e.to_string())?;
+
+    let color_palette = vec![
+        "#3B82F6", // Blue
+        "#10B981", // Emerald
+        "#8B5CF6", // Purple
+        "#F59E0B", // Amber
+        "#EC4899", // Pink
+        "#06B6D4", // Cyan
+        "#6366F1", // Indigo
+    ];
+
+    let mut model_breakdown = Vec::new();
+    let mut top_model = "无".to_string();
+    let mut top_model_ratio = 0.0;
+
+    let rows = model_stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+        ))
+    }).map_err(|e| e.to_string())?;
+
+    let mut idx = 0;
+    for r in rows {
+        if let Ok((mdl, tokens, count)) = r {
+            if idx == 0 {
+                top_model = mdl.clone();
+                if total_tokens > 0 {
+                    top_model_ratio = ((tokens as f64) / (total_tokens as f64)) * 100.0;
+                }
+            }
+            let percentage = if total_tokens > 0 {
+                ((tokens as f64) / (total_tokens as f64)) * 100.0
+            } else {
+                0.0
+            };
+            let color = color_palette[idx % color_palette.len()].to_string();
+            model_breakdown.push(models::ModelUsageItem {
+                model: mdl,
+                tokens,
+                count,
+                percentage: (percentage * 10.0).round() / 10.0,
+                color,
+            });
+            idx += 1;
+        }
+    }
+
+    // 6. Heatmap Data
+    let mut heatmap_data = Vec::new();
+    let today = chrono::Local::now().date_naive();
+    
+    for i in (0..heatmap_days).rev() {
+        let d = today - chrono::Duration::days(i);
+        let date_str = d.format("%Y-%m-%d").to_string();
+
+        let (count, tokens): (i64, i64) = conn
+            .query_row(
+                "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0) FROM ai_usage_logs WHERE date(created_at, 'localtime') = ?1",
+                params![date_str],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap_or((0, 0));
+
+        let level = if count == 0 {
+            0
+        } else if count <= 2 {
+            1
+        } else if count <= 6 {
+            2
+        } else if count <= 15 {
+            3
+        } else {
+            4
+        };
+
+        heatmap_data.push(models::HeatmapItem {
+            date: date_str,
+            count,
+            tokens,
+            level,
+        });
+    }
+
+    // 7. Daily Trends
+    let mut daily_trends = Vec::new();
+
+    for i in (0..trend_days).rev() {
+        let d = today - chrono::Duration::days(i);
+        let date_str = d.format("%Y-%m-%d").to_string();
+        let display_date = d.format("%m月%d日").to_string();
+
+        let mut models_map = std::collections::HashMap::new();
+        let mut day_total = 0;
+
+        let mut stmt = conn
+            .prepare("SELECT model, COALESCE(SUM(total_tokens), 0) FROM ai_usage_logs WHERE date(created_at, 'localtime') = ?1 GROUP BY model")
+            .unwrap();
+
+        if let Ok(m_rows) = stmt.query_map(params![date_str], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        }) {
+            for mr in m_rows.flatten() {
+                day_total += mr.1;
+                models_map.insert(mr.0, mr.1);
+            }
+        }
+
+        daily_trends.push(models::DailyTrendItem {
+            date: date_str,
+            display_date,
+            models: models_map,
+            total_tokens: day_total,
+        });
+    }
+
+    Ok(models::AiUsageDashboardStats {
+        total_tokens,
+        prompt_tokens,
+        completion_tokens,
+        total_calls,
+        total_skills_analyzed,
+        active_days,
+        streak_days,
+        top_model,
+        top_model_ratio: (top_model_ratio * 10.0).round() / 10.0,
+        heatmap_data,
+        daily_trends,
+        model_breakdown,
+    })
+}
+
+#[tauri::command]
+fn get_ai_usage_logs(
+    state: State<'_, DbState>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+    action_type: Option<String>,
+) -> Result<Vec<models::AiUsageLog>, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    let lim = limit.unwrap_or(50);
+    let off = offset.unwrap_or(0);
+
+    let mut sql = "SELECT id, action_type, target_name, model, prompt_tokens, completion_tokens, total_tokens, duration_ms, status, error_message, created_at FROM ai_usage_logs".to_string();
+    if let Some(ref act) = action_type {
+        if !act.is_empty() && act != "all" {
+            sql.push_str(&format!(" WHERE action_type = '{}'", act));
+        }
+    }
+    sql.push_str(" ORDER BY created_at DESC, id DESC LIMIT ?1 OFFSET ?2");
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params![lim as i64, off as i64], |row| {
+        Ok(models::AiUsageLog {
+            id: row.get(0)?,
+            action_type: row.get(1)?,
+            target_name: row.get(2)?,
+            model: row.get(3)?,
+            prompt_tokens: row.get(4)?,
+            completion_tokens: row.get(5)?,
+            total_tokens: row.get(6)?,
+            duration_ms: row.get(7)?,
+            status: row.get(8)?,
+            error_message: row.get(9)?,
+            created_at: row.get(10)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    let mut list = Vec::new();
+    for r in rows {
+        if let Ok(log) = r {
+            list.push(log);
+        }
+    }
+
+    Ok(list)
+}
+
+#[tauri::command]
+fn clear_ai_usage_logs(state: State<'_, DbState>) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    conn.execute("DELETE FROM ai_usage_logs", []).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1641,7 +2003,10 @@ pub fn run() {
             batch_analyze_skills_ai,
             update_skill_ai_summary,
             synthesize_category_ai,
-            get_category_synthesis
+            get_category_synthesis,
+            get_ai_usage_stats,
+            get_ai_usage_logs,
+            clear_ai_usage_logs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

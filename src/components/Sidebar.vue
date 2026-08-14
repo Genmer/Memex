@@ -25,6 +25,7 @@ const menu = computed(() => {
       isPinned: false,
       children: [
         { id: 'dashboard', name: t('sidebar.dashboard') },
+        { id: 'ai-stats', name: t('sidebar.aiStats') },
         { id: 'settings', name: t('sidebar.settings') }
       ]
     }

@@ -12,6 +12,7 @@ import SkillDrawer from './components/SkillDrawer.vue'
 import AiChatPanel from './components/AiChatPanel.vue'
 import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import CommandPalette from './components/CommandPalette.vue'
+import AiUsageStats from './components/AiUsageStats.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { useTheme } from './composables/useTheme'
@@ -963,8 +964,13 @@ onUnmounted(() => {
           <span class="text-xs text-white/40 font-mono">{{ currentCount }} 项</span>
         </div>
 
+        <!-- AI USAGE STATS VIEW -->
+        <div v-if="activeView === 'ai-stats'">
+          <AiUsageStats />
+        </div>
+
         <!-- DASHBOARD VIEW -->
-        <div v-if="activeView === 'dashboard'">
+        <div v-else-if="activeView === 'dashboard'">
           <Dashboard />
         </div>
         

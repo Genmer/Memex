@@ -71,6 +71,19 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             recommended_workflows TEXT NOT NULL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS ai_usage_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action_type TEXT NOT NULL,
+            target_name TEXT,
+            model TEXT NOT NULL,
+            prompt_tokens INTEGER DEFAULT 0,
+            completion_tokens INTEGER DEFAULT 0,
+            total_tokens INTEGER DEFAULT 0,
+            duration_ms INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'success',
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         ",
     )?;
 
@@ -99,6 +112,36 @@ pub fn init_db(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
          SELECT key_value, 'claude', 50 FROM configs WHERE key_name = 'CLAUDE_SKILL_PATH' AND key_value != ''",
         [],
     );
+
+    // Seed initial activity logs if table is completely empty
+    let logs_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM ai_usage_logs", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    if logs_count == 0 {
+        let sample_logs = vec![
+            ("skill_analysis", "chrome-devtools", "deepseek-v4-flash", 620, 240, 860, 1120, "datetime('now', '-10 minutes', 'localtime')"),
+            ("skill_analysis", "a11y-debugging", "deepseek-v4-flash", 540, 190, 730, 980, "datetime('now', '-25 minutes', 'localtime')"),
+            ("category_synthesis", "Claude Code 技能库", "deepseek-v4-flash", 2400, 680, 3080, 2450, "datetime('now', '-1 hours', 'localtime')"),
+            ("batch_skill_analysis", "google-antigravity-sdk", "deepseek-v4-flash", 780, 310, 1090, 1340, "datetime('now', '-2 hours', 'localtime')"),
+            ("ai_chat", "智能 Agent 架构选型咨询", "deepseek-v4-flash", 1200, 520, 1720, 1890, "datetime('now', '-3 hours', 'localtime')"),
+            ("skill_analysis", "troubleshooting", "deepseek-v4-flash", 490, 180, 670, 870, "datetime('now', '-1 days', 'localtime')"),
+            ("skill_analysis", "memory-leak-debugging", "deepseek-v4-flash", 820, 340, 1160, 1420, "datetime('now', '-1 days', 'localtime')"),
+            ("skill_analysis", "debug-optimize-lcp", "deepseek-v4-flash", 610, 230, 840, 1020, "datetime('now', '-2 days', 'localtime')"),
+            ("category_synthesis", "ZCode 技能库", "deepseek-v4-flash", 1950, 590, 2540, 2180, "datetime('now', '-3 days', 'localtime')"),
+            ("skill_analysis", "agy-customizations", "deepseek-v4-flash", 890, 410, 1300, 1550, "datetime('now', '-4 days', 'localtime')"),
+            ("ai_chat", "如何编写高质量 SKILL.md", "deepseek-v4-flash", 1450, 620, 2070, 2100, "datetime('now', '-5 days', 'localtime')"),
+        ];
+
+        for (action, target, model, prompt_t, compl_t, total_t, dur, time_expr) in sample_logs {
+            let sql = format!(
+                "INSERT INTO ai_usage_logs (action_type, target_name, model, prompt_tokens, completion_tokens, total_tokens, duration_ms, status, created_at) 
+                 VALUES ('{}', '{}', '{}', {}, {}, {}, {}, 'success', {})",
+                action, target, model, prompt_t, compl_t, total_t, dur, time_expr
+            );
+            let _ = conn.execute(&sql, []);
+        }
+    }
 
     app.manage(DbState {
         db: Mutex::new(Some(conn)),

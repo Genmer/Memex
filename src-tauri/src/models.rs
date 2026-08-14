@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -72,4 +73,60 @@ pub struct CategorySynthesisResult {
     pub core_capabilities: Vec<String>,
     pub recommended_workflows: Vec<String>,
     pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AiUsageLog {
+    pub id: i64,
+    pub action_type: String,
+    pub target_name: Option<String>,
+    pub model: String,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub total_tokens: i64,
+    pub duration_ms: i64,
+    pub status: String,
+    pub error_message: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct HeatmapItem {
+    pub date: String,
+    pub count: i64,
+    pub tokens: i64,
+    pub level: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DailyTrendItem {
+    pub date: String,
+    pub display_date: String,
+    pub models: HashMap<String, i64>,
+    pub total_tokens: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ModelUsageItem {
+    pub model: String,
+    pub tokens: i64,
+    pub count: i64,
+    pub percentage: f64,
+    pub color: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AiUsageDashboardStats {
+    pub total_tokens: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub total_calls: i64,
+    pub total_skills_analyzed: i64,
+    pub active_days: i64,
+    pub streak_days: i64,
+    pub top_model: String,
+    pub top_model_ratio: f64,
+    pub heatmap_data: Vec<HeatmapItem>,
+    pub daily_trends: Vec<DailyTrendItem>,
+    pub model_breakdown: Vec<ModelUsageItem>,
 }

@@ -17,7 +17,7 @@ import MemoWorkspaceApp from './components/MemoVault/MemoWorkspaceApp.vue'
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { useTheme } from './composables/useTheme'
-import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight, Loader2, Bot, Maximize2, Minimize2 } from 'lucide-vue-next'
+import { Search, Folder, Sparkles, LayoutGrid, List, Star, Tag, X, CheckSquare, Trash2, FolderTree, ChevronDown, ChevronRight, Loader2, Bot, Maximize2, Minimize2, BookOpen } from 'lucide-vue-next'
 import { useAiBatchQueue } from './composables/useAiBatchQueue'
 
 const toast = useToast()

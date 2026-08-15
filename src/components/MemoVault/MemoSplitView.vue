@@ -13,11 +13,11 @@ import {
   Quote, 
   Table, 
   Columns, 
-  Eye, 
   Edit3,
   Check,
   X,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from 'lucide-vue-next'
 import { renderMarkdown, copyCodeFromClick } from '../../utils/markdown'
 import { useToast } from '../../composables/useToast'
@@ -97,9 +97,10 @@ const currentTags = ref('')
 const currentIsPinned = ref(false)
 const currentIsFavorite = ref(false)
 const currentNoteType = ref('markdown')
-const viewMode = ref<'edit' | 'split' | 'preview'>('split')
-const editorTextarea = ref<HTMLTextAreaElement | null>(null)
 const isSaved = ref(true)
+const viewMode = ref<'split' | 'live' | 'edit'>('split')
+const liveSubMode = ref<'rendered' | 'source'>('rendered')
+const editorTextarea = ref<HTMLTextAreaElement | null>(null)
 
 const filteredMemos = computed(() => {
   let list = props.memos
@@ -218,8 +219,8 @@ const applyCodeLanguage = (lang: string) => {
   showCodeMenu.value = false
   selectedCodeLang.value = lang
 
-  if (viewMode.value === 'preview') {
-    viewMode.value = 'split'
+  if (viewMode.value === 'live' && liveSubMode.value === 'rendered') {
+    liveSubMode.value = 'source'
   }
 
   const trimmed = currentContent.value.trim()
@@ -279,6 +280,50 @@ const applyCodeLanguage = (lang: string) => {
       editorTextarea.value.setSelectionRange(lang.length + 4, lang.length + 4)
     }
   }, 50)
+}
+
+const handlePreviewClick = async (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  
+  // 1. Copy code block button
+  const copyBtn = target.closest('.copy-code-btn') as HTMLElement
+  if (copyBtn) {
+    await copyCodeFromClick(event)
+    return
+  }
+
+  // 2. Interactive Task Checkbox Toggle
+  if (target.matches('input[type="checkbox"]')) {
+    const checkbox = target as HTMLInputElement
+    const isChecked = checkbox.checked
+    const li = checkbox.closest('li')
+    if (li) {
+      let taskText = li.textContent?.trim() || ''
+      taskText = taskText.replace(/^\[[ x]\]\s*/, '').trim()
+      if (taskText) {
+        const unchecked = `- [ ] ${taskText}`
+        const checked = `- [x] ${taskText}`
+        if (isChecked && currentContent.value.includes(unchecked)) {
+          currentContent.value = currentContent.value.replace(unchecked, checked)
+          isSaved.value = false
+          toast.success('已勾选待办任务')
+        } else if (!isChecked && currentContent.value.includes(checked)) {
+          currentContent.value = currentContent.value.replace(checked, unchecked)
+          isSaved.value = false
+          toast.success('已取消勾选任务')
+        }
+      }
+    }
+  }
+}
+
+const toggleLiveEdit = () => {
+  liveSubMode.value = liveSubMode.value === 'rendered' ? 'source' : 'rendered'
+  if (liveSubMode.value === 'source') {
+    nextTick(() => {
+      editorTextarea.value?.focus()
+    })
+  }
 }
 
 const handleClickOutside = (e: MouseEvent) => {
@@ -442,28 +487,34 @@ onUnmounted(() => {
               <Star :size="13" :class="{ 'fill-amber-400': currentIsFavorite }" />
             </button>
 
-            <!-- Mode View -->
-            <div class="flex items-center bg-white/5 p-0.5 rounded-lg border border-white/10">
-              <button 
-                @click="viewMode = 'edit'"
-                class="p-1 rounded transition-colors"
-                :class="viewMode === 'edit' ? 'bg-white/15 text-white' : 'text-white/40'"
-              >
-                <Edit3 :size="13" />
-              </button>
+            <!-- Mode View Switcher -->
+            <div class="flex items-center bg-white/5 p-0.5 rounded-lg border border-white/10 text-xs">
               <button 
                 @click="viewMode = 'split'"
-                class="p-1 rounded transition-colors"
-                :class="viewMode === 'split' ? 'bg-white/15 text-white' : 'text-white/40'"
+                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                title="双栏分屏：左源码右即时解析"
               >
-                <Columns :size="13" />
+                <Columns :size="12" />
+                <span>分栏</span>
               </button>
               <button 
-                @click="viewMode = 'preview'"
-                class="p-1 rounded transition-colors"
-                :class="viewMode === 'preview' ? 'bg-white/15 text-white' : 'text-white/40'"
+                @click="viewMode = 'live'"
+                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                :class="viewMode === 'live' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                title="即时编辑渲染：单栏沉浸式，可直接交互"
               >
-                <Eye :size="13" />
+                <Sparkles :size="12" />
+                <span>即时渲染编辑</span>
+              </button>
+              <button 
+                @click="viewMode = 'edit'"
+                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                :class="viewMode === 'edit' ? 'bg-indigo-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                title="纯源码"
+              >
+                <Edit3 :size="12" />
+                <span>源码</span>
               </button>
             </div>
 
@@ -540,10 +591,11 @@ onUnmounted(() => {
         </div>
 
         <!-- Editor Content Area -->
-        <div class="flex-1 flex min-h-0 overflow-hidden">
+        <div class="flex-1 flex min-h-0 overflow-hidden relative">
+          <!-- Textarea (Split, Edit, or Live Source) -->
           <div 
-            v-show="viewMode !== 'preview'"
-            class="flex-1 h-full p-6 overflow-y-auto border-r border-white/5"
+            v-show="viewMode === 'split' || viewMode === 'edit' || (viewMode === 'live' && liveSubMode === 'source')"
+            class="flex-1 h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]"
           >
             <textarea 
               ref="editorTextarea"
@@ -554,15 +606,47 @@ onUnmounted(() => {
             ></textarea>
           </div>
 
+          <!-- Live Rendered Preview (Split or Live Rendered) -->
           <div 
-            v-show="viewMode !== 'edit'"
-            class="flex-1 h-full p-6 overflow-y-auto bg-black/20"
-            @click="copyCodeFromClick"
+            v-show="viewMode === 'split' || (viewMode === 'live' && liveSubMode === 'rendered')"
+            class="flex-1 h-full overflow-y-auto bg-black/20 relative"
+            :class="viewMode === 'live' ? 'p-8 max-w-3xl mx-auto w-full' : 'p-6'"
+            @click="handlePreviewClick"
           >
+            <!-- Floating Quick-Edit in Live Mode -->
+            <div v-if="viewMode === 'live'" class="sticky top-0 z-20 flex items-center justify-between pb-2 mb-3 border-b border-white/10 bg-[#12141a]/80 backdrop-blur-md">
+              <div class="flex items-center gap-1.5 text-xs text-purple-300 font-semibold">
+                <Sparkles :size="13" />
+                <span>即时渲染（双击或点击右侧可编辑）</span>
+              </div>
+              <button 
+                @click="toggleLiveEdit" 
+                class="px-2.5 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <Edit3 :size="11" />
+                <span>点击编辑</span>
+              </button>
+            </div>
+
             <div 
-              class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-xs leading-relaxed"
+              class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-xs leading-relaxed select-text"
               v-html="renderedMarkdown"
+              @dblclick="toggleLiveEdit"
             ></div>
+          </div>
+
+          <!-- Return to Render in Live Edit Mode -->
+          <div 
+            v-if="viewMode === 'live' && liveSubMode === 'source'" 
+            class="absolute top-4 right-6 z-30"
+          >
+            <button 
+              @click="toggleLiveEdit" 
+              class="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles :size="12" />
+              <span>即时渲染</span>
+            </button>
           </div>
         </div>
       </div>

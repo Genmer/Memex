@@ -95,8 +95,7 @@ const color = ref<'default' | 'indigo' | 'emerald' | 'amber' | 'rose' | 'cyan' |
 const tagsInput = ref('')
 const isPinned = ref(false)
 const isFavorite = ref(false)
-const viewMode = ref<'split' | 'live' | 'edit'>('split')
-const liveTab = ref<'edit' | 'preview'>('edit')
+const viewMode = ref<'split' | 'preview' | 'edit'>('split')
 
 const editorTextarea = ref<HTMLTextAreaElement | null>(null)
 
@@ -167,9 +166,9 @@ const applyCodeLanguage = (lang: string) => {
   showCodeMenu.value = false
   selectedCodeLang.value = lang
 
-  // If in live preview, switch to live edit
-  if (viewMode.value === 'live' && liveTab.value === 'preview') {
-    liveTab.value = 'edit'
+  // If in preview mode, switch to split mode on insert
+  if (viewMode.value === 'preview') {
+    viewMode.value = 'split'
   }
 
   const trimmed = content.value.trim()
@@ -259,24 +258,7 @@ const handlePreviewClick = async (event: MouseEvent) => {
     }
     return
   }
-
-  // 3. If in live single-pane mode, clicking on text directly enters edit mode
-  if (viewMode.value === 'live') {
-    liveTab.value = 'edit'
-    nextTick(() => {
-      editorTextarea.value?.focus()
-    })
-  }
 }
-
-const focusLiveEdit = () => {
-  liveTab.value = 'edit'
-  nextTick(() => {
-    editorTextarea.value?.focus()
-  })
-}
-
-
 
 const handleClickOutside = (e: MouseEvent) => {
   if (codeMenuRef.value && !codeMenuRef.value.contains(e.target as Node)) {
@@ -437,25 +419,25 @@ onUnmounted(() => {
             <Star :size="15" :class="{ 'fill-amber-400': isFavorite }" />
           </button>
 
-          <!-- View Mode Switcher (Split / Live / Edit) -->
+          <!-- View Mode Switcher (Split / Preview / Edit) -->
           <div class="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-medium">
             <button 
               @click="viewMode = 'split'"
               class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
               :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-bold shadow ring-1 ring-indigo-400' : 'text-white/40 hover:text-white'"
-              title="双栏分屏：左侧编辑，右侧即时高亮解析"
+              title="双栏分屏：左侧编辑，右侧即时解析对照"
             >
               <Columns :size="13" />
               <span>双栏分屏</span>
             </button>
             <button 
-              @click="viewMode = 'live'; focusLiveEdit()"
+              @click="viewMode = 'preview'"
               class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="viewMode === 'live' ? 'bg-purple-600 text-white font-bold shadow ring-1 ring-purple-400' : 'text-white/40 hover:text-white'"
-              title="即时编辑渲染：单栏沉浸式，直接打字编辑并即时呈现排版"
+              :class="viewMode === 'preview' ? 'bg-purple-600 text-white font-bold shadow ring-1 ring-purple-400' : 'text-white/40 hover:text-white'"
+              title="即时解析：全宽即时渲染呈现"
             >
               <Sparkles :size="13" />
-              <span>即时编辑渲染</span>
+              <span>即时解析</span>
             </button>
             <button 
               @click="viewMode = 'edit'"
@@ -637,96 +619,32 @@ onUnmounted(() => {
 
       <!-- Main Body Editor & Preview Area -->
       <div class="flex-1 flex min-h-0 overflow-hidden relative">
-        <!-- MODE 1: Split View (Dual Panes) -->
-        <template v-if="viewMode === 'split'">
-          <!-- Left Editor -->
-          <div class="w-1/2 h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]">
-            <textarea 
-              ref="editorTextarea"
-              v-model="content"
-              placeholder="开始记录你的想法、架构备忘、代码片段或任务清单... (支持标准 Markdown 语法)"
-              class="w-full h-full bg-transparent text-white/90 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
-            ></textarea>
-          </div>
-          <!-- Right Live Rendered Pane -->
+        <!-- Editor Textarea Pane (visible in split & edit) -->
+        <div 
+          v-show="viewMode === 'split' || viewMode === 'edit'"
+          class="h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]"
+          :class="viewMode === 'split' ? 'w-1/2' : 'w-full'"
+        >
+          <textarea 
+            ref="editorTextarea"
+            v-model="content"
+            placeholder="开始记录你的想法、架构备忘、代码片段或任务清单... (支持标准 Markdown 语法)"
+            class="w-full h-full bg-transparent text-white/90 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
+          ></textarea>
+        </div>
+
+        <!-- Live Rendered Preview (visible in split & preview) -->
+        <div 
+          v-show="viewMode === 'split' || viewMode === 'preview'"
+          class="h-full overflow-y-auto bg-black/20"
+          :class="viewMode === 'split' ? 'w-1/2 p-6' : 'w-full p-8 max-w-4xl mx-auto'"
+          @click="handlePreviewClick"
+        >
           <div 
-            class="w-1/2 h-full p-6 overflow-y-auto bg-black/20"
-            @click="handlePreviewClick"
-          >
-            <div 
-              class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-sm leading-relaxed select-text"
-              v-html="renderedMarkdown"
-            ></div>
-          </div>
-        </template>
-
-        <!-- MODE 2: Live In-Place Single-Pane Workspace (Directly Editable & Instant Render) -->
-        <template v-else-if="viewMode === 'live'">
-          <div class="w-full h-full max-w-4xl mx-auto flex flex-col p-6 overflow-hidden">
-            <!-- In-Place Mini Toolbar Switcher -->
-            <div class="flex items-center justify-between pb-3 mb-4 border-b border-white/10 shrink-0">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-semibold" :class="liveTab === 'edit' ? 'text-purple-300' : 'text-emerald-300'">
-                  {{ liveTab === 'edit' ? '✏️ 单栏即时编辑中（直接打字输入，实时生效）' : '✨ 即时排版呈现中（点击任意位置直接编辑）' }}
-                </span>
-              </div>
-              <div class="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
-                <button 
-                  @click="liveTab = 'edit'; focusLiveEdit()"
-                  class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                  :class="liveTab === 'edit' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
-                >
-                  <Edit3 :size="12" />
-                  <span>直接编辑输入</span>
-                </button>
-                <button 
-                  @click="liveTab = 'preview'"
-                  class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                  :class="liveTab === 'preview' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
-                >
-                  <Sparkles :size="12" />
-                  <span>查看即时排版</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- In-Place Editable Textarea (when liveTab === 'edit') -->
-            <div v-show="liveTab === 'edit'" class="flex-1 h-full overflow-y-auto">
-              <textarea 
-                ref="editorTextarea"
-                v-model="content"
-                placeholder="直接在此处键入 Markdown 文本、粘贴配置或记录灵感..."
-                class="w-full h-full bg-transparent text-white/95 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
-                autoFocus
-              ></textarea>
-            </div>
-
-            <!-- In-Place Rendered Canvas (when liveTab === 'preview', clickable to edit) -->
-            <div 
-              v-show="liveTab === 'preview'" 
-              class="flex-1 h-full overflow-y-auto cursor-text rounded-xl p-4 bg-white/[0.02] border border-white/5"
-              @click="handlePreviewClick"
-              title="点击正文任意位置直接编辑"
-            >
-              <div 
-                class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-sm leading-relaxed select-text"
-                v-html="renderedMarkdown"
-              ></div>
-            </div>
-          </div>
-        </template>
-
-        <!-- MODE 3: Pure Raw Textarea (Full Width) -->
-        <template v-else-if="viewMode === 'edit'">
-          <div class="w-full h-full p-6 overflow-y-auto bg-[#0e1017]">
-            <textarea 
-              ref="editorTextarea"
-              v-model="content"
-              placeholder="开始记录你的想法、架构备忘、代码片段或任务清单... (支持标准 Markdown 语法)"
-              class="w-full h-full bg-transparent text-white/90 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
-            ></textarea>
-          </div>
-        </template>
+            class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-sm leading-relaxed select-text"
+            v-html="renderedMarkdown"
+          ></div>
+        </div>
       </div>
 
       <!-- Footer Status & Actions -->

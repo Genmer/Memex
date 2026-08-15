@@ -676,7 +676,7 @@ onUnmounted(() => {
           <button 
             v-if="props.memo?.id"
             @click="emit('delete', props.memo.id)"
-            class="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans cursor-pointer mr-2"
+            class="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans cursor-pointer mr-2 transition-colors"
           >
             <Trash2 :size="12" />
             <span>删除备忘</span>
@@ -686,25 +686,6 @@ onUnmounted(() => {
             class="px-3 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg text-xs font-sans transition-colors cursor-pointer"
           >
             关闭
-          </button>
-        </div>
-      </div>
-
-      <!-- Footer Status -->
-      <div class="px-6 py-2.5 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-xs text-white/40 font-mono">
-        <div class="flex items-center gap-4">
-          <span>字符数: {{ content.length }}</span>
-          <span>行数: {{ content.split('\n').length }}</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span v-if="props.memo?.id" class="text-[11px]">更新于: {{ props.memo.updated_at }}</span>
-          <button 
-            v-if="props.memo?.id"
-            @click="emit('delete', props.memo.id)"
-            class="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans"
-          >
-            <Trash2 :size="12" />
-            <span>删除备忘</span>
           </button>
         </div>
       </div>

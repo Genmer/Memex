@@ -69,6 +69,7 @@ const confirmNewFolder = () => {
     }
     currentFolder.value = trimmed
     handleContentChange()
+    toast.success(`已创建并切换分类: ${trimmed}`)
   } else if (previousFolder.value) {
     currentFolder.value = previousFolder.value
   }
@@ -93,13 +94,40 @@ const handleFolderSelect = (e: Event) => {
   }
 }
 const currentColor = ref('default')
-const currentTags = ref('')
+const currentTagList = ref<string[]>([])
+const newTagInput = ref('')
 const currentIsPinned = ref(false)
 const currentIsFavorite = ref(false)
 const currentNoteType = ref('markdown')
 const isSaved = ref(true)
 const viewMode = ref<'split' | 'preview' | 'edit'>('split')
 const editorTextarea = ref<HTMLTextAreaElement | null>(null)
+
+const addTag = (tagToAdd?: string) => {
+  const t = (tagToAdd || newTagInput.value).trim().replace(/^#/, '')
+  if (!t) return
+  if (!currentTagList.value.includes(t)) {
+    currentTagList.value.push(t)
+    handleContentChange()
+    toast.success(`已添加标签: #${t}`)
+  } else {
+    toast.info(`标签 #${t} 已存在`)
+  }
+  newTagInput.value = ''
+}
+
+const removeTag = (tagToRemove: string) => {
+  currentTagList.value = currentTagList.value.filter(t => t !== tagToRemove)
+  handleContentChange()
+  toast.info(`已移除标签: #${tagToRemove}`)
+}
+
+const handleTagKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault()
+    addTag()
+  }
+}
 
 const filteredMemos = computed(() => {
   let list = props.memos
@@ -128,7 +156,8 @@ watch(selectedMemo, (m) => {
     currentContent.value = m.content || ''
     currentFolder.value = m.folder || '默认备忘'
     currentColor.value = m.color || 'default'
-    currentTags.value = m.tags || ''
+    currentTagList.value = m.tags ? m.tags.split(/[,，]/).map((t: string) => t.trim()).filter(Boolean) : []
+    newTagInput.value = ''
     currentIsPinned.value = !!m.is_pinned
     currentIsFavorite.value = !!m.is_favorite
     currentNoteType.value = m.note_type || 'markdown'
@@ -150,7 +179,7 @@ const handleSaveCurrent = () => {
     folder: currentFolder.value,
     note_type: currentNoteType.value,
     color: currentColor.value,
-    tags: currentTags.value,
+    tags: currentTagList.value.join(','),
     is_pinned: currentIsPinned.value,
     is_favorite: currentIsFavorite.value
   })
@@ -529,14 +558,52 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Title Row -->
-        <div class="px-6 py-2 border-b border-white/5">
+        <!-- Title & Tags Row -->
+        <div class="px-6 py-2 border-b border-white/5 flex flex-col gap-2">
           <input 
             v-model="currentTitle"
             @input="handleContentChange"
             placeholder="输入备忘标题..." 
             class="w-full text-lg font-bold bg-transparent text-white placeholder-white/20 focus:outline-none"
           />
+
+          <!-- Interactive Tags Row -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <Tag :size="12" class="text-white/40 shrink-0" />
+            <div 
+              v-for="t in currentTagList" 
+              :key="t"
+              class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 text-[11px] font-mono group animate-in fade-in zoom-in-95 duration-100"
+            >
+              <span>#{{ t }}</span>
+              <button 
+                @click="removeTag(t)" 
+                class="text-purple-300/60 hover:text-red-400 p-0.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                title="删除标签"
+              >
+                <X :size="10" />
+              </button>
+            </div>
+
+            <div class="flex items-center gap-1">
+              <input 
+                v-model="newTagInput"
+                @keydown="handleTagKeydown"
+                type="text" 
+                placeholder="添加标签 (回车确认)" 
+                class="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-white placeholder-white/30 focus:outline-none focus:border-purple-500/50 w-28"
+              />
+              <button 
+                v-if="newTagInput.trim()"
+                @click="addTag()"
+                class="px-2 py-0.5 bg-purple-600 hover:bg-purple-500 text-white rounded-md text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer shadow transition-all"
+                title="确认添加"
+              >
+                <Plus :size="11" />
+                <span>添加</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Formatting Bar -->

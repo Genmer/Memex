@@ -69,6 +69,7 @@ const confirmNewFolder = () => {
       customFolders.value.push(trimmed)
     }
     folder.value = trimmed
+    toast.success(`已创建并切换分类: ${trimmed}`)
   } else if (previousFolder.value) {
     folder.value = previousFolder.value
   }
@@ -92,12 +93,37 @@ const handleFolderSelect = (e: Event) => {
 }
 const noteType = ref<'markdown' | 'memory' | 'journal' | 'todo' | 'fleeting' | 'code'>('markdown')
 const color = ref<'default' | 'indigo' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'purple'>('default')
-const tagsInput = ref('')
+const tagList = ref<string[]>([])
+const newTagInput = ref('')
 const isPinned = ref(false)
 const isFavorite = ref(false)
 const viewMode = ref<'split' | 'preview' | 'edit'>('split')
 
 const editorTextarea = ref<HTMLTextAreaElement | null>(null)
+
+const addTag = (tagToAdd?: string) => {
+  const t = (tagToAdd || newTagInput.value).trim().replace(/^#/, '')
+  if (!t) return
+  if (!tagList.value.includes(t)) {
+    tagList.value.push(t)
+    toast.success(`已添加标签: #${t}`)
+  } else {
+    toast.info(`标签 #${t} 已存在`)
+  }
+  newTagInput.value = ''
+}
+
+const removeTag = (tagToRemove: string) => {
+  tagList.value = tagList.value.filter(t => t !== tagToRemove)
+  toast.info(`已移除标签: #${tagToRemove}`)
+}
+
+const handleTagKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault()
+    addTag()
+  }
+}
 
 watch(() => props.memo, (m) => {
   if (m) {
@@ -106,7 +132,8 @@ watch(() => props.memo, (m) => {
     folder.value = m.folder || '默认备忘'
     noteType.value = m.note_type || 'markdown'
     color.value = m.color || 'default'
-    tagsInput.value = m.tags || ''
+    tagList.value = m.tags ? m.tags.split(/[,，]/).map((t: string) => t.trim()).filter(Boolean) : []
+    newTagInput.value = ''
     isPinned.value = !!m.is_pinned
     isFavorite.value = !!m.is_favorite
   } else {
@@ -116,7 +143,8 @@ watch(() => props.memo, (m) => {
     folder.value = props.availableFolders[0] || '默认备忘'
     noteType.value = 'markdown'
     color.value = 'default'
-    tagsInput.value = ''
+    tagList.value = []
+    newTagInput.value = ''
     isPinned.value = false
     isFavorite.value = false
   }
@@ -310,7 +338,7 @@ const handleSave = () => {
     folder: isAddingFolder.value && newFolderInput.value.trim() ? newFolderInput.value.trim() : folder.value,
     note_type: noteType.value,
     color: color.value,
-    tags: tagsInput.value.split(/[,，]/).map(t => t.trim()).filter(Boolean).join(','),
+    tags: tagList.value.join(','),
     is_pinned: isPinned.value,
     is_favorite: isFavorite.value
   }
@@ -525,15 +553,45 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Tags Input -->
-          <div class="flex items-center gap-1.5 flex-1 min-w-[200px]">
+          <!-- Interactive Tags Row -->
+          <div class="flex items-center gap-2 flex-1 min-w-[240px] flex-wrap">
             <TagIcon :size="13" class="text-white/40 shrink-0" />
-            <input 
-              v-model="tagsInput"
-              type="text" 
-              placeholder="添加标签 (用逗号隔开，如: 架构, 备忘, 待办)" 
-              class="w-full px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50"
-            />
+            
+            <!-- Existing Tag Badges -->
+            <div 
+              v-for="t in tagList" 
+              :key="t"
+              class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 text-[11px] font-mono group animate-in fade-in zoom-in-95 duration-100"
+            >
+              <span>#{{ t }}</span>
+              <button 
+                @click="removeTag(t)" 
+                class="text-purple-300/60 hover:text-red-400 p-0.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                title="删除标签"
+              >
+                <X :size="10" />
+              </button>
+            </div>
+
+            <!-- New Tag Input -->
+            <div class="flex items-center gap-1">
+              <input 
+                v-model="newTagInput"
+                @keydown="handleTagKeydown"
+                type="text" 
+                placeholder="添加标签 (回车确认)" 
+                class="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-white placeholder-white/30 focus:outline-none focus:border-purple-500/50 w-32"
+              />
+              <button 
+                v-if="newTagInput.trim()"
+                @click="addTag()"
+                class="px-2 py-0.5 bg-purple-600 hover:bg-purple-500 text-white rounded-md text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer shadow transition-all"
+                title="确认添加"
+              >
+                <Plus :size="11" />
+                <span>添加</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

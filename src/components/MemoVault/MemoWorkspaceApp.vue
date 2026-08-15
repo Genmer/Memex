@@ -26,7 +26,8 @@ import {
   X, 
   FolderPlus,
   ArrowLeftRight,
-  Trash2
+  Trash2,
+  Brain
 } from 'lucide-vue-next'
 import MemoCard from './MemoCard.vue'
 import MemoTimeline from './MemoTimeline.vue'
@@ -49,7 +50,7 @@ const tags = ref<any[]>([])
 const isLoading = ref(false)
 
 // Navigation & Filter State
-const selectedFilter = ref<'all' | 'pinned' | 'favorite' | 'todo' | 'journal'>('all')
+const selectedFilter = ref<'all' | 'pinned' | 'favorite' | 'memory' | 'todo' | 'journal'>('all')
 const selectedFolder = ref<string | null>(null)
 const selectedTag = ref<string | null>(null)
 const selectedTypeFilter = ref<string>('all')
@@ -115,6 +116,7 @@ const currentBreadcrumb = computed(() => {
   switch (selectedFilter.value) {
     case 'pinned': return '📌 已置顶备忘'
     case 'favorite': return '⭐ 收藏备忘录'
+    case 'memory': return '🧠 个人与项目记忆'
     case 'todo': return '✅ 待办事项清单'
     case 'journal': return '📅 个人工作日志'
     default: return '全部备忘与开发日志'
@@ -127,6 +129,7 @@ const loadData = async () => {
     let filterTypeParam: string | null = null
     if (selectedFilter.value === 'pinned') filterTypeParam = 'pinned'
     else if (selectedFilter.value === 'favorite') filterTypeParam = 'favorite'
+    else if (selectedFilter.value === 'memory') filterTypeParam = 'memory'
     else if (selectedFilter.value === 'todo') filterTypeParam = 'todo'
     else if (selectedFilter.value === 'journal') filterTypeParam = 'journal'
     else if (selectedTypeFilter.value !== 'all') filterTypeParam = selectedTypeFilter.value
@@ -160,6 +163,7 @@ const stats = computed(() => {
   const total = memos.value.length
   const pinned = memos.value.filter(m => m.is_pinned).length
   const favorites = memos.value.filter(m => m.is_favorite).length
+  const memories = memos.value.filter(m => m.note_type === 'memory').length
   const journals = memos.value.filter(m => m.note_type === 'journal').length
   
   let todoTotal = 0
@@ -173,6 +177,7 @@ const stats = computed(() => {
     total,
     pinned,
     favorites,
+    memories,
     journals,
     todoTotal,
     todoCompleted
@@ -315,7 +320,7 @@ const handleExportMarkdown = async () => {
   }
 }
 
-const selectFilter = (f: 'all' | 'pinned' | 'favorite' | 'todo' | 'journal') => {
+const selectFilter = (f: 'all' | 'pinned' | 'favorite' | 'memory' | 'todo' | 'journal') => {
   selectedFilter.value = f
   selectedFolder.value = null
   selectedTag.value = null
@@ -442,6 +447,18 @@ watch([selectedTypeFilter], () => {
                 <span>收藏夹</span>
               </span>
               <span class="text-[10px] font-mono opacity-50">{{ stats.favorites }}</span>
+            </button>
+
+            <button 
+              @click="selectFilter('memory')"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              :class="selectedFilter === 'memory' ? 'bg-purple-600/20 text-purple-200 font-bold border border-purple-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
+            >
+              <span class="flex items-center gap-2.5">
+                <Brain :size="14" class="text-purple-400" />
+                <span>个人记忆</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-50">{{ stats.memories }}</span>
             </button>
 
             <button 
@@ -632,28 +649,35 @@ watch([selectedTypeFilter], () => {
           <!-- Type Filter Selector -->
           <div class="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs font-medium">
             <button 
-              @click="selectedTypeFilter = 'all'"
+              @click="selectedTypeFilter = 'all'; loadData()"
               class="px-2.5 py-1 rounded-xl transition-all"
               :class="selectedTypeFilter === 'all' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               全部
             </button>
             <button 
-              @click="selectedTypeFilter = 'journal'"
+              @click="selectedTypeFilter = 'memory'; loadData()"
+              class="px-2.5 py-1 rounded-xl transition-all"
+              :class="selectedTypeFilter === 'memory' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
+            >
+              记忆
+            </button>
+            <button 
+              @click="selectedTypeFilter = 'journal'; loadData()"
               class="px-2.5 py-1 rounded-xl transition-all"
               :class="selectedTypeFilter === 'journal' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               日志
             </button>
             <button 
-              @click="selectedTypeFilter = 'todo'"
+              @click="selectedTypeFilter = 'todo'; loadData()"
               class="px-2.5 py-1 rounded-xl transition-all"
               :class="selectedTypeFilter === 'todo' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               待办
             </button>
             <button 
-              @click="selectedTypeFilter = 'fleeting'"
+              @click="selectedTypeFilter = 'fleeting'; loadData()"
               class="px-2.5 py-1 rounded-xl transition-all"
               :class="selectedTypeFilter === 'fleeting' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >

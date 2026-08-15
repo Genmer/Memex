@@ -12,7 +12,8 @@ import {
   Clock, 
   Code2, 
   Sparkles,
-  Layers
+  Layers,
+  Brain
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -89,6 +90,7 @@ const colorStyles = computed(() => {
 
 const getTypeIcon = (type: string) => {
   switch (type) {
+    case 'memory': return Brain
     case 'journal': return Calendar
     case 'todo': return CheckSquare
     case 'fleeting': return Sparkles
@@ -99,6 +101,7 @@ const getTypeIcon = (type: string) => {
 
 const getTypeLabel = (type: string) => {
   switch (type) {
+    case 'memory': return '专属记忆'
     case 'journal': return '工作日志'
     case 'todo': return '待办任务'
     case 'fleeting': return '闪念灵感'

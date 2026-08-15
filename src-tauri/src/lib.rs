@@ -2013,6 +2013,9 @@ fn get_memos(
             "favorite" => sql.push_str(" AND is_favorite = 1"),
             "todo" => sql.push_str(" AND (note_type = 'todo' OR todo_total > 0)"),
             "journal" => sql.push_str(" AND note_type = 'journal'"),
+            "memory" => sql.push_str(" AND note_type = 'memory'"),
+            "fleeting" => sql.push_str(" AND note_type = 'fleeting'"),
+            "markdown" => sql.push_str(" AND note_type = 'markdown'"),
             "archived" => {
                 sql = sql.replace("WHERE is_archived = 0", "WHERE is_archived = 1");
             },

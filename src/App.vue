@@ -38,8 +38,26 @@ const favoriteOnly = ref(false)
 const selectedTag = ref<string | null>(null)
 const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
 
-// Workspace Mode State
-const workspaceMode = ref<'agent' | 'memo'>('agent')
+// Workspace Mode State (Persisted)
+const getInitialWorkspaceMode = (): 'agent' | 'memo' => {
+  try {
+    const saved = localStorage.getItem('memex_workspace_mode')
+    if (saved === 'memo' || saved === 'agent') return saved
+  } catch (e) {
+    console.error('Failed to read workspace mode from storage:', e)
+  }
+  return 'agent'
+}
+
+const workspaceMode = ref<'agent' | 'memo'>(getInitialWorkspaceMode())
+
+watch(workspaceMode, (newVal) => {
+  try {
+    localStorage.setItem('memex_workspace_mode', newVal)
+  } catch (e) {
+    console.error('Failed to save workspace mode to storage:', e)
+  }
+})
 
 // Batch selection state
 const isBatchMode = ref(false)

@@ -86,7 +86,7 @@ const handleFolderSelect = (e: Event) => {
     startAddingFolder()
   }
 }
-const noteType = ref<'markdown' | 'journal' | 'todo' | 'fleeting' | 'code'>('markdown')
+const noteType = ref<'markdown' | 'memory' | 'journal' | 'todo' | 'fleeting' | 'code'>('markdown')
 const color = ref<'default' | 'indigo' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'purple'>('default')
 const tagsInput = ref('')
 const isPinned = ref(false)
@@ -212,28 +212,35 @@ onUnmounted(() => {
               class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
               :class="noteType === 'markdown' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
             >
-              📝 Markdown
+              📝 笔记
+            </button>
+            <button 
+              @click="noteType = 'memory'"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+              :class="noteType === 'memory' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
+            >
+              🧠 记忆
             </button>
             <button 
               @click="noteType = 'journal'"
               class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
               :class="noteType === 'journal' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
             >
-              📅 工作日志
+              📅 日志
             </button>
             <button 
               @click="noteType = 'todo'"
               class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
               :class="noteType === 'todo' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
             >
-              ✅ 待办任务
+              ✅ 待办
             </button>
             <button 
               @click="noteType = 'fleeting'"
               class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
               :class="noteType === 'fleeting' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
             >
-              ⚡ 闪念胶囊
+              ⚡ 灵感
             </button>
           </div>
 

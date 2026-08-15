@@ -294,6 +294,7 @@ const renderedMarkdown = computed(() => {
               class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white/80 focus:outline-none"
             >
               <option value="markdown">📝 Markdown 笔记</option>
+              <option value="memory">🧠 个人/项目记忆</option>
               <option value="journal">📅 工作日志</option>
               <option value="todo">✅ 待办清单</option>
               <option value="fleeting">⚡ 闪念胶囊</option>

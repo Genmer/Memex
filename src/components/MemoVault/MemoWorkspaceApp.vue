@@ -25,7 +25,8 @@ import {
   Globe, 
   X, 
   FolderPlus,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Trash2
 } from 'lucide-vue-next'
 import MemoCard from './MemoCard.vue'
 import MemoTimeline from './MemoTimeline.vue'
@@ -55,42 +56,57 @@ const selectedTypeFilter = ref<string>('all')
 const searchQuery = ref('')
 const layoutMode = ref<'grid' | 'timeline' | 'split'>('grid')
 
-// Folder Creation
+// Folder Creation & Custom Folders
 const isCreatingFolder = ref(false)
 const newFolderName = ref('')
+const customFolders = ref<string[]>([])
 
-// Editor Modal State
-const showEditor = ref(false)
-const editingMemo = ref<any | null>(null)
-
-// Stats
-const stats = computed(() => {
-  const total = memos.value.length
-  const pinned = memos.value.filter(m => m.is_pinned).length
-  const favorites = memos.value.filter(m => m.is_favorite).length
-  const journals = memos.value.filter(m => m.note_type === 'journal').length
-  
-  let todoTotal = 0
-  let todoCompleted = 0
-  memos.value.forEach(m => {
-    todoTotal += m.todo_total || 0
-    todoCompleted += m.todo_completed || 0
-  })
-
-  return {
-    total,
-    pinned,
-    favorites,
-    journals,
-    todoTotal,
-    todoCompleted
+const loadCustomFolders = () => {
+  try {
+    const saved = localStorage.getItem('memex_custom_folders')
+    if (saved) {
+      customFolders.value = JSON.parse(saved)
+    }
+  } catch (e) {
+    console.error('Failed to parse custom folders:', e)
   }
+}
+
+const saveCustomFolders = () => {
+  try {
+    localStorage.setItem('memex_custom_folders', JSON.stringify(customFolders.value))
+  } catch (e) {
+    console.error('Failed to save custom folders:', e)
+  }
+}
+
+// Merged display folders (defaults + custom + database)
+const displayFolders = computed(() => {
+  const map = new Map<string, number>()
+  
+  // Default system categories
+  const defaults = ['默认备忘', '工作日志', '架构设计', '灵感闪念', '待办清单']
+  defaults.forEach(name => map.set(name, 0))
+  
+  // User custom created categories
+  customFolders.value.forEach(name => {
+    if (!map.has(name)) map.set(name, 0)
+  })
+  
+  // Database categories with real item counts
+  folders.value.forEach((f: any) => {
+    map.set(f.name, f.count)
+  })
+  
+  return Array.from(map.entries()).map(([name, count]) => ({
+    name,
+    count,
+    isCustom: !defaults.includes(name)
+  }))
 })
 
 const availableFolders = computed(() => {
-  const set = new Set<string>(['默认备忘', '工作日志', '架构设计', '灵感闪念', '待办清单'])
-  folders.value.forEach(f => set.add(f.name))
-  return Array.from(set)
+  return displayFolders.value.map(f => f.name)
 })
 
 const currentBreadcrumb = computed(() => {
@@ -135,8 +151,36 @@ const loadData = async () => {
   }
 }
 
+// Editor Modal State
+const showEditor = ref(false)
+const editingMemo = ref<any | null>(null)
+
+// Stats
+const stats = computed(() => {
+  const total = memos.value.length
+  const pinned = memos.value.filter(m => m.is_pinned).length
+  const favorites = memos.value.filter(m => m.is_favorite).length
+  const journals = memos.value.filter(m => m.note_type === 'journal').length
+  
+  let todoTotal = 0
+  let todoCompleted = 0
+  memos.value.forEach(m => {
+    todoTotal += m.todo_total || 0
+    todoCompleted += m.todo_completed || 0
+  })
+
+  return {
+    total,
+    pinned,
+    favorites,
+    journals,
+    todoTotal,
+    todoCompleted
+  }
+})
+
 const handleOpenCreate = () => {
-  editingMemo.value = null
+  editingMemo.value = selectedFolder.value ? { folder: selectedFolder.value } : null
   showEditor.value = true
 }
 
@@ -222,14 +266,30 @@ const handleToggleFavorite = async (id: number, isFavorite: boolean) => {
 }
 
 const handleCreateFolder = () => {
-  if (!newFolderName.value.trim()) return
   const name = newFolderName.value.trim()
+  if (!name) return
+  if (!customFolders.value.includes(name)) {
+    customFolders.value.push(name)
+    saveCustomFolders()
+  }
   selectedFolder.value = name
   selectedTag.value = null
   selectedFilter.value = 'all'
   newFolderName.value = ''
   isCreatingFolder.value = false
+  toast.success(`已新建分类: ${name}`)
   loadData()
+}
+
+const handleDeleteCustomFolder = (name: string, e: Event) => {
+  e.stopPropagation()
+  customFolders.value = customFolders.value.filter(f => f !== name)
+  saveCustomFolders()
+  if (selectedFolder.value === name) {
+    selectedFolder.value = null
+    loadData()
+  }
+  toast.success(`已删除空分类: ${name}`)
 }
 
 const handleExportMarkdown = async () => {
@@ -284,6 +344,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  loadCustomFolders()
   loadData()
   window.addEventListener('keydown', handleKeydown)
 })
@@ -441,21 +502,32 @@ watch([selectedTypeFilter], () => {
 
           <div class="space-y-0.5">
             <button 
-              v-for="folder in folders" 
+              v-for="folder in displayFolders" 
               :key="folder.name"
               @click="selectFolder(folder.name)"
-              class="w-full px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              class="w-full px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-center justify-between group"
               :class="[
                 selectedFolder === folder.name 
                   ? 'bg-purple-600/20 text-purple-200 border border-purple-500/40 font-bold' 
                   : 'text-white/60 hover:text-white hover:bg-white/5'
               ]"
             >
-              <span class="truncate flex items-center gap-2">
-                <span class="w-1.5 h-1.5 rounded-full bg-purple-400/80"></span>
-                <span>{{ folder.name }}</span>
+              <span class="truncate flex items-center gap-2 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full" :class="folder.count > 0 ? 'bg-purple-400/80' : 'bg-white/20'"></span>
+                <span class="truncate">{{ folder.name }}</span>
               </span>
-              <span class="text-[10px] font-mono opacity-50">{{ folder.count }}</span>
+              <div class="flex items-center gap-1.5 shrink-0 ml-1">
+                <span class="text-[10px] font-mono" :class="folder.count > 0 ? 'text-purple-300 font-semibold' : 'text-white/30'">{{ folder.count }}</span>
+                <!-- Delete empty custom folder button -->
+                <button
+                  v-if="folder.isCustom && folder.count === 0"
+                  @click="handleDeleteCustomFolder(folder.name, $event)"
+                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 rounded transition-all"
+                  title="删除该分类"
+                >
+                  <Trash2 :size="11" />
+                </button>
+              </div>
             </button>
           </div>
         </div>
@@ -664,21 +736,24 @@ watch([selectedTypeFilter], () => {
             />
           </div>
 
-          <div v-else class="text-center py-24 bg-white/[0.01] rounded-3xl border border-dashed border-white/10 space-y-4">
+          <div v-else class="text-center py-24 bg-white/[0.01] rounded-3xl border border-dashed border-white/10 space-y-4 animate-in fade-in duration-200">
             <div class="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 mx-auto flex items-center justify-center">
               <FileText :size="28" />
             </div>
             <div class="space-y-1">
-              <h4 class="text-base font-bold text-white/90">暂无匹配备忘或日志</h4>
+              <h4 class="text-base font-bold text-white/90">
+                {{ selectedFolder ? `分类 "${selectedFolder}" 下暂无备忘` : '暂无匹配备忘或日志' }}
+              </h4>
               <p class="text-xs text-white/40 max-w-sm mx-auto">
-                随时记录您的架构想法、踩坑记录或每日待办
+                {{ selectedFolder ? '已为您自动选中此分类，点击下方按钮立即记录第一条内容' : '随时记录您的架构想法、踩坑记录或每日待办' }}
               </p>
             </div>
             <button 
               @click="handleOpenCreate"
-              class="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/30"
+              class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/30 flex items-center gap-1.5 mx-auto"
             >
-              + 立即创建第一篇备忘
+              <Plus :size="14" />
+              <span>{{ selectedFolder ? `在 "${selectedFolder}" 下新建备忘` : '+ 立即创建第一篇备忘' }}</span>
             </button>
           </div>
         </div>

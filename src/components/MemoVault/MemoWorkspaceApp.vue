@@ -61,60 +61,71 @@ const layoutMode = ref<'grid' | 'timeline' | 'split'>('grid')
 const isCreatingFolder = ref(false)
 const newFolderName = ref('')
 const customFolders = ref<string[]>([])
+const deletedFolders = ref<string[]>([])
 
-const loadCustomFolders = () => {
+const loadFoldersState = () => {
   try {
-    const saved = localStorage.getItem('memex_custom_folders')
-    if (saved) {
-      customFolders.value = JSON.parse(saved)
+    const savedCustom = localStorage.getItem('memex_custom_folders')
+    if (savedCustom) {
+      customFolders.value = JSON.parse(savedCustom)
+    }
+    const savedDeleted = localStorage.getItem('memex_deleted_folders')
+    if (savedDeleted) {
+      deletedFolders.value = JSON.parse(savedDeleted)
     }
   } catch (e) {
-    console.error('Failed to parse custom folders:', e)
+    console.error('Failed to parse folders state:', e)
   }
 }
 
-const saveCustomFolders = () => {
+const saveFoldersState = () => {
   try {
     localStorage.setItem('memex_custom_folders', JSON.stringify(customFolders.value))
+    localStorage.setItem('memex_deleted_folders', JSON.stringify(deletedFolders.value))
   } catch (e) {
-    console.error('Failed to save custom folders:', e)
+    console.error('Failed to save folders state:', e)
   }
 }
 
-// Merged display folders (defaults + custom + database) with hierarchy support
+// Merged display folders (only active database folders + user custom folders + base '默认备忘')
 const displayFolders = computed(() => {
   const map = new Map<string, number>()
   
-  // Default system categories
-  const defaults = ['默认备忘', '工作日志', '架构设计', '灵感闪念', '待办清单']
-  defaults.forEach(name => map.set(name, 0))
+  // 1. Permanent anchor folder: '默认备忘'
+  map.set('默认备忘', 0)
   
-  // User custom created categories
-  customFolders.value.forEach(name => {
-    if (!map.has(name)) map.set(name, 0)
-  })
-  
-  // Database categories with real item counts
+  // 2. Database categories with real item counts
   folders.value.forEach((f: any) => {
-    map.set(f.name, f.count)
-  })
-  
-  const list = Array.from(map.entries()).map(([name, count]) => {
-    const parts = name.split('/')
-    const depth = parts.length - 1
-    const displayName = parts[parts.length - 1]
-    const parent = depth > 0 ? parts.slice(0, -1).join('/') : null
-    return {
-      name,
-      displayName,
-      depth,
-      parent,
-      count,
-      isCustom: !defaults.includes(name)
+    if (f.name && !deletedFolders.value.includes(f.name)) {
+      map.set(f.name, f.count)
     }
   })
 
-  // Sort alphabetically and hierachically
+  // 3. User custom created categories
+  customFolders.value.forEach(name => {
+    if (!deletedFolders.value.includes(name) && !map.has(name)) {
+      map.set(name, 0)
+    }
+  })
+
+  const list = Array.from(map.entries())
+    .filter(([name]) => !deletedFolders.value.includes(name))
+    .map(([name, count]) => {
+      const parts = name.split('/')
+      const depth = parts.length - 1
+      const displayName = parts[parts.length - 1]
+      const parent = depth > 0 ? parts.slice(0, -1).join('/') : null
+      return {
+        name,
+        displayName,
+        depth,
+        parent,
+        count,
+        isCustom: name !== '默认备忘'
+      }
+    })
+
+  // Sort alphabetically and hierarchically
   list.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
   return list
 })
@@ -286,10 +297,14 @@ const handleToggleFavorite = async (id: number, isFavorite: boolean) => {
 const handleCreateFolder = () => {
   const name = newFolderName.value.trim()
   if (!name) return
+  
+  // Remove from deleted list if recreating
+  deletedFolders.value = deletedFolders.value.filter(f => f !== name)
   if (!customFolders.value.includes(name)) {
     customFolders.value.push(name)
-    saveCustomFolders()
   }
+  saveFoldersState()
+  
   selectedFolder.value = name
   selectedTag.value = null
   selectedFilter.value = 'all'
@@ -309,7 +324,7 @@ const handleAddSubFolder = (parentFolder: string, e: MouseEvent) => {
 const handleDeleteFolder = async (name: string, e: MouseEvent) => {
   e.stopPropagation()
   if (name === '默认备忘') {
-    toast.info('系统默认分类不可删除')
+    toast.info('默认分类不可删除')
     return
   }
 
@@ -323,11 +338,18 @@ const handleDeleteFolder = async (name: string, e: MouseEvent) => {
 
   try {
     await invoke('delete_memo_folder', { folder: name })
+    
+    // Track in deletedFolders & clean from customFolders
+    if (!deletedFolders.value.includes(name)) {
+      deletedFolders.value.push(name)
+    }
     customFolders.value = customFolders.value.filter(f => f !== name && !f.startsWith(name + '/'))
-    saveCustomFolders()
+    saveFoldersState()
+    
     if (selectedFolder.value === name || selectedFolder.value?.startsWith(name + '/')) {
       selectedFolder.value = null
     }
+    
     toast.success(`已删除分类「${name}」${count > 0 ? '，备忘已安全移至默认分类' : ''}`)
     await loadData()
   } catch (err: any) {
@@ -387,7 +409,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 onMounted(() => {
-  loadCustomFolders()
+  loadFoldersState()
   loadData()
   window.addEventListener('keydown', handleKeydown)
 })

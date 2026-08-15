@@ -196,53 +196,89 @@ const codeLanguages = [
 
 const showCodeMenu = ref(false)
 const codeMenuRef = ref<HTMLElement | null>(null)
+const selectedCodeLang = ref<string>('')
 
-const insertCodeBlock = (lang: string) => {
-  showCodeMenu.value = false
-  if (!editorTextarea.value) return
-  const textarea = editorTextarea.value
-  const start = textarea.selectionStart
-  const end = textarea.selectionEnd
-  const selectedText = currentContent.value.substring(start, end)
-
-  if (selectedText) {
-    const before = `\`\`\`${lang}\n`
-    const after = `\n\`\`\`\n`
-    const replacement = before + selectedText + after
-    currentContent.value = currentContent.value.substring(0, start) + replacement + currentContent.value.substring(end)
-    isSaved.value = false
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(start + before.length, start + before.length + selectedText.length)
-    }, 50)
-  } else {
-    const before = `\`\`\`${lang}\n`
-    const after = `\n\`\`\`\n`
-    const replacement = before + after
-    currentContent.value = currentContent.value.substring(0, start) + replacement + currentContent.value.substring(end)
-    isSaved.value = false
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(start + before.length, start + before.length)
-    }, 50)
+// Detect current active code language from content
+const currentCodeLang = computed(() => {
+  const trimmed = currentContent.value.trim()
+  const match = trimmed.match(/^```([a-zA-Z0-9_-]*)/)
+  if (match && match[1]) {
+    return match[1].toLowerCase()
   }
+  return selectedCodeLang.value || ''
+})
+
+const getLangLabel = (val: string) => {
+  if (!val) return '代码块'
+  const item = codeLanguages.find(l => l.value === val)
+  return item ? item.label.split(' ')[0] : val.toUpperCase()
 }
 
-const wrapEntireContentAsCode = (defaultLang: string = 'properties') => {
+const applyCodeLanguage = (lang: string) => {
   showCodeMenu.value = false
+  selectedCodeLang.value = lang
+
+  if (viewMode.value === 'preview') {
+    viewMode.value = 'split'
+  }
+
   const trimmed = currentContent.value.trim()
-  if (!trimmed) {
-    currentContent.value = `\`\`\`${defaultLang}\n\n\`\`\`\n`
+
+  // 1. If content is already wrapped in a code block, replace its language header!
+  const fullBlockMatch = trimmed.match(/^```([a-zA-Z0-9_-]*)\n([\s\S]*?)\n?```$/)
+  if (fullBlockMatch) {
+    const innerCode = fullBlockMatch[2]
+    currentContent.value = `\`\`\`${lang}\n${innerCode}\n\`\`\`\n`
     isSaved.value = false
+    toast.success(`已切换代码语言为: ${lang.toUpperCase()}`)
     return
   }
-  if (trimmed.startsWith('```') && trimmed.endsWith('```')) {
-    toast.success('当前内容已经是代码块')
+
+  // 2. If user has text selected in textarea, wrap that selection
+  if (editorTextarea.value) {
+    const textarea = editorTextarea.value
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = currentContent.value.substring(start, end)
+
+    if (selectedText) {
+      const selMatch = selectedText.trim().match(/^```([a-zA-Z0-9_-]*)\n([\s\S]*?)\n?```$/)
+      let replacement = ''
+      if (selMatch) {
+        replacement = `\`\`\`${lang}\n${selMatch[2]}\n\`\`\`\n`
+      } else {
+        replacement = `\`\`\`${lang}\n${selectedText}\n\`\`\`\n`
+      }
+      currentContent.value = currentContent.value.substring(0, start) + replacement + currentContent.value.substring(end)
+      isSaved.value = false
+      toast.success(`已将选中文本转为: ${lang.toUpperCase()}`)
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + lang.length + 4, start + replacement.length - 4)
+      }, 50)
+      return
+    }
+  }
+
+  // 3. If content is not empty and doesn't have code block, wrap entire content
+  if (trimmed) {
+    currentContent.value = `\`\`\`${lang}\n${trimmed}\n\`\`\`\n`
+    isSaved.value = false
+    toast.success(`已将全文包裹为: ${lang.toUpperCase()}`)
     return
   }
-  currentContent.value = `\`\`\`${defaultLang}\n${trimmed}\n\`\`\`\n`
+
+  // 4. If content is empty, insert empty code template
+  const template = `\`\`\`${lang}\n\n\`\`\`\n`
+  currentContent.value = template
   isSaved.value = false
-  toast.success(`已将全部内容包裹为 ${defaultLang.toUpperCase()} 代码块`)
+  toast.success(`已插入 ${lang.toUpperCase()} 代码块`)
+  setTimeout(() => {
+    if (editorTextarea.value) {
+      editorTextarea.value.focus()
+      editorTextarea.value.setSelectionRange(lang.length + 4, lang.length + 4)
+    }
+  }, 50)
 }
 
 const handleClickOutside = (e: MouseEvent) => {
@@ -460,42 +496,39 @@ onUnmounted(() => {
           <div class="relative inline-flex items-center" ref="codeMenuRef">
             <button 
               @click.stop="showCodeMenu = !showCodeMenu"
-              class="px-1.5 py-0.5 rounded hover:bg-white/10 hover:text-white flex items-center gap-0.5 transition-colors text-xs"
-              :class="showCodeMenu ? 'bg-indigo-500/20 text-indigo-300' : ''"
-              title="插入代码块 / 选择语言格式"
+              class="px-2 py-0.5 rounded-lg hover:bg-white/10 hover:text-white flex items-center gap-1 transition-colors text-xs cursor-pointer border"
+              :class="currentCodeLang 
+                ? 'bg-purple-600/25 border-purple-500/50 text-purple-200 font-semibold' 
+                : 'border-white/10 text-white/60 hover:border-white/20'"
+              title="切换/插入代码块语言格式"
             >
-              <Code2 :size="13" />
-              <span class="text-[10px] font-mono">代码块</span>
-              <ChevronDown :size="10" class="opacity-60" />
+              <Code2 :size="13" :class="currentCodeLang ? 'text-purple-300' : 'text-white/60'" />
+              <span>{{ currentCodeLang ? `格式: ${getLangLabel(currentCodeLang)}` : '代码块格式' }}</span>
+              <ChevronDown :size="10" class="opacity-60 ml-0.5" />
             </button>
 
             <!-- Dropdown Language Menu -->
             <div 
               v-if="showCodeMenu" 
-              class="absolute top-full left-0 mt-1.5 w-56 bg-[#161922] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
+              class="absolute top-full left-0 mt-1.5 w-60 bg-[#181b26] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
             >
-              <div class="px-2 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1 flex items-center justify-between">
+              <div class="px-2 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1.5 flex items-center justify-between">
                 <span>选择代码/配置语言</span>
-                <span class="text-[9px] font-mono text-indigo-400">```lang</span>
+                <span class="text-[9px] font-mono text-purple-400">```lang</span>
               </div>
               <div class="max-h-48 overflow-y-auto space-y-0.5 pr-1">
                 <button 
                   v-for="l in codeLanguages" 
                   :key="l.value"
-                  @click="insertCodeBlock(l.value)"
-                  class="w-full px-2 py-1 rounded-lg text-xs text-left text-white/80 hover:text-white hover:bg-indigo-600/30 flex items-center justify-between transition-colors group cursor-pointer"
+                  @click="applyCodeLanguage(l.value)"
+                  class="w-full px-2 py-1.5 rounded-lg text-xs text-left flex items-center justify-between transition-colors group cursor-pointer"
+                  :class="currentCodeLang === l.value ? 'bg-purple-600/30 text-purple-200 font-bold' : 'text-white/80 hover:text-white hover:bg-white/5'"
                 >
-                  <span>{{ l.label }}</span>
-                  <span class="text-[10px] font-mono text-white/30 group-hover:text-indigo-300">{{ l.value }}</span>
-                </button>
-              </div>
-              <div class="pt-1.5 mt-1 border-t border-white/5">
-                <button 
-                  @click="wrapEntireContentAsCode('properties')"
-                  class="w-full px-2 py-1 rounded-md text-[11px] text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/20 text-left transition-colors flex items-center justify-between"
-                >
-                  <span>⚡ 全文转为配置代码块</span>
-                  <span class="font-mono text-[10px] opacity-60">properties</span>
+                  <div class="flex items-center gap-2">
+                    <Check v-if="currentCodeLang === l.value" :size="12" class="text-purple-400 shrink-0" />
+                    <span :class="currentCodeLang === l.value ? '' : 'pl-4'">{{ l.label }}</span>
+                  </div>
+                  <span class="text-[10px] font-mono opacity-40 group-hover:opacity-100 group-hover:text-purple-300">{{ l.value }}</span>
                 </button>
               </div>
             </div>

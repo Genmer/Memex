@@ -2,7 +2,7 @@ import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/atom-one-dark.css'
 
-// Custom renderer for marked with syntax highlighting
+// Custom renderer for marked with clean syntax highlighting (no top title header)
 const renderer = new marked.Renderer()
 
 renderer.code = function({ text, lang }: { text: string, lang?: string }) {
@@ -22,10 +22,10 @@ renderer.code = function({ text, lang }: { text: string, lang?: string }) {
     }
   }
   const displayLang = language || 'plaintext'
-  return `<div class="code-block-wrapper my-3 rounded-xl overflow-hidden border border-white/10 bg-[#161b22] shadow-lg">
-    <div class="flex items-center justify-between px-3.5 py-1.5 bg-white/5 border-b border-white/5 text-xs text-white/50 font-mono select-none">
-      <span class="text-[11px] font-bold uppercase tracking-wider text-purple-300/90">${displayLang}</span>
-      <button class="copy-code-btn px-2 py-0.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors text-[11px] flex items-center gap-1 cursor-pointer">
+  return `<div class="code-block-wrapper relative my-2.5 rounded-xl overflow-hidden border border-white/10 bg-[#13161f] shadow-inner group">
+    <div class="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none pointer-events-auto">
+      <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wider bg-black/60 text-purple-300/90 border border-white/10">${displayLang}</span>
+      <button class="copy-code-btn px-2 py-0.5 rounded text-[10px] bg-black/60 hover:bg-purple-600/80 text-white/80 hover:text-white border border-white/10 transition-all flex items-center gap-1 cursor-pointer shadow-sm">
         <span>复制</span>
       </button>
     </div>

@@ -804,6 +804,7 @@ watch([selectedTypeFilter], () => {
             @toggle-pin="handleTogglePin"
             @toggle-favorite="handleToggleFavorite"
             @create-new="handleOpenCreate"
+            @close="layoutMode = 'grid'"
           />
         </div>
       </div>

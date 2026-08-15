@@ -95,8 +95,7 @@ const color = ref<'default' | 'indigo' | 'emerald' | 'amber' | 'rose' | 'cyan' |
 const tagsInput = ref('')
 const isPinned = ref(false)
 const isFavorite = ref(false)
-const viewMode = ref<'split' | 'live' | 'edit'>('split')
-const liveSubMode = ref<'rendered' | 'source'>('rendered')
+const viewMode = ref<'split' | 'edit' | 'preview'>('split')
 
 const editorTextarea = ref<HTMLTextAreaElement | null>(null)
 
@@ -167,9 +166,9 @@ const applyCodeLanguage = (lang: string) => {
   showCodeMenu.value = false
   selectedCodeLang.value = lang
 
-  // If in live rendered mode, automatically switch to live source so user sees change
-  if (viewMode.value === 'live' && liveSubMode.value === 'rendered') {
-    liveSubMode.value = 'source'
+  // If in preview mode, switch to split mode on insert
+  if (viewMode.value === 'preview') {
+    viewMode.value = 'split'
   }
 
   const trimmed = content.value.trim()
@@ -261,14 +260,7 @@ const handlePreviewClick = async (event: MouseEvent) => {
   }
 }
 
-const toggleLiveEdit = () => {
-  liveSubMode.value = liveSubMode.value === 'rendered' ? 'source' : 'rendered'
-  if (liveSubMode.value === 'source') {
-    nextTick(() => {
-      editorTextarea.value?.focus()
-    })
-  }
-}
+
 
 const handleClickOutside = (e: MouseEvent) => {
   if (codeMenuRef.value && !codeMenuRef.value.contains(e.target as Node)) {
@@ -356,7 +348,7 @@ onUnmounted(() => {
       @click.stop
     >
       <!-- Top Header Toolbar -->
-      <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between flex-wrap gap-4 bg-white/[0.02]">
+      <div class="px-6 py-3.5 border-b border-white/10 flex items-center justify-between gap-4 bg-white/[0.02] shrink-0">
         <div class="flex items-center gap-3 min-w-0">
           <div class="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10">
             <button 
@@ -410,7 +402,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Right Action Controls -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <!-- Pin & Star -->
           <button 
             @click="isPinned = !isPinned"
@@ -429,30 +421,30 @@ onUnmounted(() => {
             <Star :size="15" :class="{ 'fill-amber-400': isFavorite }" />
           </button>
 
-          <!-- View Mode Switcher (Split / Live / Edit) -->
+          <!-- View Mode Switcher (Split / Edit / Preview) -->
           <div class="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-medium">
             <button 
               @click="viewMode = 'split'"
               class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-white/40 hover:text-white'"
-              title="双栏分屏：左源码编辑，右即时解析对照"
+              :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-bold shadow ring-1 ring-indigo-400' : 'text-white/40 hover:text-white'"
+              title="双栏分屏：左侧编辑，右侧即时高亮解析"
             >
               <Columns :size="13" />
               <span>双栏分屏</span>
             </button>
             <button 
-              @click="viewMode = 'live'"
+              @click="viewMode = 'preview'"
               class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="viewMode === 'live' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/40 hover:text-white'"
-              title="即时编辑渲染：单栏沉浸式，可直接交互、勾选待办与即时呈现"
+              :class="viewMode === 'preview' ? 'bg-purple-600 text-white font-bold shadow ring-1 ring-purple-400' : 'text-white/40 hover:text-white'"
+              title="即时渲染：全宽排版呈现（支持直接交互与复制代码）"
             >
               <Sparkles :size="13" />
-              <span>即时渲染编辑</span>
+              <span>即时渲染</span>
             </button>
             <button 
               @click="viewMode = 'edit'"
               class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="viewMode === 'edit' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-white/40 hover:text-white'"
+              :class="viewMode === 'edit' ? 'bg-indigo-600 text-white font-bold shadow ring-1 ring-indigo-400' : 'text-white/40 hover:text-white'"
               title="纯源码：全宽 Markdown 纯文本编辑"
             >
               <Edit3 :size="13" />
@@ -463,18 +455,20 @@ onUnmounted(() => {
           <!-- Save Button -->
           <button 
             @click="handleSave"
-            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
+            class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer"
           >
             <Save :size="14" />
             <span>保存 (⌘S)</span>
           </button>
 
-          <!-- Close -->
+          <!-- Close Button -->
           <button 
             @click="emit('close')"
-            class="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+            class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-300 border border-white/10 hover:border-red-500/40 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0 ml-1"
+            title="关闭窗口 (Esc)"
           >
-            <X :size="18" />
+            <X :size="15" />
+            <span>关闭</span>
           </button>
         </div>
       </div>
@@ -627,10 +621,11 @@ onUnmounted(() => {
 
       <!-- Main Body Editor & Preview Area -->
       <div class="flex-1 flex min-h-0 overflow-hidden relative">
-        <!-- MODE 1 & 3: Split or Pure Edit Textarea -->
+        <!-- Editor Textarea Pane (visible in split & edit) -->
         <div 
-          v-show="viewMode === 'split' || viewMode === 'edit' || (viewMode === 'live' && liveSubMode === 'source')"
-          class="flex-1 h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]"
+          v-show="viewMode === 'split' || viewMode === 'edit'"
+          class="h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]"
+          :class="viewMode === 'split' ? 'w-1/2' : 'w-full'"
         >
           <textarea 
             ref="editorTextarea"
@@ -640,47 +635,57 @@ onUnmounted(() => {
           ></textarea>
         </div>
 
-        <!-- MODE 1 & 2: Split Right Pane or Live Rendered Canvas -->
+        <!-- Live Rendered Preview (visible in split & preview) -->
         <div 
-          v-show="viewMode === 'split' || (viewMode === 'live' && liveSubMode === 'rendered')"
-          class="flex-1 h-full overflow-y-auto bg-black/20 relative"
-          :class="viewMode === 'live' ? 'p-8 max-w-4xl mx-auto w-full' : 'p-6'"
+          v-show="viewMode === 'split' || viewMode === 'preview'"
+          class="h-full overflow-y-auto bg-black/20 relative"
+          :class="viewMode === 'split' ? 'w-1/2 p-6' : 'w-full p-8 max-w-4xl mx-auto'"
           @click="handlePreviewClick"
         >
-          <!-- Floating Live Quick-Edit Switcher in Live Mode -->
-          <div v-if="viewMode === 'live'" class="sticky top-0 z-20 flex items-center justify-between pb-3 mb-4 border-b border-white/10 bg-[#12141a]/80 backdrop-blur-md">
+          <!-- Floating Switch back in Preview mode -->
+          <div v-if="viewMode === 'preview'" class="sticky top-0 z-20 flex items-center justify-between pb-3 mb-4 border-b border-white/10 bg-[#12141a]/90 backdrop-blur-md">
             <div class="flex items-center gap-2 text-xs text-purple-300 font-semibold">
               <Sparkles :size="14" />
-              <span>即时渲染模式（直接交互勾选待办 / 点击右侧快速编辑）</span>
+              <span>即时渲染预览（支持直接点击待办勾选框与一键复制代码）</span>
             </div>
             <button 
-              @click="toggleLiveEdit" 
+              @click="viewMode = 'edit'" 
               class="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer shadow"
-              title="切换为直接编辑文本"
+              title="切换为源码编辑"
             >
               <Edit3 :size="12" />
-              <span>点击编辑文本</span>
+              <span>切换为源码编辑</span>
             </button>
           </div>
 
           <div 
             class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-sm leading-relaxed select-text"
             v-html="renderedMarkdown"
-            @dblclick="toggleLiveEdit"
           ></div>
         </div>
+      </div>
 
-        <!-- Floating Return to Render Button when in Live Edit Mode -->
-        <div 
-          v-if="viewMode === 'live' && liveSubMode === 'source'" 
-          class="absolute top-4 right-8 z-30"
-        >
+      <!-- Footer Status & Actions -->
+      <div class="px-6 py-2.5 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-xs text-white/40 font-mono">
+        <div class="flex items-center gap-4">
+          <span>字符数: {{ content.length }}</span>
+          <span>行数: {{ content.split('\n').length }}</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span v-if="props.memo?.id" class="text-[11px]">更新于: {{ props.memo.updated_at }}</span>
           <button 
-            @click="toggleLiveEdit" 
-            class="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer"
+            v-if="props.memo?.id"
+            @click="emit('delete', props.memo.id)"
+            class="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans cursor-pointer mr-2"
           >
-            <Sparkles :size="13" />
-            <span>完成并即时渲染</span>
+            <Trash2 :size="12" />
+            <span>删除备忘</span>
+          </button>
+          <button 
+            @click="emit('close')"
+            class="px-3 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-lg text-xs font-sans transition-colors cursor-pointer"
+          >
+            关闭
           </button>
         </div>
       </div>

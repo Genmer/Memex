@@ -91,7 +91,8 @@ const menu = computed(() => {
       isGroup: true,
       isPinned: false,
       children: [
-        { id: 'memex-skills', name: t('sidebar.skills') }
+        { id: 'memex-skills', name: t('sidebar.skills') },
+        { id: 'memex-memories', name: t('sidebar.memories') }
       ]
     }
   ]

@@ -593,7 +593,9 @@ const filteredSkills = computed(() => {
 const filteredMemories = computed(() => {
   let list = memories.value
   
-  if (activeView.value.endsWith('-memories')) {
+  if (activeView.value === 'memex-memories') {
+    list = list.filter(s => s.source_tool === 'memex_native')
+  } else if (activeView.value.endsWith('-memories')) {
     const source = activeView.value.replace('-memories', '')
     list = list.filter(s => s.source_tool === source)
   }
@@ -868,14 +870,36 @@ onUnmounted(() => {
               <List :size="16" />
             </button>
           </div>
+          <!-- New Asset Button (Skills / Memories) -->
           <button 
             v-if="activeView.includes('skills') || activeView.includes('memories')"
             @click="openNewAsset(activeView.includes('skills') ? 'skill' : 'memory')"
-            class="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-            title="新建资产"
+            class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg"
+            :class="activeView.includes('memories') 
+              ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20' 
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'"
+            :title="activeView.includes('memories') ? '新建记忆' : '新建技能'"
           >
-            <span class="text-base leading-none">+</span> 新建
+            <span class="text-base leading-none font-bold">+</span>
+            <span>{{ activeView.includes('memories') ? '新建记忆 (New Memory)' : '新建技能 (New Skill)' }}</span>
           </button>
+          <!-- Quick create in Dashboard -->
+          <div v-else-if="activeView === 'dashboard'" class="flex items-center gap-2">
+            <button 
+              @click="openNewAsset('skill')"
+              class="px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 shadow"
+              title="新建技能规范"
+            >
+              <span>+ 新建技能</span>
+            </button>
+            <button 
+              @click="openNewAsset('memory')"
+              class="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 shadow"
+              title="新建项目记忆/偏好"
+            >
+              <span>+ 新建记忆</span>
+            </button>
+          </div>
           <button 
             v-if="activeView.includes('skills') || activeView.includes('memories') || activeView === 'settings'"
             @click="scanNow" 
@@ -1297,14 +1321,20 @@ onUnmounted(() => {
           </div>
           
           <!-- Empty State -->
-          <div v-else class="h-full flex flex-col items-center justify-center py-20 opacity-60">
-            <div class="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-inner">
-              <svg class="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          <div v-else class="h-full flex flex-col items-center justify-center py-20 opacity-90 animate-in fade-in duration-200">
+            <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 shadow-inner text-emerald-400">
+              <BookOpen :size="30" />
             </div>
-            <h3 class="text-xl font-medium tracking-wide">{{ t('hub.empty.title') }}</h3>
-            <p class="text-white/50 mt-2 max-w-sm text-center text-sm">
+            <h3 class="text-lg font-bold tracking-wide text-white/90">{{ t('hub.empty.title') }}</h3>
+            <p class="text-white/50 mt-1.5 max-w-sm text-center text-xs">
               {{ t('memories.empty') }}
             </p>
+            <button 
+              @click="openNewAsset('memory')"
+              class="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/25 flex items-center gap-1.5"
+            >
+              <span>+ 新建第一条记忆 (Create Memory)</span>
+            </button>
           </div>
         </div>
 

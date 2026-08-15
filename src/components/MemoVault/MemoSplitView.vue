@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
-import { marked } from 'marked'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { 
   Plus, 
   Search, 
@@ -17,8 +16,13 @@ import {
   Eye, 
   Edit3,
   Check,
-  X
+  X,
+  ChevronDown
 } from 'lucide-vue-next'
+import { renderMarkdown, copyCodeFromClick } from '../../utils/markdown'
+import { useToast } from '../../composables/useToast'
+
+const toast = useToast()
 
 const props = defineProps<{
   memos: any[],
@@ -171,11 +175,88 @@ const insertMarkdown = (before: string, after: string = '', defaultText: string 
 }
 
 const renderedMarkdown = computed(() => {
-  try {
-    return marked.parse(currentContent.value || '*暂无内容*')
-  } catch {
-    return currentContent.value
+  return renderMarkdown(currentContent.value || '*暂无内容*')
+})
+
+const codeLanguages = [
+  { label: 'JSON 格式', value: 'json' },
+  { label: 'Properties / 配置文件', value: 'properties' },
+  { label: 'YAML / YML', value: 'yaml' },
+  { label: 'HTML / XML', value: 'html' },
+  { label: 'TypeScript', value: 'typescript' },
+  { label: 'JavaScript', value: 'javascript' },
+  { label: 'Bash / Shell 脚本', value: 'bash' },
+  { label: 'SQL 数据库查询', value: 'sql' },
+  { label: 'Python', value: 'python' },
+  { label: 'Rust', value: 'rust' },
+  { label: 'CSS 样式', value: 'css' },
+  { label: 'Markdown 文档', value: 'markdown' },
+  { label: 'Plain Text 纯文本', value: 'text' }
+]
+
+const showCodeMenu = ref(false)
+const codeMenuRef = ref<HTMLElement | null>(null)
+
+const insertCodeBlock = (lang: string) => {
+  showCodeMenu.value = false
+  if (!editorTextarea.value) return
+  const textarea = editorTextarea.value
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const selectedText = currentContent.value.substring(start, end)
+
+  if (selectedText) {
+    const before = `\`\`\`${lang}\n`
+    const after = `\n\`\`\`\n`
+    const replacement = before + selectedText + after
+    currentContent.value = currentContent.value.substring(0, start) + replacement + currentContent.value.substring(end)
+    isSaved.value = false
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + before.length, start + before.length + selectedText.length)
+    }, 50)
+  } else {
+    const before = `\`\`\`${lang}\n`
+    const after = `\n\`\`\`\n`
+    const replacement = before + after
+    currentContent.value = currentContent.value.substring(0, start) + replacement + currentContent.value.substring(end)
+    isSaved.value = false
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + before.length, start + before.length)
+    }, 50)
   }
+}
+
+const wrapEntireContentAsCode = (defaultLang: string = 'properties') => {
+  showCodeMenu.value = false
+  const trimmed = currentContent.value.trim()
+  if (!trimmed) {
+    currentContent.value = `\`\`\`${defaultLang}\n\n\`\`\`\n`
+    isSaved.value = false
+    return
+  }
+  if (trimmed.startsWith('```') && trimmed.endsWith('```')) {
+    toast.success('当前内容已经是代码块')
+    return
+  }
+  currentContent.value = `\`\`\`${defaultLang}\n${trimmed}\n\`\`\`\n`
+  isSaved.value = false
+  toast.success(`已将全部内容包裹为 ${defaultLang.toUpperCase()} 代码块`)
+}
+
+const handleClickOutside = (e: MouseEvent) => {
+  if (codeMenuRef.value && !codeMenuRef.value.contains(e.target as Node)) {
+    showCodeMenu.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -371,13 +452,58 @@ const renderedMarkdown = computed(() => {
         </div>
 
         <!-- Formatting Bar -->
-        <div class="px-6 py-1.5 border-b border-white/5 flex items-center gap-1 text-white/40 text-xs">
-          <button @click="insertMarkdown('**', '**', '粗体')" class="p-1 hover:text-white"><Bold :size="13" /></button>
-          <button @click="insertMarkdown('*', '*', '斜体')" class="p-1 hover:text-white"><Italic :size="13" /></button>
-          <button @click="insertMarkdown('```\n', '\n```', '代码')" class="p-1 hover:text-white"><Code2 :size="13" /></button>
-          <button @click="insertMarkdown('- [ ] ', '', '任务')" class="p-1 hover:text-white"><CheckSquare :size="13" /></button>
-          <button @click="insertMarkdown('> ', '', '引用')" class="p-1 hover:text-white"><Quote :size="13" /></button>
-          <button @click="insertMarkdown('| 标头 | 标头 |\n|---|---|\n| 内容 | 内容 |\n')" class="p-1 hover:text-white"><Table :size="13" /></button>
+        <div class="px-6 py-1.5 border-b border-white/5 flex items-center gap-1.5 text-white/40 text-xs relative">
+          <button @click="insertMarkdown('**', '**', '粗体')" class="p-1 hover:text-white" title="加粗"><Bold :size="13" /></button>
+          <button @click="insertMarkdown('*', '*', '斜体')" class="p-1 hover:text-white" title="斜体"><Italic :size="13" /></button>
+          
+          <!-- Code Block Dropdown -->
+          <div class="relative inline-flex items-center" ref="codeMenuRef">
+            <button 
+              @click.stop="showCodeMenu = !showCodeMenu"
+              class="px-1.5 py-0.5 rounded hover:bg-white/10 hover:text-white flex items-center gap-0.5 transition-colors text-xs"
+              :class="showCodeMenu ? 'bg-indigo-500/20 text-indigo-300' : ''"
+              title="插入代码块 / 选择语言格式"
+            >
+              <Code2 :size="13" />
+              <span class="text-[10px] font-mono">代码块</span>
+              <ChevronDown :size="10" class="opacity-60" />
+            </button>
+
+            <!-- Dropdown Language Menu -->
+            <div 
+              v-if="showCodeMenu" 
+              class="absolute top-full left-0 mt-1.5 w-56 bg-[#161922] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
+            >
+              <div class="px-2 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1 flex items-center justify-between">
+                <span>选择代码/配置语言</span>
+                <span class="text-[9px] font-mono text-indigo-400">```lang</span>
+              </div>
+              <div class="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+                <button 
+                  v-for="l in codeLanguages" 
+                  :key="l.value"
+                  @click="insertCodeBlock(l.value)"
+                  class="w-full px-2 py-1 rounded-lg text-xs text-left text-white/80 hover:text-white hover:bg-indigo-600/30 flex items-center justify-between transition-colors group cursor-pointer"
+                >
+                  <span>{{ l.label }}</span>
+                  <span class="text-[10px] font-mono text-white/30 group-hover:text-indigo-300">{{ l.value }}</span>
+                </button>
+              </div>
+              <div class="pt-1.5 mt-1 border-t border-white/5">
+                <button 
+                  @click="wrapEntireContentAsCode('properties')"
+                  class="w-full px-2 py-1 rounded-md text-[11px] text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/20 text-left transition-colors flex items-center justify-between"
+                >
+                  <span>⚡ 全文转为配置代码块</span>
+                  <span class="font-mono text-[10px] opacity-60">properties</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button @click="insertMarkdown('- [ ] ', '', '任务')" class="p-1 hover:text-white" title="待办清单"><CheckSquare :size="13" /></button>
+          <button @click="insertMarkdown('> ', '', '引用')" class="p-1 hover:text-white" title="引用"><Quote :size="13" /></button>
+          <button @click="insertMarkdown('| 标头 | 标头 |\n|---|---|\n| 内容 | 内容 |\n')" class="p-1 hover:text-white" title="表格"><Table :size="13" /></button>
         </div>
 
         <!-- Editor Content Area -->
@@ -398,9 +524,10 @@ const renderedMarkdown = computed(() => {
           <div 
             v-show="viewMode !== 'edit'"
             class="flex-1 h-full p-6 overflow-y-auto bg-black/20"
+            @click="copyCodeFromClick"
           >
             <div 
-              class="prose prose-invert prose-indigo max-w-none text-white/85 text-xs leading-relaxed"
+              class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-xs leading-relaxed"
               v-html="renderedMarkdown"
             ></div>
           </div>

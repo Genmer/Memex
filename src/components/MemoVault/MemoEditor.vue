@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { marked } from 'marked'
 import { 
   X, 
   Save, 
@@ -21,8 +20,13 @@ import {
   Trash2,
   List,
   Plus,
-  Check
+  Check,
+  ChevronDown
 } from 'lucide-vue-next'
+import { renderMarkdown, copyCodeFromClick } from '../../utils/markdown'
+import { useToast } from '../../composables/useToast'
+
+const toast = useToast()
 
 const props = defineProps<{
   show: boolean,
@@ -119,12 +123,77 @@ watch(() => props.memo, (m) => {
 }, { immediate: true })
 
 const renderedMarkdown = computed(() => {
-  try {
-    return marked.parse(content.value || '*暂无内容*')
-  } catch {
-    return content.value
-  }
+  return renderMarkdown(content.value || '*暂无内容*')
 })
+
+const codeLanguages = [
+  { label: 'JSON 格式', value: 'json' },
+  { label: 'Properties / 配置文件', value: 'properties' },
+  { label: 'YAML / YML', value: 'yaml' },
+  { label: 'HTML / XML', value: 'html' },
+  { label: 'TypeScript', value: 'typescript' },
+  { label: 'JavaScript', value: 'javascript' },
+  { label: 'Bash / Shell 脚本', value: 'bash' },
+  { label: 'SQL 数据库查询', value: 'sql' },
+  { label: 'Python', value: 'python' },
+  { label: 'Rust', value: 'rust' },
+  { label: 'CSS 样式', value: 'css' },
+  { label: 'Markdown 文档', value: 'markdown' },
+  { label: 'Plain Text 纯文本', value: 'text' }
+]
+
+const showCodeMenu = ref(false)
+const codeMenuRef = ref<HTMLElement | null>(null)
+
+const insertCodeBlock = (lang: string) => {
+  showCodeMenu.value = false
+  if (!editorTextarea.value) return
+  const textarea = editorTextarea.value
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const selectedText = content.value.substring(start, end)
+
+  if (selectedText) {
+    const before = `\`\`\`${lang}\n`
+    const after = `\n\`\`\`\n`
+    const replacement = before + selectedText + after
+    content.value = content.value.substring(0, start) + replacement + content.value.substring(end)
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + before.length, start + before.length + selectedText.length)
+    }, 50)
+  } else {
+    const before = `\`\`\`${lang}\n`
+    const after = `\n\`\`\`\n`
+    const replacement = before + after
+    content.value = content.value.substring(0, start) + replacement + content.value.substring(end)
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + before.length, start + before.length)
+    }, 50)
+  }
+}
+
+const wrapEntireContentAsCode = (defaultLang: string = 'properties') => {
+  showCodeMenu.value = false
+  const trimmed = content.value.trim()
+  if (!trimmed) {
+    content.value = `\`\`\`${defaultLang}\n\n\`\`\`\n`
+    return
+  }
+  if (trimmed.startsWith('```') && trimmed.endsWith('```')) {
+    toast.success('当前内容已经是代码块')
+    return
+  }
+  content.value = `\`\`\`${defaultLang}\n${trimmed}\n\`\`\`\n`
+  toast.success(`已将全部内容包裹为 ${defaultLang.toUpperCase()} 代码块`)
+}
+
+const handleClickOutside = (e: MouseEvent) => {
+  if (codeMenuRef.value && !codeMenuRef.value.contains(e.target as Node)) {
+    showCodeMenu.value = false
+  }
+}
 
 const colorOptions = [
   { id: 'default', label: '默认石墨', class: 'bg-white/15 border-white/30' },
@@ -190,10 +259,12 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -277,31 +348,34 @@ onUnmounted(() => {
             <Star :size="15" :class="{ 'fill-amber-400': isFavorite }" />
           </button>
 
-          <!-- Split Mode Toggle -->
-          <div class="flex items-center bg-white/5 p-1 rounded-xl border border-white/10">
+          <!-- View Mode Toggle (Edit / Split / Preview) -->
+          <div class="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
             <button 
               @click="viewMode = 'edit'"
-              class="p-1.5 rounded-lg transition-all"
-              :class="viewMode === 'edit' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
-              title="纯编辑模式"
+              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5"
+              :class="viewMode === 'edit' ? 'bg-indigo-600 text-white font-semibold shadow' : 'text-white/40 hover:text-white'"
+              title="纯源码编辑模式 (全宽编辑)"
             >
-              <Edit3 :size="14" />
+              <Edit3 :size="13" />
+              <span>编辑</span>
             </button>
             <button 
               @click="viewMode = 'split'"
-              class="p-1.5 rounded-lg transition-all"
-              :class="viewMode === 'split' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
-              title="分栏预览模式"
+              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5"
+              :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-semibold shadow' : 'text-white/40 hover:text-white'"
+              title="双栏实时解析对照模式 (左编辑右预览)"
             >
-              <Columns :size="14" />
+              <Columns :size="13" />
+              <span>分栏</span>
             </button>
             <button 
               @click="viewMode = 'preview'"
-              class="p-1.5 rounded-lg transition-all"
-              :class="viewMode === 'preview' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
-              title="纯预览模式"
+              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5"
+              :class="viewMode === 'preview' ? 'bg-indigo-600 text-white font-semibold shadow' : 'text-white/40 hover:text-white'"
+              title="即时解析渲染模式 (全屏渲染)"
             >
-              <Eye :size="14" />
+              <Eye :size="13" />
+              <span>即时预览</span>
             </button>
           </div>
 
@@ -402,16 +476,66 @@ onUnmounted(() => {
       </div>
 
       <!-- Quick Markdown Action Toolbar -->
-      <div class="px-6 py-2 border-b border-white/5 flex items-center gap-1 text-white/50 overflow-x-auto">
+      <div class="px-6 py-2 border-b border-white/5 flex items-center gap-1.5 text-white/50 overflow-x-auto relative">
         <button @click="insertMarkdown('**', '**', '加粗文字')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="加粗">
           <Bold :size="14" />
         </button>
         <button @click="insertMarkdown('*', '*', '斜体文字')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="斜体">
           <Italic :size="14" />
         </button>
-        <button @click="insertMarkdown('```\n', '\n```', '代码块')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="代码块">
-          <Code2 :size="14" />
-        </button>
+
+        <!-- Code Block Language Dropdown -->
+        <div class="relative inline-flex items-center" ref="codeMenuRef">
+          <button 
+            @click.stop="showCodeMenu = !showCodeMenu" 
+            class="px-2 py-1 rounded-lg hover:bg-white/10 hover:text-white flex items-center gap-1 transition-colors border border-transparent hover:border-white/10 text-xs"
+            :class="showCodeMenu ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : ''"
+            title="插入代码块 / 选择语言格式 (JSON, HTML, Properties等)"
+          >
+            <Code2 :size="14" />
+            <span class="text-[11px] font-mono">代码块</span>
+            <ChevronDown :size="11" class="opacity-60" />
+          </button>
+
+          <!-- Dropdown Language Menu -->
+          <div 
+            v-if="showCodeMenu" 
+            class="absolute top-full left-0 mt-1.5 w-60 bg-[#161922] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
+          >
+            <div class="px-2 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1 flex items-center justify-between">
+              <span>选择代码/配置语言</span>
+              <span class="text-[9px] font-mono text-indigo-400">```lang</span>
+            </div>
+            <div class="max-h-52 overflow-y-auto space-y-0.5 pr-1">
+              <button 
+                v-for="l in codeLanguages" 
+                :key="l.value"
+                @click="insertCodeBlock(l.value)"
+                class="w-full px-2.5 py-1.5 rounded-lg text-xs text-left text-white/80 hover:text-white hover:bg-indigo-600/30 flex items-center justify-between transition-colors group cursor-pointer"
+              >
+                <span>{{ l.label }}</span>
+                <span class="text-[10px] font-mono text-white/30 group-hover:text-indigo-300">{{ l.value }}</span>
+              </button>
+            </div>
+            <div class="pt-1.5 mt-1 border-t border-white/5 space-y-1">
+              <button 
+                @click="wrapEntireContentAsCode('properties')"
+                class="w-full px-2 py-1 rounded-md text-[11px] text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/20 text-left transition-colors flex items-center justify-between"
+              >
+                <span>⚡ 全文转为配置代码块</span>
+                <span class="font-mono text-[10px] opacity-60">properties</span>
+              </button>
+              <button 
+                @click="wrapEntireContentAsCode('json')"
+                class="w-full px-2 py-1 rounded-md text-[11px] text-purple-300 hover:text-purple-200 hover:bg-purple-500/20 text-left transition-colors flex items-center justify-between"
+              >
+                <span>⚡ 全文转为 JSON 代码块</span>
+                <span class="font-mono text-[10px] opacity-60">json</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <button @click="insertMarkdown('- [ ] ', '', '代办任务项')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="待办清单">
           <CheckSquare :size="14" />
         </button>
@@ -445,13 +569,14 @@ onUnmounted(() => {
           ></textarea>
         </div>
 
-        <!-- Live Markdown Preview -->
+        <!-- Live Markdown Preview (Click to copy code blocks) -->
         <div 
           v-show="viewMode !== 'edit'"
           class="flex-1 h-full p-6 overflow-y-auto bg-black/20"
+          @click="copyCodeFromClick"
         >
           <div 
-            class="prose prose-invert prose-indigo max-w-none text-white/85 text-sm leading-relaxed"
+            class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-sm leading-relaxed"
             v-html="renderedMarkdown"
           ></div>
         </div>

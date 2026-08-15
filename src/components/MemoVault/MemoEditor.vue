@@ -476,7 +476,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Quick Markdown Action Toolbar -->
-      <div class="px-6 py-2 border-b border-white/5 flex items-center gap-1.5 text-white/50 overflow-x-auto relative">
+      <div class="px-6 py-2 border-b border-white/5 flex items-center gap-1.5 text-white/50 relative z-30 overflow-visible">
         <button @click="insertMarkdown('**', '**', '加粗文字')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="加粗">
           <Bold :size="14" />
         </button>

@@ -452,7 +452,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Formatting Bar -->
-        <div class="px-6 py-1.5 border-b border-white/5 flex items-center gap-1.5 text-white/40 text-xs relative">
+        <div class="px-6 py-1.5 border-b border-white/5 flex items-center gap-1.5 text-white/40 text-xs relative z-30 overflow-visible">
           <button @click="insertMarkdown('**', '**', '粗体')" class="p-1 hover:text-white" title="加粗"><Bold :size="13" /></button>
           <button @click="insertMarkdown('*', '*', '斜体')" class="p-1 hover:text-white" title="斜体"><Italic :size="13" /></button>
           

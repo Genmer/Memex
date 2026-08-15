@@ -780,10 +780,16 @@ onMounted(async () => {
   await fetchData()
   await fetchConfigs()
   
-  unlistenProgress = await listen('scan-progress', (event: any) => {
-    scanProgressMessage.value = event.payload.message
-    scanProgressCount.value = event.payload.count
-  })
+  try {
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+      unlistenProgress = await listen('scan-progress', (event: any) => {
+        scanProgressMessage.value = event.payload.message
+        scanProgressCount.value = event.payload.count
+      })
+    }
+  } catch (err) {
+    console.warn('listen scan-progress failed (running in browser mode):', err)
+  }
   
   window.addEventListener('keydown', handleKeydown)
   

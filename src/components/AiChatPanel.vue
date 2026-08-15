@@ -101,10 +101,12 @@ const handleAction = async (action: any) => {
 }
 
 onMounted(async () => {
-  unlistenStream = await listen('ai-stream-chunk', (event: any) => {
-    const chunk = event.payload.chunk
-    const lastMsg = messages.value[messages.value.length - 1]
-    if (!lastMsg || !lastMsg.isStreaming) return
+  try {
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+      unlistenStream = await listen('ai-stream-chunk', (event: any) => {
+        const chunk = event.payload.chunk
+        const lastMsg = messages.value[messages.value.length - 1]
+        if (!lastMsg || !lastMsg.isStreaming) return
 
     if (chunk === '[DONE]') {
       lastMsg.isStreaming = false
@@ -131,6 +133,10 @@ onMounted(async () => {
     lastMsg.content = text
     scrollToBottom()
   })
+    }
+  } catch (err) {
+    console.warn('listen ai-stream-chunk failed (running in browser mode):', err)
+  }
 })
 
 onUnmounted(() => {

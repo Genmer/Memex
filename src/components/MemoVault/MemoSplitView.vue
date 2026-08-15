@@ -98,7 +98,8 @@ const currentIsPinned = ref(false)
 const currentIsFavorite = ref(false)
 const currentNoteType = ref('markdown')
 const isSaved = ref(true)
-const viewMode = ref<'split' | 'edit' | 'preview'>('split')
+const viewMode = ref<'split' | 'live' | 'edit'>('split')
+const liveTab = ref<'edit' | 'preview'>('edit')
 const editorTextarea = ref<HTMLTextAreaElement | null>(null)
 
 const filteredMemos = computed(() => {
@@ -218,8 +219,8 @@ const applyCodeLanguage = (lang: string) => {
   showCodeMenu.value = false
   selectedCodeLang.value = lang
 
-  if (viewMode.value === 'preview') {
-    viewMode.value = 'split'
+  if (viewMode.value === 'live' && liveTab.value === 'preview') {
+    liveTab.value = 'edit'
   }
 
   const trimmed = currentContent.value.trim()
@@ -313,10 +314,24 @@ const handlePreviewClick = async (event: MouseEvent) => {
         }
       }
     }
+    return
+  }
+
+  // 3. If in live single-pane mode, clicking on text directly enters edit mode
+  if (viewMode.value === 'live') {
+    liveTab.value = 'edit'
+    nextTick(() => {
+      editorTextarea.value?.focus()
+    })
   }
 }
 
-
+const focusLiveEdit = () => {
+  liveTab.value = 'edit'
+  nextTick(() => {
+    editorTextarea.value?.focus()
+  })
+}
 
 const handleClickOutside = (e: MouseEvent) => {
   if (codeMenuRef.value && !codeMenuRef.value.contains(e.target as Node)) {
@@ -491,13 +506,13 @@ onUnmounted(() => {
                 <span>分栏</span>
               </button>
               <button 
-                @click="viewMode = 'preview'"
+                @click="viewMode = 'live'; focusLiveEdit()"
                 class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
-                :class="viewMode === 'preview' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
-                title="即时渲染：全宽排版呈现"
+                :class="viewMode === 'live' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                title="即时编辑渲染：单栏沉浸式，直接打字输入与呈现排版"
               >
                 <Sparkles :size="12" />
-                <span>即时渲染</span>
+                <span>即时编辑渲染</span>
               </button>
               <button 
                 @click="viewMode = 'edit'"
@@ -594,48 +609,94 @@ onUnmounted(() => {
 
         <!-- Editor Content Area -->
         <div class="flex-1 flex min-h-0 overflow-hidden relative">
-          <!-- Textarea (visible in split & edit) -->
-          <div 
-            v-show="viewMode === 'split' || viewMode === 'edit'"
-            class="h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]"
-            :class="viewMode === 'split' ? 'w-1/2' : 'w-full'"
-          >
-            <textarea 
-              ref="editorTextarea"
-              v-model="currentContent"
-              @input="handleContentChange"
-              placeholder="在此输入 Markdown 正文..."
-              class="w-full h-full bg-transparent text-white/90 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
-            ></textarea>
-          </div>
-
-          <!-- Live Rendered Preview (visible in split & preview) -->
-          <div 
-            v-show="viewMode === 'split' || viewMode === 'preview'"
-            class="h-full overflow-y-auto bg-black/20 relative"
-            :class="viewMode === 'split' ? 'w-1/2 p-6' : 'w-full p-8 max-w-3xl mx-auto'"
-            @click="handlePreviewClick"
-          >
-            <!-- Floating Quick-Edit in Preview Mode -->
-            <div v-if="viewMode === 'preview'" class="sticky top-0 z-20 flex items-center justify-between pb-2 mb-3 border-b border-white/10 bg-[#12141a]/90 backdrop-blur-md">
-              <div class="flex items-center gap-1.5 text-xs text-purple-300 font-semibold">
-                <Sparkles :size="13" />
-                <span>即时渲染（支持直接点击待办与复制代码）</span>
-              </div>
-              <button 
-                @click="viewMode = 'edit'" 
-                class="px-2.5 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
-              >
-                <Edit3 :size="11" />
-                <span>切换为源码编辑</span>
-              </button>
+          <!-- MODE 1: Split View (Dual Panes) -->
+          <template v-if="viewMode === 'split'">
+            <div class="w-1/2 h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]">
+              <textarea 
+                ref="editorTextarea"
+                v-model="currentContent"
+                @input="handleContentChange"
+                placeholder="在此输入 Markdown 正文..."
+                class="w-full h-full bg-transparent text-white/90 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
+              ></textarea>
             </div>
-
             <div 
-              class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-xs leading-relaxed select-text"
-              v-html="renderedMarkdown"
-            ></div>
-          </div>
+              class="w-1/2 h-full p-6 overflow-y-auto bg-black/20"
+              @click="handlePreviewClick"
+            >
+              <div 
+                class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-xs leading-relaxed select-text"
+                v-html="renderedMarkdown"
+              ></div>
+            </div>
+          </template>
+
+          <!-- MODE 2: Live In-Place Single-Pane Workspace (Directly Editable) -->
+          <template v-else-if="viewMode === 'live'">
+            <div class="w-full h-full max-w-3xl mx-auto flex flex-col p-6 overflow-hidden">
+              <div class="flex items-center justify-between pb-2 mb-3 border-b border-white/10 shrink-0">
+                <span class="text-xs font-semibold" :class="liveTab === 'edit' ? 'text-purple-300' : 'text-emerald-300'">
+                  {{ liveTab === 'edit' ? '✏️ 单栏即时编辑（键盘直接打字输入）' : '✨ 即时排版呈现（点击正文直接编辑）' }}
+                </span>
+                <div class="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10 text-xs">
+                  <button 
+                    @click="liveTab = 'edit'; focusLiveEdit()"
+                    class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                    :class="liveTab === 'edit' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                  >
+                    <Edit3 :size="11" />
+                    <span>直接编辑</span>
+                  </button>
+                  <button 
+                    @click="liveTab = 'preview'"
+                    class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                    :class="liveTab === 'preview' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                  >
+                    <Sparkles :size="11" />
+                    <span>即时排版</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Directly Editable in Live Mode -->
+              <div v-show="liveTab === 'edit'" class="flex-1 h-full overflow-y-auto">
+                <textarea 
+                  ref="editorTextarea"
+                  v-model="currentContent"
+                  @input="handleContentChange"
+                  placeholder="在此直接键入 Markdown 正文..."
+                  class="w-full h-full bg-transparent text-white/95 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
+                  autoFocus
+                ></textarea>
+              </div>
+
+              <!-- Rendered preview in Live Mode (Click to edit) -->
+              <div 
+                v-show="liveTab === 'preview'" 
+                class="flex-1 h-full overflow-y-auto cursor-text rounded-xl p-4 bg-white/[0.02] border border-white/5"
+                @click="handlePreviewClick"
+                title="点击正文任意位置直接编辑"
+              >
+                <div 
+                  class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-xs leading-relaxed select-text"
+                  v-html="renderedMarkdown"
+                ></div>
+              </div>
+            </div>
+          </template>
+
+          <!-- MODE 3: Pure Raw Textarea (Full Width) -->
+          <template v-else-if="viewMode === 'edit'">
+            <div class="w-full h-full p-6 overflow-y-auto bg-[#0e1017]">
+              <textarea 
+                ref="editorTextarea"
+                v-model="currentContent"
+                @input="handleContentChange"
+                placeholder="在此输入 Markdown 正文..."
+                class="w-full h-full bg-transparent text-white/90 font-mono text-sm leading-relaxed focus:outline-none resize-none placeholder-white/20"
+              ></textarea>
+            </div>
+          </template>
         </div>
       </div>
 

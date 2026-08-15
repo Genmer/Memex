@@ -1990,7 +1990,8 @@ fn get_memos(
 
     if let Some(ref f) = folder {
         if !f.is_empty() && f != "全部" && f != "all" {
-            sql.push_str(&format!(" AND folder = '{}'", f.replace('\'', "''")));
+            let escaped = f.replace('\'', "''");
+            sql.push_str(&format!(" AND (folder = '{}' OR folder LIKE '{}/%')", escaped, escaped));
         }
     }
 
@@ -2251,6 +2252,43 @@ fn delete_memo(state: State<'_, DbState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn delete_memo_folder(state: State<'_, DbState>, folder: String) -> Result<usize, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    let sub_pattern = format!("{}/%", folder);
+    let count = conn.execute(
+        "UPDATE memos SET folder = '默认备忘', updated_at = CURRENT_TIMESTAMP WHERE folder = ?1 OR folder LIKE ?2",
+        params![folder, sub_pattern],
+    ).map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
+#[tauri::command]
+fn rename_memo_folder(state: State<'_, DbState>, old_folder: String, new_folder: String) -> Result<usize, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+    let count = conn.execute(
+        "UPDATE memos SET folder = ?1, updated_at = CURRENT_TIMESTAMP WHERE folder = ?2",
+        params![new_folder, old_folder],
+    ).map_err(|e| e.to_string())?;
+
+    let old_prefix = format!("{}/", old_folder);
+    let new_prefix = format!("{}/", new_folder);
+    let mut stmt = conn.prepare("SELECT id, folder FROM memos WHERE folder LIKE ?1").map_err(|e| e.to_string())?;
+    let rows: Vec<(i64, String)> = stmt.query_map(params![format!("{}%", old_prefix)], |row| {
+        Ok((row.get(0)?, row.get(1)?))
+    }).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+
+    for (id, f) in rows {
+        if let Some(sub) = f.strip_prefix(&old_prefix) {
+            let updated = format!("{}{}", new_prefix, sub);
+            let _ = conn.execute("UPDATE memos SET folder = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", params![updated, id]);
+        }
+    }
+    Ok(count)
+}
+
+#[tauri::command]
 fn toggle_memo_pinned(state: State<'_, DbState>, id: i64, is_pinned: bool) -> Result<(), String> {
     let db = state.db.lock().unwrap();
     let conn = db.as_ref().unwrap();
@@ -2373,6 +2411,8 @@ pub fn run() {
             create_memo,
             update_memo,
             delete_memo,
+            delete_memo_folder,
+            rename_memo_folder,
             toggle_memo_pinned,
             toggle_memo_favorite,
             batch_delete_memos,

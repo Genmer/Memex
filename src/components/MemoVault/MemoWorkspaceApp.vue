@@ -81,7 +81,7 @@ const saveCustomFolders = () => {
   }
 }
 
-// Merged display folders (defaults + custom + database)
+// Merged display folders (defaults + custom + database) with hierarchy support
 const displayFolders = computed(() => {
   const map = new Map<string, number>()
   
@@ -99,11 +99,24 @@ const displayFolders = computed(() => {
     map.set(f.name, f.count)
   })
   
-  return Array.from(map.entries()).map(([name, count]) => ({
-    name,
-    count,
-    isCustom: !defaults.includes(name)
-  }))
+  const list = Array.from(map.entries()).map(([name, count]) => {
+    const parts = name.split('/')
+    const depth = parts.length - 1
+    const displayName = parts[parts.length - 1]
+    const parent = depth > 0 ? parts.slice(0, -1).join('/') : null
+    return {
+      name,
+      displayName,
+      depth,
+      parent,
+      count,
+      isCustom: !defaults.includes(name)
+    }
+  })
+
+  // Sort alphabetically and hierachically
+  list.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+  return list
 })
 
 const availableFolders = computed(() => {
@@ -286,15 +299,40 @@ const handleCreateFolder = () => {
   loadData()
 }
 
-const handleDeleteCustomFolder = (name: string, e: Event) => {
+const handleAddSubFolder = (parentFolder: string, e: MouseEvent) => {
   e.stopPropagation()
-  customFolders.value = customFolders.value.filter(f => f !== name)
-  saveCustomFolders()
-  if (selectedFolder.value === name) {
-    selectedFolder.value = null
-    loadData()
+  isCreatingFolder.value = true
+  newFolderName.value = `${parentFolder}/`
+  toast.info(`正在为「${parentFolder}」添加子分类，请输入子分类名称`)
+}
+
+const handleDeleteFolder = async (name: string, e: MouseEvent) => {
+  e.stopPropagation()
+  if (name === '默认备忘') {
+    toast.info('系统默认分类不可删除')
+    return
   }
-  toast.success(`已删除空分类: ${name}`)
+
+  // Count memos in this folder and subfolders
+  const count = memos.value.filter(m => m.folder === name || m.folder?.startsWith(name + '/')).length
+  const confirmMsg = count > 0
+    ? `确定要删除分类「${name}」吗？\n该分类下的 ${count} 篇备忘将被安全移动到「默认备忘」中，不会丢失内容。`
+    : `确定要删除分类「${name}」吗？`
+
+  if (!window.confirm(confirmMsg)) return
+
+  try {
+    await invoke('delete_memo_folder', { folder: name })
+    customFolders.value = customFolders.value.filter(f => f !== name && !f.startsWith(name + '/'))
+    saveCustomFolders()
+    if (selectedFolder.value === name || selectedFolder.value?.startsWith(name + '/')) {
+      selectedFolder.value = null
+    }
+    toast.success(`已删除分类「${name}」${count > 0 ? '，备忘已安全移至默认分类' : ''}`)
+    await loadData()
+  } catch (err: any) {
+    toast.error('删除分类失败: ' + err)
+  }
 }
 
 const handleExportMarkdown = async () => {
@@ -506,15 +544,17 @@ watch([selectedTypeFilter], () => {
           </div>
 
           <!-- Add folder input inline -->
-          <div v-if="isCreatingFolder" class="flex items-center gap-1 px-1 py-1">
+          <div v-if="isCreatingFolder" class="flex items-center gap-1 px-1 py-1 animate-in fade-in zoom-in-95 duration-150">
             <input 
               v-model="newFolderName"
               @keydown.enter="handleCreateFolder"
-              placeholder="输入新分类名称..."
+              @keydown.esc="isCreatingFolder = false; newFolderName = ''"
+              placeholder="输入分类名称 (支持使用 / 创建子分类)..."
               class="w-full px-2.5 py-1 text-xs bg-white/10 border border-purple-500/40 rounded-lg text-white placeholder-white/30 focus:outline-none"
               autoFocus
             />
-            <button @click="handleCreateFolder" class="px-2 py-1 bg-purple-600 text-white rounded-lg text-xs">确定</button>
+            <button @click="handleCreateFolder" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold shrink-0 cursor-pointer shadow">确定</button>
+            <button @click="isCreatingFolder = false; newFolderName = ''" class="p-1 text-white/40 hover:text-white rounded hover:bg-white/10 shrink-0 cursor-pointer"><X :size="12" /></button>
           </div>
 
           <div class="space-y-0.5">
@@ -522,25 +562,37 @@ watch([selectedTypeFilter], () => {
               v-for="folder in displayFolders" 
               :key="folder.name"
               @click="selectFolder(folder.name)"
-              class="w-full px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-center justify-between group"
+              class="w-full py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-center justify-between group"
               :class="[
                 selectedFolder === folder.name 
                   ? 'bg-purple-600/20 text-purple-200 border border-purple-500/40 font-bold' 
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  : 'text-white/60 hover:text-white hover:bg-white/5',
+                folder.depth === 0 ? 'px-3' : folder.depth === 1 ? 'pl-6 pr-3' : 'pl-9 pr-3'
               ]"
             >
-              <span class="truncate flex items-center gap-2 min-w-0">
-                <span class="w-1.5 h-1.5 rounded-full" :class="folder.count > 0 ? 'bg-purple-400/80' : 'bg-white/20'"></span>
-                <span class="truncate">{{ folder.name }}</span>
+              <span class="truncate flex items-center gap-1.5 min-w-0">
+                <span v-if="folder.depth > 0" class="text-purple-400/60 text-[11px] font-mono select-none">↳</span>
+                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="folder.count > 0 ? 'bg-purple-400/80' : 'bg-white/20'"></span>
+                <span class="truncate">{{ folder.depth > 0 ? folder.displayName : folder.name }}</span>
               </span>
-              <div class="flex items-center gap-1.5 shrink-0 ml-1">
+              <div class="flex items-center gap-1 shrink-0 ml-1">
                 <span class="text-[10px] font-mono" :class="folder.count > 0 ? 'text-purple-300 font-semibold' : 'text-white/30'">{{ folder.count }}</span>
-                <!-- Delete empty custom folder button -->
+                
+                <!-- Add Subfolder Button -->
                 <button
-                  v-if="folder.isCustom && folder.count === 0"
-                  @click="handleDeleteCustomFolder(folder.name, $event)"
-                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 rounded transition-all"
-                  title="删除该分类"
+                  @click="handleAddSubFolder(folder.name, $event)"
+                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-purple-300 hover:bg-white/10 rounded transition-all cursor-pointer"
+                  title="在此分类下添加子分类"
+                >
+                  <Plus :size="11" />
+                </button>
+
+                <!-- Delete Folder Button (Available for all custom folders) -->
+                <button
+                  v-if="folder.name !== '默认备忘'"
+                  @click="handleDeleteFolder(folder.name, $event)"
+                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 hover:bg-white/10 rounded transition-all cursor-pointer"
+                  title="删除此分类（关联备忘将安全移至默认分类）"
                 >
                   <Trash2 :size="11" />
                 </button>

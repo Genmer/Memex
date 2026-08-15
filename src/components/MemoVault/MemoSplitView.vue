@@ -344,6 +344,20 @@ const handlePreviewClick = async (event: MouseEvent) => {
     }
     return
   }
+
+  // 3. In preview mode, clicking on text directly enters edit mode
+  if (viewMode.value === 'preview') {
+    viewMode.value = 'edit'
+    nextTick(() => {
+      editorTextarea.value?.focus()
+    })
+  }
+}
+
+const focusEditor = () => {
+  nextTick(() => {
+    editorTextarea.value?.focus()
+  })
 }
 
 const handleClickOutside = (e: MouseEvent) => {
@@ -513,28 +527,28 @@ onUnmounted(() => {
                 @click="viewMode = 'split'"
                 class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
                 :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-bold' : 'text-white/40 hover:text-white'"
-                title="双栏分屏：左源码右即时解析"
+                title="双栏分屏：左侧编辑输入，右侧实时解析"
               >
                 <Columns :size="12" />
                 <span>分栏</span>
               </button>
               <button 
-                @click="viewMode = 'preview'"
+                @click="viewMode = 'edit'; focusEditor()"
                 class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
-                :class="viewMode === 'preview' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
-                title="即时解析：全宽即时渲染呈现"
-              >
-                <Sparkles :size="12" />
-                <span>即时解析</span>
-              </button>
-              <button 
-                @click="viewMode = 'edit'"
-                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
-                :class="viewMode === 'edit' ? 'bg-indigo-600 text-white font-bold' : 'text-white/40 hover:text-white'"
-                title="纯源码编辑"
+                :class="viewMode === 'edit' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                title="单栏编辑：全宽直接打字输入"
               >
                 <Edit3 :size="12" />
-                <span>源码</span>
+                <span>编辑</span>
+              </button>
+              <button 
+                @click="viewMode = 'preview'"
+                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                :class="viewMode === 'preview' ? 'bg-indigo-600 text-white font-bold' : 'text-white/40 hover:text-white'"
+                title="全屏预览：查看最终渲染排版（点击正文即可切回编辑）"
+              >
+                <Sparkles :size="12" />
+                <span>预览</span>
               </button>
             </div>
 
@@ -679,8 +693,11 @@ onUnmounted(() => {
           <div 
             v-show="viewMode === 'split' || viewMode === 'preview'"
             class="h-full overflow-y-auto bg-black/20"
-            :class="viewMode === 'split' ? 'w-1/2 p-6' : 'w-full p-8 max-w-3xl mx-auto'"
+            :class="[
+              viewMode === 'split' ? 'w-1/2 p-6' : 'w-full p-8 max-w-3xl mx-auto cursor-text'
+            ]"
             @click="handlePreviewClick"
+            :title="viewMode === 'preview' ? '点击正文任意位置即可切换为编辑输入' : ''"
           >
             <div 
               class="markdown-body prose prose-invert prose-indigo max-w-none text-white/90 text-xs leading-relaxed select-text"

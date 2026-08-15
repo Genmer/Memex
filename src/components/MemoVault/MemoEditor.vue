@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { marked } from 'marked'
 import { 
   X, 
@@ -19,7 +19,9 @@ import {
   Eye, 
   Edit3, 
   Trash2,
-  List
+  List,
+  Plus,
+  Check
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -33,8 +35,57 @@ const emit = defineEmits(['close', 'save', 'delete'])
 const title = ref('')
 const content = ref('')
 const folder = ref('默认备忘')
+const customFolders = ref<string[]>([])
 const newFolderInput = ref('')
+const newFolderInputRef = ref<HTMLInputElement | null>(null)
+const previousFolder = ref('')
 const isAddingFolder = ref(false)
+
+const allFolders = computed(() => {
+  const set = new Set([...props.availableFolders, ...customFolders.value])
+  if (folder.value && folder.value !== '__new__') {
+    set.add(folder.value)
+  }
+  return Array.from(set).filter(Boolean)
+})
+
+const startAddingFolder = () => {
+  previousFolder.value = folder.value !== '__new__' ? folder.value : (allFolders.value[0] || '默认备忘')
+  newFolderInput.value = ''
+  isAddingFolder.value = true
+  nextTick(() => {
+    newFolderInputRef.value?.focus()
+  })
+}
+
+const confirmNewFolder = () => {
+  const trimmed = newFolderInput.value.trim()
+  if (trimmed) {
+    if (!customFolders.value.includes(trimmed)) {
+      customFolders.value.push(trimmed)
+    }
+    folder.value = trimmed
+  } else if (previousFolder.value) {
+    folder.value = previousFolder.value
+  }
+  isAddingFolder.value = false
+}
+
+const cancelNewFolder = () => {
+  if (previousFolder.value && previousFolder.value !== '__new__') {
+    folder.value = previousFolder.value
+  } else {
+    folder.value = allFolders.value[0] || '默认备忘'
+  }
+  isAddingFolder.value = false
+}
+
+const handleFolderSelect = (e: Event) => {
+  const val = (e.target as HTMLSelectElement).value
+  if (val === '__new__') {
+    startAddingFolder()
+  }
+}
 const noteType = ref<'markdown' | 'journal' | 'todo' | 'fleeting' | 'code'>('markdown')
 const color = ref<'default' | 'indigo' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'purple'>('default')
 const tagsInput = ref('')
@@ -273,21 +324,50 @@ onUnmounted(() => {
           <div class="flex items-center gap-1.5">
             <Layers :size="13" class="text-white/40" />
             <span class="text-white/50 font-medium">分类:</span>
-            <select 
-              v-if="!isAddingFolder"
-              v-model="folder"
-              class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white font-medium focus:outline-none focus:border-indigo-500/50 cursor-pointer"
-            >
-              <option v-for="f in availableFolders" :key="f" :value="f">{{ f }}</option>
-              <option value="__new__">+ 新建分类...</option>
-            </select>
-            <div v-else class="flex items-center gap-1">
+            
+            <div v-if="!isAddingFolder" class="flex items-center gap-1">
+              <select 
+                v-model="folder"
+                @change="handleFolderSelect"
+                class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white font-medium focus:outline-none focus:border-indigo-500/50 cursor-pointer"
+              >
+                <option v-for="f in allFolders" :key="f" :value="f">{{ f }}</option>
+                <option value="__new__">+ 新建分类...</option>
+              </select>
+              <button 
+                @click="startAddingFolder" 
+                class="p-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/10 transition-colors"
+                title="新建分类"
+              >
+                <Plus :size="13" />
+              </button>
+            </div>
+
+            <!-- Inline New Folder Input -->
+            <div v-else class="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
               <input 
+                ref="newFolderInputRef"
                 v-model="newFolderInput" 
-                placeholder="输入新分类名称" 
-                class="px-2.5 py-1 bg-white/5 border border-indigo-500/50 rounded-lg text-white text-xs focus:outline-none"
+                @keydown.enter.prevent="confirmNewFolder"
+                @keydown.esc.prevent="cancelNewFolder"
+                placeholder="输入分类名称 (回车确认)" 
+                class="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/50 rounded-lg text-white text-xs focus:outline-none placeholder-white/40 w-44 shadow-inner"
               />
-              <button @click="isAddingFolder = false" class="text-white/40 hover:text-white px-1">取消</button>
+              <button 
+                @click="confirmNewFolder" 
+                class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow"
+                title="确认新建分类"
+              >
+                <Check :size="12" />
+                <span>确定</span>
+              </button>
+              <button 
+                @click="cancelNewFolder" 
+                class="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                title="取消"
+              >
+                <X :size="13" />
+              </button>
             </div>
           </div>
 

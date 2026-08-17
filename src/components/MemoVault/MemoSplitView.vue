@@ -17,7 +17,8 @@ import {
   Check,
   X,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Tag
 } from 'lucide-vue-next'
 import { renderMarkdown, copyCodeFromClick } from '../../utils/markdown'
 import { useToast } from '../../composables/useToast'

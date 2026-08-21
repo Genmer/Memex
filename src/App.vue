@@ -15,8 +15,11 @@ import CommandPalette from './components/CommandPalette.vue'
 import AiUsageStats from './components/AiUsageStats.vue'
 import MemoWorkspaceApp from './components/MemoVault/MemoWorkspaceApp.vue'
 import GitLiteCapsule from './components/GitLiteCapsule.vue'
-import { gitliteDb } from './services/gitliteDb'
+import GitLiteLiveBanner from './components/GitLiteLiveBanner.vue'
+import { gitliteDb, gitliteStatus } from './services/gitliteDb'
+
 import { runAutoMigrationIfNeeded, exportFullJsonBackup, importFullJsonBackup } from './services/dbMigration'
+
 
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
@@ -41,6 +44,8 @@ const collapsedProjects = ref<Record<string, boolean>>({})
 const favoriteOnly = ref(false)
 const selectedTag = ref<string | null>(null)
 const sortBy = ref<'recent' | 'name' | 'favorite'>('recent')
+const isMobileSidebarOpen = ref(false)
+
 
 // Workspace Mode State (Persisted)
 const getInitialWorkspaceMode = (): 'agent' | 'memo' => {
@@ -62,6 +67,12 @@ watch(workspaceMode, (newVal) => {
     console.error('Failed to save workspace mode to storage:', e)
   }
 })
+
+watch([() => gitliteStatus.lastSyncedAt, () => gitliteStatus.isReady], () => {
+  fetchData()
+  fetchConfigs()
+})
+
 
 // Batch selection state
 const isBatchMode = ref(false)
@@ -895,27 +906,52 @@ onUnmounted(() => {
   />
 
   <!-- 100% DEDICATED AI AGENT ARSENAL PAGE -->
-  <div v-else class="flex h-screen w-full text-white/90 selection:bg-indigo-500/30">
-    <!-- Sidebar -->
-    <Sidebar 
-      :unique-sources="uniqueSources" 
-      :pinned-sources="pinnedSources" 
-      :all-tags="allTags"
-      :selected-tag="selectedTag"
-      v-model:workspace-mode="workspaceMode"
-      @select="handleSidebarSelect" 
-      @toggle-pin="togglePin"
-      @select-tag="handleTagSelect($event)"
-    />
+  <div v-else class="flex h-screen w-full text-white/90 selection:bg-indigo-500/30 overflow-hidden">
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="isMobileSidebarOpen" 
+      @click="isMobileSidebarOpen = false" 
+      class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 md:hidden animate-fadeIn"
+    ></div>
+
+    <!-- Sidebar with responsive drawer container -->
+    <div 
+      class="fixed md:relative inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out"
+      :class="isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+    >
+      <Sidebar 
+        :unique-sources="uniqueSources" 
+        :pinned-sources="pinnedSources" 
+        :all-tags="allTags"
+        :selected-tag="selectedTag"
+        v-model:workspace-mode="workspaceMode"
+        @select="(v) => { handleSidebarSelect(v); isMobileSidebarOpen = false; }" 
+        @toggle-pin="togglePin"
+        @select-tag="(t) => { handleTagSelect(t); isMobileSidebarOpen = false; }"
+        @close-mobile="isMobileSidebarOpen = false"
+      />
+    </div>
 
     <!-- Main Content Area -->
     <main class="app-main flex-1 flex flex-col min-w-0 bg-white/5 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] border-l border-white/10 relative transition-colors duration-200">
       
       <!-- Topbar / Breadcrumb -->
-      <header class="app-header h-16 shrink-0 flex items-center justify-between px-8 bg-black/10 border-b border-white/5 backdrop-blur-xl transition-colors duration-200">
-        <h2 class="text-xl font-medium tracking-wide text-white/90 drop-shadow-md shrink-0 mr-8">
-          {{ viewTitle }}
-        </h2>
+      <header class="app-header h-16 shrink-0 flex items-center justify-between px-3.5 sm:px-6 md:px-8 bg-black/10 border-b border-white/5 backdrop-blur-xl transition-colors duration-200">
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0 mr-2 sm:mr-8">
+          <!-- Mobile Drawer Toggle Button -->
+          <button 
+            @click="isMobileSidebarOpen = true"
+            class="md:hidden p-2 -ml-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 shrink-0 transition-colors"
+            title="打开菜单"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+
+          <h2 class="text-base sm:text-lg md:text-xl font-medium tracking-wide text-white/90 drop-shadow-md truncate">
+            {{ viewTitle }}
+          </h2>
+        </div>
+
 
         <!-- Global Search Bar / Omnibar Trigger -->
         <div 
@@ -999,6 +1035,11 @@ onUnmounted(() => {
           </button>
         </div>
       </header>
+
+      <!-- Persistent Realtime Live Status Banner -->
+      <GitLiteLiveBanner @refresh="fetchData" />
+
+
 
       <!-- Scrollable Content -->
       <div class="flex-1 overflow-y-auto p-8 relative">

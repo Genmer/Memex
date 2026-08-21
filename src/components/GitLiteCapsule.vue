@@ -2,30 +2,31 @@
   <div class="flex items-center">
     <button 
       @click="isModalOpen = true"
-      class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm group hover:scale-[1.02] active:scale-[0.98]"
+      class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm group hover:scale-[1.02] active:scale-[0.98]"
       :class="capsuleClasses">
       <!-- Icon / Status Dot -->
-      <span class="relative flex h-2 w-2">
+      <span class="relative flex h-2 w-2 shrink-0">
         <span v-if="gitliteStatus.syncState === 'syncing'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
         <span class="relative inline-flex rounded-full h-2 w-2" :class="dotClasses"></span>
       </span>
 
       <!-- Label -->
-      <div class="flex items-center gap-1.5">
-        <span class="text-neutral-200 font-semibold tracking-wide flex items-center gap-1">
-          <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="flex items-center gap-1">
+        <span class="text-neutral-200 font-semibold tracking-wide flex items-center gap-1 text-[11px] sm:text-xs">
+          <svg class="w-3.5 h-3.5 opacity-80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
           </svg>
-          GitLite
+          <span class="hidden sm:inline">GitLite</span>
         </span>
-        <span class="text-neutral-400 font-mono text-[11px]">|</span>
-        <span class="font-mono text-[11px] text-neutral-300">{{ providerText }}</span>
+        <span class="text-neutral-400 font-mono text-[11px] hidden sm:inline">|</span>
+        <span class="font-mono text-[10px] sm:text-[11px] text-neutral-300">{{ providerText }}</span>
       </div>
 
-      <!-- Sync Status Pill -->
-      <span class="px-1.5 py-0.2 text-[10px] rounded-md font-mono" :class="pillClasses">
+      <!-- Sync Status Pill (Hidden on very small screens) -->
+      <span class="px-1.5 py-0.2 text-[9px] sm:text-[10px] rounded-md font-mono hidden xs:inline" :class="pillClasses">
         {{ syncText }}
       </span>
+
 
       <!-- Quick Sync Icon Button (When connected) -->
       <span 

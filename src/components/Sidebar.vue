@@ -33,8 +33,10 @@ const emit = defineEmits([
   'select', 
   'toggle-pin', 
   'select-tag',
-  'update:workspaceMode'
+  'update:workspaceMode',
+  'close-mobile'
 ])
+
 
 const { t, toggleLanguage } = useI18n()
 const { themeMode, setThemeMode } = useTheme()
@@ -142,7 +144,7 @@ const setMode = (mode: 'agent' | 'memo') => {
 </script>
 
 <template>
-  <div class="app-sidebar w-64 h-screen flex flex-col bg-white/5 backdrop-blur-3xl border-r border-white/10 shrink-0 select-none transition-colors duration-200">
+  <div class="app-sidebar w-72 md:w-64 h-screen flex flex-col bg-[#11131a] md:bg-white/5 backdrop-blur-3xl border-r border-white/10 shrink-0 select-none transition-colors duration-200 shadow-2xl md:shadow-none">
     <!-- Header Logo -->
     <div class="h-14 flex items-center justify-between px-5 border-b border-white/5 shrink-0">
       <div class="flex items-center">
@@ -151,7 +153,16 @@ const setMode = (mode: 'agent' | 'memo') => {
         </div>
         <span class="font-semibold text-base tracking-wide text-white/90">{{ t('app.title') }}</span>
       </div>
-      <span class="text-[10px] font-mono text-indigo-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30">v1.0.2</span>
+      <div class="flex items-center gap-1.5">
+        <span class="text-[10px] font-mono text-indigo-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30">v1.0.2</span>
+        <button 
+          @click="emit('close-mobile')"
+          class="md:hidden p-1.5 rounded-lg bg-white/10 text-white/60 hover:text-white transition-colors"
+          title="收起菜单"
+        >
+          <X :size="14" />
+        </button>
+      </div>
     </div>
 
 

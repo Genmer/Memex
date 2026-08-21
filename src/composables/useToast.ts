@@ -18,9 +18,10 @@ export function useToast() {
     }, duration)
   }
 
-  const success = (msg: string) => show(msg, 'success')
-  const error = (msg: string) => show(msg, 'error')
-  const info = (msg: string) => show(msg, 'info')
+  const success = (msg: string, duration = 3000) => show(msg, 'success', duration)
+  const error = (msg: string, duration = 4000) => show(msg, 'error', duration)
+  const info = (msg: string, duration = 3000) => show(msg, 'info', duration)
 
   return { toasts, show, success, error, info }
 }
+

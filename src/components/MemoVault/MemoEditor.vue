@@ -100,9 +100,20 @@ const tagList = ref<string[]>([])
 const newTagInput = ref('')
 const isPinned = ref(false)
 const isFavorite = ref(false)
-const viewMode = ref<'split' | 'preview' | 'edit'>('split')
+const isMobileScreen = ref(typeof window !== 'undefined' && window.innerWidth < 768)
+const viewMode = ref<'split' | 'preview' | 'edit'>(typeof window !== 'undefined' && window.innerWidth < 768 ? 'preview' : 'split')
 
 const editorTextarea = ref<HTMLTextAreaElement | null>(null)
+
+const checkScreenSize = () => {
+  if (typeof window !== 'undefined') {
+    isMobileScreen.value = window.innerWidth < 768
+    if (isMobileScreen.value && viewMode.value === 'split') {
+      viewMode.value = 'preview'
+    }
+  }
+}
+
 
 const addTag = (tagToAdd?: string) => {
   const t = (tagToAdd || newTagInput.value).trim().replace(/^#/, '')
@@ -423,103 +434,133 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('click', handleClickOutside)
 })
+
 </script>
 
 <template>
-  <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+  <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
     <div 
-      class="relative w-full max-w-5xl h-[88vh] bg-[#12141a] border border-white/15 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-white/90"
+      class="relative w-full h-full md:max-w-5xl md:h-[88vh] bg-[#12141a] border-0 md:border md:border-white/15 rounded-none md:rounded-3xl shadow-2xl flex flex-col overflow-hidden text-white/90"
       @click.stop
     >
-      <!-- Top Header Toolbar -->
-      <div class="px-6 py-3.5 border-b border-white/10 flex items-center justify-between gap-4 bg-white/[0.02] shrink-0">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10">
-            <button 
-              @click="noteType = 'markdown'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="noteType === 'markdown' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
-            >
-              <FileText :size="12" />
-              <span>笔记</span>
-            </button>
-            <button 
-              @click="noteType = 'memory'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="noteType === 'memory' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
-            >
-              <Brain :size="12" />
-              <span>记忆</span>
-            </button>
-            <button 
-              @click="noteType = 'journal'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="noteType === 'journal' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
-            >
-              <Calendar :size="12" />
-              <span>日志</span>
-            </button>
-            <button 
-              @click="noteType = 'todo'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="noteType === 'todo' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
-            >
-              <CheckSquare :size="12" />
-              <span>待办</span>
-            </button>
-            <button 
-              @click="noteType = 'fleeting'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
-              :class="noteType === 'fleeting' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
-            >
-              <Sparkles :size="12" />
-              <span>灵感</span>
-            </button>
-          </div>
+      <!-- Row 1: Primary Header Toolbar -->
+      <div class="px-3.5 md:px-6 py-2.5 md:py-3.5 border-b border-white/10 flex items-center justify-between gap-2 md:gap-4 bg-white/[0.02] shrink-0">
+        <!-- Left: Close & Folder Selection -->
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <!-- Mobile Close Button -->
+          <button 
+            @click="emit('close')"
+            class="p-1.5 md:hidden rounded-xl bg-white/10 hover:bg-white/15 text-white/80 border border-white/10 shrink-0 transition-colors cursor-pointer"
+            title="返回 / 关闭"
+          >
+            <X :size="16" />
+          </button>
 
-          <!-- Color Accent Picker -->
-          <div class="flex items-center gap-1.5 pl-2 border-l border-white/10">
-            <button 
-              v-for="c in colorOptions" 
-              :key="c.id"
-              @click="color = c.id as any"
-              class="w-4 h-4 rounded-full border transition-transform hover:scale-125 relative cursor-pointer"
-              :class="[c.class, color === c.id ? 'ring-2 ring-white scale-110' : 'opacity-70']"
-              :title="c.label"
-            ></button>
+          <!-- Folder Selection Pill -->
+          <div class="flex items-center gap-1.5 min-w-0">
+            <Layers :size="13" class="text-white/40 hidden sm:inline shrink-0" />
+            <div v-if="!isAddingFolder" class="flex items-center gap-1 min-w-0">
+              <div class="relative inline-flex items-center max-w-[150px] sm:max-w-[200px]">
+                <select 
+                  v-model="folder"
+                  @change="handleFolderSelect"
+                  class="appearance-none pl-2.5 pr-6 py-1 bg-white/5 border border-white/10 rounded-lg text-white font-medium focus:outline-none focus:border-indigo-500/50 cursor-pointer text-xs truncate"
+                >
+                  <option v-for="f in allFolders" :key="f" :value="f" class="bg-[#181b26] text-white">{{ f }}</option>
+                  <option value="__new__" class="bg-[#181b26] text-purple-300">+ 新建分类...</option>
+                </select>
+                <ChevronDown :size="11" class="absolute right-2 pointer-events-none opacity-50 text-white/60" />
+              </div>
+              <button 
+                @click="startAddingFolder" 
+                class="p-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/10 transition-colors cursor-pointer shrink-0"
+                title="新建分类"
+              >
+                <Plus :size="12" />
+              </button>
+            </div>
+
+            <!-- Inline New Folder Input -->
+            <div v-else class="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
+              <input 
+                ref="newFolderInputRef"
+                v-model="newFolderInput" 
+                @keydown.enter.prevent="confirmNewFolder"
+                @keydown.esc.prevent="cancelNewFolder"
+                placeholder="新分类名" 
+                class="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/50 rounded-lg text-white text-xs focus:outline-none placeholder-white/40 w-28 sm:w-36"
+              />
+              <button 
+                @click="confirmNewFolder" 
+                class="p-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs"
+                title="确定"
+              >
+                <Check :size="12" />
+              </button>
+              <button 
+                @click="cancelNewFolder" 
+                class="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/10"
+                title="取消"
+              >
+                <X :size="12" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- Right Action Controls -->
-        <div class="flex items-center gap-2 shrink-0">
+        <!-- Right: Pin, Favorite, View Switcher & Save Button -->
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <!-- Pin & Star -->
           <button 
             @click="isPinned = !isPinned"
-            class="p-2 rounded-xl border transition-all cursor-pointer"
+            class="p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer"
             :class="isPinned ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'"
             title="置顶"
           >
-            <Pin :size="15" :class="{ 'fill-amber-400': isPinned }" />
+            <Pin :size="14" :class="{ 'fill-amber-400': isPinned }" />
           </button>
           <button 
             @click="isFavorite = !isFavorite"
-            class="p-2 rounded-xl border transition-all cursor-pointer"
+            class="p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer"
             :class="isFavorite ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'"
             title="收藏"
           >
-            <Star :size="15" :class="{ 'fill-amber-400': isFavorite }" />
+            <Star :size="14" :class="{ 'fill-amber-400': isFavorite }" />
           </button>
 
-          <!-- View Mode Switcher (Split / Edit / Preview) -->
-          <div class="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-medium">
+          <!-- Mobile View Switcher (2-Way: Edit ⇄ Preview) -->
+          <div class="md:hidden flex items-center bg-white/5 p-0.5 rounded-xl border border-white/10 text-xs">
+            <button 
+              @click="viewMode = 'edit'; focusEditor()"
+              class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer font-medium"
+              :class="viewMode === 'edit' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50'"
+            >
+              <Edit3 :size="12" />
+              <span>编辑</span>
+            </button>
+            <button 
+              @click="viewMode = 'preview'"
+              class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer font-medium"
+              :class="viewMode === 'preview' || viewMode === 'split' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-white/50'"
+            >
+              <Sparkles :size="12" />
+              <span>预览</span>
+            </button>
+          </div>
+
+          <!-- Desktop View Switcher (3-Way: Split / Edit / Preview) -->
+          <div class="hidden md:flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-medium">
             <button 
               @click="viewMode = 'split'"
               class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
@@ -552,251 +593,234 @@ onUnmounted(() => {
           <!-- Save Button -->
           <button 
             @click="handleSave"
-            class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer"
+            class="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
           >
-            <Save :size="14" />
-            <span>保存 (⌘S)</span>
+            <Save :size="13" />
+            <span class="hidden sm:inline">保存 (⌘S)</span>
+            <span class="sm:hidden">保存</span>
           </button>
 
-          <!-- Close Button -->
+          <!-- Desktop Close Button -->
           <button 
             @click="emit('close')"
-            class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-300 border border-white/10 hover:border-red-500/40 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0 ml-1"
+            class="hidden md:flex px-3 py-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-300 border border-white/10 hover:border-red-500/40 transition-all items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0 ml-1"
             title="关闭窗口 (Esc)"
           >
-            <X :size="15" />
+            <X :size="14" />
             <span>关闭</span>
           </button>
         </div>
       </div>
 
-      <!-- Metadata Config Row (Folder & Tags) -->
-      <div class="px-6 py-3 border-b border-white/5 bg-white/[0.01] flex items-center justify-between flex-wrap gap-4 text-xs">
-        <div class="flex items-center gap-4 flex-1">
-          <!-- Folder Selection -->
-          <div class="flex items-center gap-1.5">
-            <Layers :size="13" class="text-white/40" />
-            <span class="text-white/50 font-medium">分类:</span>
-            
-            <div v-if="!isAddingFolder" class="flex items-center gap-1">
-              <div class="relative inline-flex items-center">
-                <select 
-                  v-model="folder"
-                  @change="handleFolderSelect"
-                  class="appearance-none pl-2.5 pr-7 py-1 bg-white/5 border border-white/10 rounded-lg text-white font-medium focus:outline-none focus:border-indigo-500/50 cursor-pointer text-xs"
-                >
-                  <option v-for="f in allFolders" :key="f" :value="f" class="bg-[#181b26] text-white">{{ f }}</option>
-                  <option value="__new__" class="bg-[#181b26] text-purple-300">+ 新建分类...</option>
-                </select>
-                <ChevronDown :size="11" class="absolute right-2 pointer-events-none opacity-50 text-white/60" />
-              </div>
-              <button 
-                @click="startAddingFolder" 
-                class="p-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/10 transition-colors cursor-pointer"
-                title="新建分类"
-              >
-                <Plus :size="13" />
-              </button>
-            </div>
-
-            <!-- Inline New Folder Input -->
-            <div v-else class="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150">
-              <input 
-                ref="newFolderInputRef"
-                v-model="newFolderInput" 
-                @keydown.enter.prevent="confirmNewFolder"
-                @keydown.esc.prevent="cancelNewFolder"
-                placeholder="输入分类名称 (回车确认)" 
-                class="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/50 rounded-lg text-white text-xs focus:outline-none placeholder-white/40 w-44 shadow-inner"
-              />
-              <button 
-                @click="confirmNewFolder" 
-                class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow"
-                title="确认新建分类"
-              >
-                <Check :size="12" />
-                <span>确定</span>
-              </button>
-              <button 
-                @click="cancelNewFolder" 
-                class="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
-                title="取消"
-              >
-                <X :size="13" />
-              </button>
-            </div>
+      <!-- Row 2: Subheader (Type Selector & Color Palette & Tags Horizontal Scrollbar) -->
+      <div class="px-3.5 md:px-6 py-2 border-b border-white/5 bg-white/[0.01] flex items-center justify-between gap-3 overflow-x-auto no-scrollbar shrink-0 text-xs">
+        <div class="flex items-center gap-3 shrink-0">
+          <!-- Type Switcher Pills -->
+          <div class="flex items-center gap-1 bg-white/5 p-0.5 sm:p-1 rounded-xl border border-white/10 shrink-0">
+            <button 
+              @click="noteType = 'markdown'"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              :class="noteType === 'markdown' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
+            >
+              <FileText :size="11" />
+              <span>笔记</span>
+            </button>
+            <button 
+              @click="noteType = 'memory'"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              :class="noteType === 'memory' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
+            >
+              <Brain :size="11" />
+              <span>记忆</span>
+            </button>
+            <button 
+              @click="noteType = 'journal'"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              :class="noteType === 'journal' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
+            >
+              <Calendar :size="11" />
+              <span>日志</span>
+            </button>
+            <button 
+              @click="noteType = 'todo'"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              :class="noteType === 'todo' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
+            >
+              <CheckSquare :size="11" />
+              <span>待办</span>
+            </button>
+            <button 
+              @click="noteType = 'fleeting'"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              :class="noteType === 'fleeting' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
+            >
+              <Sparkles :size="11" />
+              <span>灵感</span>
+            </button>
           </div>
 
-          <!-- Interactive Tags Row -->
-          <div class="flex items-center gap-2 flex-1 min-w-[240px] flex-wrap">
-            <TagIcon :size="13" class="text-white/40 shrink-0" />
-            
-            <!-- Existing Tag Badges -->
-            <div 
-              v-for="t in tagList" 
-              :key="t"
-              class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 text-[11px] font-mono group animate-in fade-in zoom-in-95 duration-100"
-            >
-              <span>#{{ t }}</span>
-              <button 
-                @click="removeTag(t)" 
-                class="text-purple-300/60 hover:text-red-400 p-0.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
-                title="删除标签"
-              >
-                <X :size="10" />
-              </button>
-            </div>
+          <!-- Color Accent Picker -->
+          <div class="flex items-center gap-1.5 pl-2 border-l border-white/10 shrink-0">
+            <button 
+              v-for="c in colorOptions" 
+              :key="c.id"
+              @click="color = c.id as any"
+              class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border transition-transform hover:scale-125 relative cursor-pointer shrink-0"
+              :class="[c.class, color === c.id ? 'ring-2 ring-white scale-110' : 'opacity-70']"
+              :title="c.label"
+            ></button>
+          </div>
+        </div>
 
-            <!-- New Tag Input -->
-            <div class="flex items-center gap-1">
-              <input 
-                v-model="newTagInput"
-                @keydown="handleTagKeydown"
-                type="text" 
-                placeholder="添加标签 (回车确认)" 
-                class="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-white placeholder-white/30 focus:outline-none focus:border-purple-500/50 w-32"
-              />
-              <button 
-                v-if="newTagInput.trim()"
-                @click="addTag()"
-                class="px-2 py-0.5 bg-purple-600 hover:bg-purple-500 text-white rounded-md text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer shadow transition-all"
-                title="确认添加"
-              >
-                <Plus :size="11" />
-                <span>添加</span>
-              </button>
-            </div>
+        <!-- Tags Row -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <TagIcon :size="12" class="text-white/40 shrink-0" />
+          <div 
+            v-for="t in tagList" 
+            :key="t"
+            class="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 text-[10px] sm:text-[11px] font-mono shrink-0"
+          >
+            <span>#{{ t }}</span>
+            <button 
+              @click="removeTag(t)" 
+              class="text-purple-300/60 hover:text-red-400 p-0.5 rounded hover:bg-white/10"
+            >
+              <X :size="10" />
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1 shrink-0">
+            <input 
+              v-model="newTagInput" 
+              @keydown="handleTagKeydown"
+              placeholder="+ 标签" 
+              class="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-white text-[11px] focus:outline-none placeholder-white/30 w-16 sm:w-20"
+            />
           </div>
         </div>
       </div>
 
-      <!-- Title Input -->
-      <div class="px-6 pt-4 pb-2">
+      <!-- Title Input Field -->
+      <div class="px-3.5 md:px-6 py-2.5 md:py-3 border-b border-white/5 bg-transparent shrink-0">
         <input 
-          v-model="title"
-          type="text" 
-          placeholder="给这篇备忘或日志起个标题..." 
-          class="w-full text-xl font-bold bg-transparent text-white placeholder-white/20 focus:outline-none border-b border-white/5 pb-2"
+          v-model="title" 
+          placeholder="输入备忘标题 / 关键主题..."
+          class="w-full text-base sm:text-lg md:text-xl font-bold bg-transparent text-white placeholder-white/30 focus:outline-none tracking-wide"
         />
       </div>
 
-      <!-- Quick Markdown Action Toolbar -->
-      <div class="px-6 py-2 border-b border-white/5 flex items-center gap-1.5 text-white/50 relative z-30 overflow-visible">
-        <button @click="insertMarkdown('**', '**', '加粗文字')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="加粗">
+      <!-- Markdown Quick Formatting Toolbar (Horizontal Scroll) -->
+      <div class="px-3.5 md:px-6 py-1.5 md:py-2 border-b border-white/5 flex items-center gap-1.5 text-white/50 relative z-30 overflow-x-auto no-scrollbar shrink-0">
+        <button @click="insertMarkdown('**', '**', '加粗文字')" class="p-1.5 rounded hover:bg-white/10 hover:text-white shrink-0" title="加粗">
           <Bold :size="14" />
         </button>
-        <button @click="insertMarkdown('*', '*', '斜体文字')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="斜体">
+        <button @click="insertMarkdown('*', '*', '斜体文字')" class="p-1.5 rounded hover:bg-white/10 hover:text-white shrink-0" title="斜体">
           <Italic :size="14" />
         </button>
 
         <!-- Code Block Language Dropdown -->
-        <div class="relative inline-flex items-center" ref="codeMenuRef">
-          <!-- Invisible Backdrop to reliably close dropdown when clicking anywhere -->
+        <div class="relative inline-flex items-center shrink-0" ref="codeMenuRef">
           <div 
             v-if="showCodeMenu" 
             class="fixed inset-0 z-40 bg-transparent cursor-default" 
             @click.stop="showCodeMenu = false"
           ></div>
 
-          <!-- Format Trigger Button -->
           <div 
-            class="inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden"
+            class="inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden shrink-0"
             :class="currentCodeLang 
               ? 'bg-purple-600/25 border-purple-500/50 text-purple-200' 
               : 'border-white/10 text-white/70 hover:border-white/20 hover:bg-white/10'"
           >
             <button 
               @click.stop="showCodeMenu = !showCodeMenu" 
-              class="px-2.5 py-1 flex items-center gap-1.5 text-xs cursor-pointer hover:text-white"
+              class="px-2 py-1 flex items-center gap-1 text-xs cursor-pointer hover:text-white"
               :class="currentCodeLang ? 'font-semibold' : ''"
-              title="切换/插入代码块语言格式 (JSON, Properties, YAML, HTML等)"
+              title="代码格式"
             >
-              <Code2 :size="14" :class="currentCodeLang ? 'text-purple-300' : 'text-white/60'" />
+              <Code2 :size="13" :class="currentCodeLang ? 'text-purple-300' : 'text-white/60'" />
               <span>{{ currentCodeLang ? `格式: ${getLangLabel(currentCodeLang)}` : '代码块格式' }}</span>
-              <ChevronDown :size="11" class="opacity-60 ml-0.5" />
+              <ChevronDown :size="10" class="opacity-60 ml-0.5" />
             </button>
             <button 
               v-if="currentCodeLang"
               @click.stop="removeCodeBlock"
               class="px-1.5 py-1 hover:bg-purple-500/30 text-purple-300 hover:text-white transition-colors cursor-pointer border-l border-purple-500/30"
-              title="取消代码块格式，恢复为普通文本"
+              title="取消代码块"
             >
-              <X :size="12" />
+              <X :size="11" />
             </button>
           </div>
 
           <!-- Dropdown Language Menu -->
           <div 
             v-if="showCodeMenu" 
-            class="absolute top-full left-0 mt-1.5 w-64 bg-[#181b26] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
+            class="absolute top-full left-0 mt-1.5 w-60 bg-[#181b26] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
           >
             <div class="px-2 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1.5 flex items-center justify-between">
               <span>选择代码/配置语言</span>
               <button 
                 @click.stop="showCodeMenu = false"
-                class="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors cursor-pointer"
-                title="取消 / 关闭菜单"
+                class="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white"
               >
                 <X :size="12" />
               </button>
             </div>
 
-            <!-- Clear/Cancel Code Block Option -->
             <button 
               @click="removeCodeBlock"
-              class="w-full px-2.5 py-1.5 mb-1 rounded-lg text-xs text-left flex items-center justify-between transition-colors group cursor-pointer border border-dashed border-white/10 hover:border-white/25 hover:bg-white/5 text-white/70 hover:text-white"
-              title="取消代码块包裹，还原为纯文本"
+              class="w-full px-2 py-1.5 mb-1 rounded-lg text-xs text-left flex items-center justify-between transition-colors border border-dashed border-white/10 hover:border-white/25 hover:bg-white/5 text-white/70 hover:text-white"
             >
               <div class="flex items-center gap-2">
-                <FileText :size="13" class="text-white/40 group-hover:text-purple-300 shrink-0" />
-                <span>纯普通文本 (取消/清除代码块)</span>
+                <FileText :size="12" class="text-white/40" />
+                <span>纯普通文本 (清除代码块)</span>
               </div>
-              <span class="text-[10px] font-mono opacity-40 group-hover:opacity-100 group-hover:text-purple-300">无格式</span>
             </button>
 
-            <div class="max-h-56 overflow-y-auto space-y-0.5 pr-1">
+            <div class="max-h-52 overflow-y-auto space-y-0.5 pr-1">
               <button 
                 v-for="l in codeLanguages" 
                 :key="l.value"
                 @click="applyCodeLanguage(l.value)"
-                class="w-full px-2.5 py-1.5 rounded-lg text-xs text-left flex items-center justify-between transition-colors group cursor-pointer"
+                class="w-full px-2 py-1 rounded-lg text-xs text-left flex items-center justify-between transition-colors cursor-pointer"
                 :class="currentCodeLang === l.value ? 'bg-purple-600/30 text-purple-200 font-bold' : 'text-white/80 hover:text-white hover:bg-white/5'"
               >
                 <div class="flex items-center gap-2">
-                  <Check v-if="currentCodeLang === l.value" :size="13" class="text-purple-400 shrink-0" />
-                  <span :class="currentCodeLang === l.value ? '' : 'pl-5'">{{ l.label }}</span>
+                  <Check v-if="currentCodeLang === l.value" :size="12" class="text-purple-400" />
+                  <span :class="currentCodeLang === l.value ? '' : 'pl-4'">{{ l.label }}</span>
                 </div>
-                <span class="text-[10px] font-mono opacity-40 group-hover:opacity-100 group-hover:text-purple-300">{{ l.value }}</span>
+                <span class="text-[10px] font-mono opacity-40">{{ l.value }}</span>
               </button>
             </div>
           </div>
         </div>
 
-        <button @click="insertMarkdown('- [ ] ', '', '代办任务项')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="待办清单">
+        <button @click="insertMarkdown('- [ ] ', '', '待办任务事项')" class="p-1.5 rounded hover:bg-white/10 hover:text-white shrink-0" title="任务清单">
           <CheckSquare :size="14" />
         </button>
-        <button @click="insertMarkdown('- ', '', '列表项')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="无序列表">
+        <button @click="insertMarkdown('- ', '', '无序列表项')" class="p-1.5 rounded hover:bg-white/10 hover:text-white shrink-0" title="列表">
           <List :size="14" />
         </button>
-        <button @click="insertMarkdown('> ', '', '引用内容')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="引用">
+        <button @click="insertMarkdown('> ', '', '引用内容')" class="p-1.5 rounded hover:bg-white/10 hover:text-white shrink-0" title="引用">
           <Quote :size="14" />
         </button>
-        <button @click="insertMarkdown('| 标题 1 | 标题 2 |\n| --- | --- |\n| 内容 1 | 内容 2 |\n')" class="p-1.5 rounded hover:bg-white/10 hover:text-white" title="表格">
+        <button @click="insertMarkdown('| 标题 1 | 标题 2 |\n| --- | --- |\n| 内容 1 | 内容 2 |\n')" class="p-1.5 rounded hover:bg-white/10 hover:text-white shrink-0" title="表格">
           <Table :size="14" />
         </button>
-        <button @click="insertTimestamp" class="p-1.5 rounded hover:bg-white/10 hover:text-white flex items-center gap-1 text-xs" title="插入时间戳">
-          <Clock :size="14" />
-          <span class="text-[11px]">时间戳</span>
+        <button @click="insertTimestamp" class="p-1.5 rounded hover:bg-white/10 hover:text-white flex items-center gap-1 text-xs shrink-0" title="插入时间戳">
+          <Clock :size="13" />
+          <span class="text-[11px] hidden sm:inline">时间戳</span>
         </button>
       </div>
 
-      <!-- Main Body Editor & Preview Area -->
+      <!-- Main Body Editor & Preview Area (Fully Responsive) -->
       <div class="flex-1 flex min-h-0 overflow-hidden relative">
-        <!-- Editor Textarea Pane (visible in split & edit) -->
+        <!-- Editor Textarea Pane -->
+        <!-- On Mobile: Visible when viewMode is 'edit'. On Desktop: Visible in 'split' and 'edit' -->
         <div 
-          v-show="viewMode === 'split' || viewMode === 'edit'"
-          class="h-full p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]"
-          :class="viewMode === 'split' ? 'w-1/2' : 'w-full'"
+          v-show="(!isMobileScreen && viewMode === 'split') || viewMode === 'edit'"
+          class="h-full p-4 sm:p-6 overflow-y-auto border-r border-white/5 bg-[#0e1017]"
+          :class="[!isMobileScreen && viewMode === 'split' ? 'w-1/2' : 'w-full']"
         >
           <textarea 
             ref="editorTextarea"
@@ -806,12 +830,13 @@ onUnmounted(() => {
           ></textarea>
         </div>
 
-        <!-- Live Rendered Preview (visible in split & preview) -->
+        <!-- Live Rendered Preview Pane -->
+        <!-- On Mobile: Visible when viewMode is 'preview' or 'split'. On Desktop: Visible in 'split' and 'preview' -->
         <div 
-          v-show="viewMode === 'split' || viewMode === 'preview'"
+          v-show="(!isMobileScreen && viewMode === 'split') || viewMode === 'preview' || (isMobileScreen && viewMode === 'split')"
           class="h-full overflow-y-auto bg-black/20"
           :class="[
-            viewMode === 'split' ? 'w-1/2 p-6' : 'w-full p-8 max-w-4xl mx-auto cursor-text'
+            !isMobileScreen && viewMode === 'split' ? 'w-1/2 p-6' : 'w-full p-4 sm:p-8 max-w-4xl mx-auto cursor-text'
           ]"
           @click="handlePreviewClick"
           :title="viewMode === 'preview' ? '点击正文任意位置即可切换为编辑输入' : ''"
@@ -823,14 +848,13 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Footer Status & Actions -->
-      <div class="px-6 py-2.5 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-xs text-white/40 font-mono">
-        <div class="flex items-center gap-4">
-          <span>字符数: {{ content.length }}</span>
-          <span>行数: {{ content.split('\n').length }}</span>
-        </div>
+      <!-- Footer Status & Actions (Mobile Optimized) -->
+      <div class="px-3.5 md:px-6 py-2 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-xs text-white/40 font-mono shrink-0">
         <div class="flex items-center gap-3">
-          <span v-if="props.memo?.id" class="text-[11px]">更新于: {{ props.memo.updated_at }}</span>
+          <span>{{ content.length }} 字</span>
+          <span class="hidden sm:inline">{{ content.split('\n').length }} 行</span>
+        </div>
+        <div class="flex items-center gap-2 sm:gap-3">
           <button 
             v-if="props.memo?.id"
             @click="emit('delete', props.memo.id)"

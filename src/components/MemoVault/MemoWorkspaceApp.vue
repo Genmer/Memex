@@ -35,8 +35,11 @@ import MemoTimeline from './MemoTimeline.vue'
 import MemoSplitView from './MemoSplitView.vue'
 import MemoEditor from './MemoEditor.vue'
 import GitLiteCapsule from '../GitLiteCapsule.vue'
-import { gitliteDb } from '../../services/gitliteDb'
+import GitLiteLiveBanner from '../GitLiteLiveBanner.vue'
+import { gitliteDb, gitliteStatus } from '../../services/gitliteDb'
+
 import { importFilesToMemos } from '../../services/dbMigration'
+
 import { useToast } from '../../composables/useToast'
 import { useTheme } from '../../composables/useTheme'
 import { useI18n } from '../../composables/useI18n'
@@ -472,10 +475,13 @@ const handleFileInputChange = async (event: Event) => {
 }
 
 
+const isMobileSidebarOpen = ref(false)
+
 const selectFilter = (f: 'all' | 'pinned' | 'favorite' | 'memory' | 'todo' | 'journal') => {
   selectedFilter.value = f
   selectedFolder.value = null
   selectedTag.value = null
+  isMobileSidebarOpen.value = false
   loadData()
 }
 
@@ -483,6 +489,7 @@ const selectFolder = (folderName: string | null) => {
   selectedFolder.value = folderName
   selectedFilter.value = 'all'
   selectedTag.value = null
+  isMobileSidebarOpen.value = false
   loadData()
 }
 
@@ -490,8 +497,10 @@ const selectTag = (tagName: string | null) => {
   selectedTag.value = tagName
   selectedFilter.value = 'all'
   selectedFolder.value = null
+  isMobileSidebarOpen.value = false
   loadData()
 }
+
 
 const handleKeydown = (e: KeyboardEvent) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
@@ -510,15 +519,27 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
-watch([selectedTypeFilter], () => {
+watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus.isReady], () => {
   loadData()
 })
+
 </script>
 
 <template>
   <div class="flex h-screen w-full text-white/90 selection:bg-purple-500/30 overflow-hidden bg-[#0c0e14]">
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="isMobileSidebarOpen" 
+      @click="isMobileSidebarOpen = false" 
+      class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 md:hidden animate-fadeIn"
+    ></div>
+
+
     <!-- ================= DEDICATED MEMO SIDEBAR ================= -->
-    <aside class="w-64 h-screen flex flex-col bg-white/[0.03] backdrop-blur-3xl border-r border-white/10 shrink-0 select-none">
+    <aside 
+      class="fixed md:relative inset-y-0 left-0 z-50 w-72 md:w-64 h-screen flex flex-col bg-[#11131a] md:bg-white/[0.03] backdrop-blur-3xl border-r border-white/10 shrink-0 select-none shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out"
+      :class="isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+    >
       <!-- Top Left Workspace Mode Switcher -->
       <div class="h-16 flex items-center justify-between px-4 border-b border-white/10 shrink-0 bg-black/20">
         <div class="flex items-center gap-2.5 min-w-0">
@@ -531,15 +552,27 @@ watch([selectedTypeFilter], () => {
           </div>
         </div>
 
-        <!-- Mode Switch Button -->
-        <button 
-          @click="emit('switch-mode', 'agent')"
-          class="p-2 rounded-xl bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 text-white/60 hover:text-indigo-200 transition-all flex items-center gap-1 text-xs"
-          title="切换回 Agent 武器库"
-        >
-          <Bot :size="14" />
-        </button>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Mode Switch Button -->
+          <button 
+            @click="emit('switch-mode', 'agent')"
+            class="p-2 rounded-xl bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 text-white/60 hover:text-indigo-200 transition-all flex items-center gap-1 text-xs"
+            title="切换回 Agent 武器库"
+          >
+            <Bot :size="14" />
+          </button>
+          
+          <!-- Mobile Close Drawer Button -->
+          <button 
+            @click="isMobileSidebarOpen = false"
+            class="md:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+            title="收起菜单"
+          >
+            <X :size="15" />
+          </button>
+        </div>
       </div>
+
 
       <!-- Quick Switch Bar -->
       <div class="p-3 border-b border-white/5 bg-black/10">
@@ -792,18 +825,27 @@ watch([selectedTypeFilter], () => {
 
 
     <!-- ================= DEDICATED MEMO MAIN WORKSPACE CANVAS ================= -->
-    <main class="flex-1 flex flex-col min-w-0 bg-[#0e1017] relative">
-      <!-- Topbar Header -->
-      <header class="h-16 shrink-0 flex items-center justify-between px-8 bg-black/20 border-b border-white/5 backdrop-blur-xl">
-        <div class="flex items-center gap-3 min-w-0 mr-6">
-          <h2 class="text-lg font-bold tracking-wide text-white/95 truncate">
+    <main class="flex-1 flex flex-col min-w-0 bg-[#0e1017] relative overflow-hidden">
+      <!-- Topbar Header (Row 1) -->
+      <header class="h-14 md:h-16 shrink-0 flex items-center justify-between px-3.5 sm:px-6 md:px-8 bg-black/30 border-b border-white/5 backdrop-blur-xl z-20">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0 mr-2 sm:mr-6">
+          <!-- Mobile Drawer Trigger Button -->
+          <button 
+            @click="isMobileSidebarOpen = true"
+            class="md:hidden p-2 -ml-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 shrink-0 transition-colors"
+            title="打开分类与菜单"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+
+          <h2 class="text-sm sm:text-base md:text-lg font-bold tracking-wide text-white/95 truncate">
             {{ currentBreadcrumb }}
           </h2>
-          <span class="text-xs text-white/40 font-mono shrink-0">({{ memos.length }} 条)</span>
+          <span class="text-xs text-white/40 font-mono shrink-0 hidden sm:inline">({{ memos.length }} 条)</span>
         </div>
 
-        <!-- Global Memo Search Bar -->
-        <div class="flex-1 max-w-md relative hidden md:block">
+        <!-- Global Memo Search Bar (Desktop) -->
+        <div class="flex-1 max-w-xs lg:max-w-md relative hidden md:block">
           <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/40">
             <Search :size="15" />
           </div>
@@ -816,10 +858,10 @@ watch([selectedTypeFilter], () => {
           />
         </div>
 
-        <!-- Right Controls: Type Filter, Layout Switcher, Export, Create -->
-        <div class="flex items-center gap-3 ml-6 shrink-0">
-          <!-- Type Filter Selector -->
-          <div class="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs font-medium">
+        <!-- Right Controls -->
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0 ml-2 sm:ml-6">
+          <!-- Desktop Type Filter Selector (Hidden on Mobile, rendered in Row 2 below) -->
+          <div class="hidden lg:flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs font-medium">
             <button 
               @click="selectedTypeFilter = 'all'; loadData()"
               class="px-2.5 py-1 rounded-xl transition-all"
@@ -857,8 +899,8 @@ watch([selectedTypeFilter], () => {
             </button>
           </div>
 
-          <!-- Layout Switcher (Grid, Timeline, Split) -->
-          <div class="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10">
+          <!-- Desktop Layout Switcher (Grid, Timeline, Split) -->
+          <div class="hidden md:flex items-center bg-white/5 p-1 rounded-2xl border border-white/10">
             <button 
               @click="layoutMode = 'grid'"
               class="p-1.5 rounded-xl transition-all"
@@ -898,52 +940,118 @@ watch([selectedTypeFilter], () => {
             @change="handleFileInputChange" 
           />
 
-          <!-- Import Button -->
-          <button 
-            @click="triggerFileInput"
-            class="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
-            title="导入 Markdown / JSON 备忘"
-          >
-            <Upload :size="14" />
-            <span>导入</span>
-          </button>
+          <!-- Desktop Import & Export & Refresh Buttons -->
+          <div class="hidden sm:flex items-center gap-1.5">
+            <button 
+              @click="triggerFileInput"
+              class="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1"
+              title="导入备忘"
+            >
+              <Upload :size="13" />
+              <span>导入</span>
+            </button>
+            <button 
+              @click="handleExportMarkdown"
+              class="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1"
+              title="导出 Markdown"
+            >
+              <Download :size="13" />
+              <span>导出</span>
+            </button>
+            <button 
+              @click="loadData"
+              class="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white rounded-xl transition-colors"
+              title="刷新数据"
+            >
+              <RefreshCw :size="13" :class="{ 'animate-spin': isLoading }" />
+            </button>
+          </div>
 
-          <!-- Export Button -->
-          <button 
-            @click="handleExportMarkdown"
-            class="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
-            title="导出全部备忘为 Markdown"
-          >
-            <Download :size="14" />
-            <span>导出</span>
-          </button>
 
-
-          <!-- Refresh -->
-          <button 
-            @click="loadData"
-            class="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white rounded-xl transition-colors"
-            title="刷新"
-          >
-            <RefreshCw :size="14" :class="{ 'animate-spin': isLoading }" />
-          </button>
-
-          <!-- Create Button -->
+          <!-- Create Button (Adaptive on Mobile) -->
           <button 
             @click="handleOpenCreate"
-            class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/25 flex items-center gap-1.5"
+            class="py-1.5 sm:py-2 px-3 sm:px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/25 flex items-center gap-1.5 active:scale-95"
+            title="新建备忘"
           >
             <Plus :size="15" />
-            <span>新建备忘 (⌘N)</span>
+            <span class="hidden sm:inline">新建备忘 (⌘N)</span>
+            <span class="sm:hidden font-bold">新建</span>
           </button>
         </div>
       </header>
 
+      <!-- Persistent Realtime Live Status Banner -->
+      <GitLiteLiveBanner @refresh="loadData" />
+
+
+      <!-- Subheader Filter & Search Bar for Mobile/Tablet (Row 2) -->
+      <div class="lg:hidden shrink-0 flex items-center justify-between px-3.5 py-2 bg-black/20 border-b border-white/5 gap-2 overflow-x-auto no-scrollbar">
+        <!-- Horizontal Scrollable Filter Chips -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button 
+            @click="selectedTypeFilter = 'all'; loadData()"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0"
+            :class="selectedTypeFilter === 'all' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
+          >
+            全部
+          </button>
+          <button 
+            @click="selectedTypeFilter = 'memory'; loadData()"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            :class="selectedTypeFilter === 'memory' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
+          >
+            <span>🧠 记忆</span>
+          </button>
+          <button 
+            @click="selectedTypeFilter = 'journal'; loadData()"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            :class="selectedTypeFilter === 'journal' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
+          >
+            <span>📅 日志</span>
+          </button>
+          <button 
+            @click="selectedTypeFilter = 'todo'; loadData()"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            :class="selectedTypeFilter === 'todo' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
+          >
+            <span>✅ 待办</span>
+          </button>
+          <button 
+            @click="selectedTypeFilter = 'fleeting'; loadData()"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            :class="selectedTypeFilter === 'fleeting' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
+          >
+            <span>💡 灵感</span>
+          </button>
+        </div>
+
+        <!-- Mobile Layout Switcher -->
+        <div class="flex md:hidden items-center bg-white/5 p-0.5 rounded-xl border border-white/10 shrink-0 ml-auto">
+          <button 
+            @click="layoutMode = 'grid'"
+            class="p-1 rounded-lg transition-all"
+            :class="layoutMode === 'grid' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'"
+            title="卡片"
+          >
+            <LayoutGrid :size="13" />
+          </button>
+          <button 
+            @click="layoutMode = 'timeline'"
+            class="p-1 rounded-lg transition-all"
+            :class="layoutMode === 'timeline' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'"
+            title="时间流"
+          >
+            <Calendar :size="13" />
+          </button>
+        </div>
+      </div>
+
       <!-- Scrollable Main View Body -->
-      <div class="flex-1 overflow-y-auto p-8 relative">
+      <div class="flex-1 overflow-y-auto p-3.5 sm:p-6 md:p-8 relative">
         <!-- Layout 1: Grid / Masonry Cards -->
         <div v-if="layoutMode === 'grid'">
-          <div v-if="memos.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div v-if="memos.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
             <MemoCard 
               v-for="m in memos" 
               :key="m.id"
@@ -956,12 +1064,12 @@ watch([selectedTypeFilter], () => {
             />
           </div>
 
-          <div v-else class="text-center py-24 bg-white/[0.01] rounded-3xl border border-dashed border-white/10 space-y-4 animate-in fade-in duration-200">
-            <div class="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 mx-auto flex items-center justify-center">
-              <FileText :size="28" />
+          <div v-else class="text-center py-16 sm:py-24 px-4 bg-white/[0.01] rounded-3xl border border-dashed border-white/10 space-y-4 animate-in fade-in duration-200">
+            <div class="w-12 sm:w-14 h-12 sm:h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 mx-auto flex items-center justify-center">
+              <FileText :size="24" />
             </div>
             <div class="space-y-1">
-              <h4 class="text-base font-bold text-white/90">
+              <h4 class="text-sm sm:text-base font-bold text-white/90">
                 {{ selectedFolder ? `分类 "${selectedFolder}" 下暂无备忘` : '暂无匹配备忘或日志' }}
               </h4>
               <p class="text-xs text-white/40 max-w-sm mx-auto">
@@ -970,13 +1078,14 @@ watch([selectedTypeFilter], () => {
             </div>
             <button 
               @click="handleOpenCreate"
-              class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/30 flex items-center gap-1.5 mx-auto"
+              class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/30 flex items-center gap-1.5 mx-auto active:scale-95"
             >
               <Plus :size="14" />
-              <span>{{ selectedFolder ? `在 "${selectedFolder}" 下新建备忘` : '+ 立即创建第一篇备忘' }}</span>
+              <span>{{ selectedFolder ? `在 "${selectedFolder}" 下新建备忘` : '立即创建第一篇备忘' }}</span>
             </button>
           </div>
         </div>
+
 
         <!-- Layout 2: Timeline Stream -->
         <div v-else-if="layoutMode === 'timeline'">

@@ -140,6 +140,8 @@ export interface AiUsageLogDoc {
   created_at: string;
 }
 
+import { useToast } from '../composables/useToast';
+
 export interface GitLiteStatus {
   isReady: boolean;
   provider: 'github' | 'gitee' | 'memory';
@@ -147,24 +149,58 @@ export interface GitLiteStatus {
   repo: string;
   database: string;
   syncState: 'idle' | 'syncing' | 'synced' | 'error';
+  isConnecting: boolean;
+  statusMessage: string;
   pendingChanges: number;
   lastCommitSha?: string;
   lastSyncedAt?: string;
   error?: string;
 }
 
-export const gitliteStatus = reactive<GitLiteStatus>({
-  isReady: false,
-  provider: 'memory',
-  owner: 'local-user',
-  repo: 'memex-vault',
-  database: 'memex-db',
-  syncState: 'idle',
-  pendingChanges: 0,
-  lastCommitSha: undefined,
-  lastSyncedAt: undefined,
-  error: undefined
-});
+const getInitialGitLiteStatus = (): GitLiteStatus => {
+  try {
+    const provider = (localStorage.getItem('memex_gitlite_provider') as any) || 'memory';
+    const token = localStorage.getItem('memex_gitlite_token');
+    const owner = localStorage.getItem('memex_gitlite_owner') || 'local-user';
+    const repo = localStorage.getItem('memex_gitlite_repo') || 'gitlite-repo';
+    const db = localStorage.getItem('memex_gitlite_db') || 'memex-db';
+    const lastSync = localStorage.getItem('memex_gitlite_last_synced') || undefined;
+
+    if (token && (provider === 'gitee' || provider === 'github')) {
+      return {
+        isReady: true,
+        provider,
+        owner,
+        repo,
+        database: db,
+        syncState: 'synced',
+        isConnecting: false,
+        statusMessage: `已连接 ${provider === 'gitee' ? 'Gitee' : 'GitHub'} (${owner}/${repo})`,
+        pendingChanges: 0,
+        lastCommitSha: undefined,
+        lastSyncedAt: lastSync,
+        error: undefined
+      };
+    }
+  } catch (e) {}
+
+  return {
+    isReady: false,
+    provider: 'memory',
+    owner: 'local-user',
+    repo: 'memex-vault',
+    database: 'memex-db',
+    syncState: 'idle',
+    isConnecting: false,
+    statusMessage: '本地离线数据库就绪',
+    pendingChanges: 0,
+    lastCommitSha: undefined,
+    lastSyncedAt: undefined,
+    error: undefined
+  };
+};
+
+export const gitliteStatus = reactive<GitLiteStatus>(getInitialGitLiteStatus());
 
 class GitLiteService {
   public client: GitLiteClient | null = null;
@@ -187,11 +223,14 @@ class GitLiteService {
     database?: string;
     allowForeignRepo?: boolean;
     force?: boolean;
+    silent?: boolean;
   }): Promise<boolean> {
     if (this.isInitializing && this.initPromise) {
       return this.initPromise;
     }
     this.isInitializing = true;
+
+    const toast = useToast();
 
     this.initPromise = (async () => {
       try {
@@ -201,13 +240,15 @@ class GitLiteService {
         const savedRepo = options?.repo || localStorage.getItem('memex_gitlite_repo') || 'gitlite-repo';
         const savedDb = options?.database || localStorage.getItem('memex_gitlite_db') || 'memex-db';
 
-        gitliteStatus.syncState = 'syncing';
+        const isSilent = options?.silent ?? true;
 
         const runtime = createBrowserRuntime();
         let providerInstance: GitProvider;
 
         if (savedProvider === 'github' && savedToken) {
           try {
+            gitliteStatus.statusMessage = `正在连接 GitHub 远程数据库 (${savedOwner}/${savedRepo})...`;
+            
             providerInstance = new GitHubProvider(savedToken, runtime.fetch);
             this.client = await GitLiteClient.create({
               provider: providerInstance,
@@ -218,12 +259,15 @@ class GitLiteService {
               allowForeignRepo: true,
               onProgress: (step: any, detail?: any) => {
                 console.log(`[GitLite Init] ${step}`, detail);
+                gitliteStatus.statusMessage = `正在从云端拉取最新数据 (${step})...`;
               }
             });
             gitliteStatus.provider = 'github';
             gitliteStatus.owner = savedOwner;
             gitliteStatus.repo = savedRepo;
             gitliteStatus.database = savedDb;
+            gitliteStatus.statusMessage = `已连接 GitHub (${savedOwner}/${savedRepo})`;
+            if (!isSilent) toast.success(`✅ GitHub 云端数据库已连接 (${savedOwner}/${savedRepo})`, 2500);
           } catch (cloudErr: any) {
             console.warn('[GitLite] GitHub init failed, fallback to memory:', cloudErr);
             gitliteStatus.error = cloudErr.message;
@@ -237,9 +281,12 @@ class GitLiteService {
               allowForeignRepo: true
             });
             gitliteStatus.provider = 'memory';
+            gitliteStatus.statusMessage = '云端连接异常，已使用本地离线数据';
           }
         } else if (savedProvider === 'gitee' && savedToken) {
           try {
+            gitliteStatus.statusMessage = `正在验证 Gitee 登录并同步远程数据库 (${savedOwner}/${savedRepo})...`;
+
             providerInstance = new GiteeProvider(savedToken, runtime.fetch);
             this.client = await GitLiteClient.create({
               provider: providerInstance,
@@ -250,6 +297,7 @@ class GitLiteService {
               allowForeignRepo: true,
               onProgress: (step: any, detail?: any) => {
                 console.log(`[GitLite Init] ${step}`, detail);
+                gitliteStatus.statusMessage = `正在同步云端数据 (${step})...`;
               }
             });
 
@@ -257,6 +305,8 @@ class GitLiteService {
             gitliteStatus.owner = savedOwner;
             gitliteStatus.repo = savedRepo;
             gitliteStatus.database = savedDb;
+            gitliteStatus.statusMessage = `已连接 Gitee (${savedOwner}/${savedRepo})`;
+            if (!isSilent) toast.success(`✅ Gitee 远程数据库已就绪 (${savedOwner}/${savedRepo})`, 2500);
           } catch (cloudErr: any) {
             console.warn('[GitLite] Gitee init failed, fallback to memory:', cloudErr);
             gitliteStatus.error = cloudErr.message;
@@ -270,8 +320,10 @@ class GitLiteService {
               allowForeignRepo: true
             });
             gitliteStatus.provider = 'memory';
+            gitliteStatus.statusMessage = 'Gitee 连接超时，已使用本地离线数据';
           }
         } else {
+          gitliteStatus.statusMessage = '本地离线数据库就绪';
           providerInstance = new MemoryProvider();
           this.client = await GitLiteClient.create({
             provider: providerInstance,
@@ -286,6 +338,8 @@ class GitLiteService {
           gitliteStatus.repo = 'gitlite-repo';
           gitliteStatus.database = 'memex-db';
         }
+
+
 
 
         // 注册所有 Schema
@@ -310,6 +364,7 @@ class GitLiteService {
         this.client.on('sync:push', (e: any) => {
           gitliteStatus.syncState = 'synced';
           gitliteStatus.lastSyncedAt = new Date().toLocaleTimeString();
+          localStorage.setItem('memex_gitlite_last_synced', gitliteStatus.lastSyncedAt);
           if (e?.commitSha) gitliteStatus.lastCommitSha = e.commitSha;
         });
 
@@ -320,13 +375,24 @@ class GitLiteService {
         this.client.on('sync:pull', () => {
           gitliteStatus.syncState = 'synced';
           gitliteStatus.lastSyncedAt = new Date().toLocaleTimeString();
+          localStorage.setItem('memex_gitlite_last_synced', gitliteStatus.lastSyncedAt);
         });
-
 
         gitliteStatus.isReady = true;
         gitliteStatus.syncState = 'synced';
-        gitliteStatus.lastSyncedAt = new Date().toLocaleTimeString();
+        gitliteStatus.lastSyncedAt = gitliteStatus.lastSyncedAt || new Date().toLocaleTimeString();
+        localStorage.setItem('memex_gitlite_last_synced', gitliteStatus.lastSyncedAt);
+
+        // 关键核心：初始化完成后，如果是云端模式，自动在后台静默拉取远端更新 (Auto Pull)
+        if (savedProvider === 'gitee' || savedProvider === 'github') {
+          setTimeout(() => {
+            this.syncNow().catch((err) => console.warn('[GitLite Auto Background Pull]', err));
+          }, 50);
+        }
+
         return true;
+
+
       } catch (err: any) {
         console.error('[GitLite] Fatal init error:', err);
         gitliteStatus.syncState = 'error';
@@ -334,7 +400,9 @@ class GitLiteService {
         return false;
       } finally {
         this.isInitializing = false;
+        gitliteStatus.isConnecting = false;
       }
+
     })();
 
     return this.initPromise;
@@ -602,9 +670,58 @@ class GitLiteService {
 
   // ---------------- Memos API ----------------
   async getMemos(): Promise<MemoDoc[]> {
-    await this.ensureReady();
-    const list = await this.memosCol.find({}, { sort: { updated_at: -1 } });
-    return (list as any).items || (Array.isArray(list) ? list : []);
+    // 1. 0 毫秒优先读取本地持久化快照（Cache-First，零等待秒开）
+    let snapshotItems: MemoDoc[] = [];
+    try {
+      const cached = localStorage.getItem('memex_snapshot_memos');
+      if (cached) {
+        snapshotItems = JSON.parse(cached);
+      }
+    } catch (e) {}
+
+    // 如果内存引擎已就绪，直接快速从集合读取
+    if (this.client && gitliteStatus.isReady && this.memosCol) {
+      try {
+        const list = await this.memosCol.find({}, { sort: { updated_at: -1 } });
+        const items: MemoDoc[] = (list as any).items || (Array.isArray(list) ? list : []);
+        if (items.length > 0) {
+          try {
+            localStorage.setItem('memex_snapshot_memos', JSON.stringify(items));
+          } catch (e) {}
+          return items;
+        }
+      } catch (e) {}
+    } else {
+      // 引擎未就绪时，在后台异步触发 ensureReady，不阻塞当前 0ms 快照响应
+      this.ensureReady().then(async () => {
+        try {
+          const list = await this.memosCol.find({}, { sort: { updated_at: -1 } });
+          const items: MemoDoc[] = (list as any).items || (Array.isArray(list) ? list : []);
+          if (items.length > 0) {
+            localStorage.setItem('memex_snapshot_memos', JSON.stringify(items));
+            gitliteStatus.lastSyncedAt = new Date().toLocaleTimeString();
+          }
+        } catch (e) {}
+      }).catch(() => {});
+    }
+
+    // 如果快照有数据，立即 0ms 返回，绝不让用户等待网络
+    if (snapshotItems.length > 0) {
+      return snapshotItems;
+    }
+
+    // 如果快照为空（首次使用），等待 ensureReady
+    try {
+      await this.ensureReady();
+      const list = await this.memosCol.find({}, { sort: { updated_at: -1 } });
+      const items: MemoDoc[] = (list as any).items || (Array.isArray(list) ? list : []);
+      if (items.length > 0) {
+        localStorage.setItem('memex_snapshot_memos', JSON.stringify(items));
+      }
+      return items;
+    } catch (e) {}
+
+    return [];
   }
 
   async createMemo(payload: {
@@ -639,6 +756,7 @@ class GitLiteService {
     };
 
     const id = await this.memosCol.insertOne(doc as any);
+    this.refreshMemosSnapshot();
     return id;
   }
 
@@ -653,6 +771,7 @@ class GitLiteService {
     }
     const filter = (id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.memosCol.updateOne(filter as any, { $set: updateData });
+    this.refreshMemosSnapshot();
     return res.matchedCount > 0 || res.modifiedCount > 0;
   }
 
@@ -660,7 +779,16 @@ class GitLiteService {
     await this.ensureReady();
     const filter = (id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.memosCol.deleteOne(filter as any);
+    this.refreshMemosSnapshot();
     return res.deletedCount > 0;
+  }
+
+  private async refreshMemosSnapshot(): Promise<void> {
+    try {
+      const list = await this.memosCol.find({}, { sort: { updated_at: -1 } });
+      const items = (list as any).items || (Array.isArray(list) ? list : []);
+      localStorage.setItem('memex_snapshot_memos', JSON.stringify(items));
+    } catch (e) {}
   }
 
   async batchDeleteMemos(ids: string[]): Promise<void> {
@@ -716,9 +844,53 @@ class GitLiteService {
 
   // ---------------- Skills API ----------------
   async getSkills(): Promise<SkillDoc[]> {
-    await this.ensureReady();
-    const list = await this.skillsCol.find({}, { sort: { priority: -1, updated_at: -1 } });
-    return (list as any).items || (Array.isArray(list) ? list : []);
+    let snapshotItems: SkillDoc[] = [];
+    try {
+      const cached = localStorage.getItem('memex_snapshot_skills');
+      if (cached) {
+        snapshotItems = JSON.parse(cached);
+      }
+    } catch (e) {}
+
+    if (this.client && gitliteStatus.isReady && this.skillsCol) {
+      try {
+        const list = await this.skillsCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+        const items: SkillDoc[] = (list as any).items || (Array.isArray(list) ? list : []);
+        if (items.length > 0) {
+          try {
+            localStorage.setItem('memex_snapshot_skills', JSON.stringify(items));
+          } catch (e) {}
+          return items;
+        }
+      } catch (e) {}
+    } else {
+      this.ensureReady().then(async () => {
+        try {
+          const list = await this.skillsCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+          const items = (list as any).items || (Array.isArray(list) ? list : []);
+          if (items.length > 0) {
+            localStorage.setItem('memex_snapshot_skills', JSON.stringify(items));
+            gitliteStatus.lastSyncedAt = new Date().toLocaleTimeString();
+          }
+        } catch (e) {}
+      }).catch(() => {});
+    }
+
+    if (snapshotItems.length > 0) {
+      return snapshotItems;
+    }
+
+    try {
+      await this.ensureReady();
+      const list = await this.skillsCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+      const items: SkillDoc[] = (list as any).items || (Array.isArray(list) ? list : []);
+      if (items.length > 0) {
+        localStorage.setItem('memex_snapshot_skills', JSON.stringify(items));
+      }
+      return items;
+    } catch (e) {}
+
+    return [];
   }
 
   async createSkill(skill: Partial<SkillDoc>): Promise<string> {
@@ -739,7 +911,9 @@ class GitLiteService {
       created_at: skill.created_at || now,
       updated_at: now
     };
-    return await this.skillsCol.insertOne(doc as any);
+    const id = await this.skillsCol.insertOne(doc as any);
+    this.refreshSkillsSnapshot();
+    return id;
   }
 
   async updateSkill(id: string | number, payload: Partial<SkillDoc>): Promise<boolean> {
@@ -747,6 +921,7 @@ class GitLiteService {
     const updateData: any = { ...payload, updated_at: new Date().toISOString() };
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.skillsCol.updateOne(filter as any, { $set: updateData });
+    this.refreshSkillsSnapshot();
     return res.matchedCount > 0 || res.modifiedCount > 0;
   }
 
@@ -754,7 +929,16 @@ class GitLiteService {
     await this.ensureReady();
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.skillsCol.deleteOne(filter as any);
+    this.refreshSkillsSnapshot();
     return res.deletedCount > 0;
+  }
+
+  private async refreshSkillsSnapshot(): Promise<void> {
+    try {
+      const list = await this.skillsCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+      const items = (list as any).items || (Array.isArray(list) ? list : []);
+      localStorage.setItem('memex_snapshot_skills', JSON.stringify(items));
+    } catch (e) {}
   }
 
   async toggleSkillFavorite(id: string | number, isFavorite: boolean): Promise<void> {
@@ -763,10 +947,55 @@ class GitLiteService {
 
   // ---------------- Memories API ----------------
   async getMemories(): Promise<MemoryDoc[]> {
-    await this.ensureReady();
-    const list = await this.memoriesCol.find({}, { sort: { priority: -1, updated_at: -1 } });
-    return (list as any).items || (Array.isArray(list) ? list : []);
+    let snapshotItems: MemoryDoc[] = [];
+    try {
+      const cached = localStorage.getItem('memex_snapshot_memories');
+      if (cached) {
+        snapshotItems = JSON.parse(cached);
+      }
+    } catch (e) {}
+
+    if (this.client && gitliteStatus.isReady && this.memoriesCol) {
+      try {
+        const list = await this.memoriesCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+        const items: MemoryDoc[] = (list as any).items || (Array.isArray(list) ? list : []);
+        if (items.length > 0) {
+          try {
+            localStorage.setItem('memex_snapshot_memories', JSON.stringify(items));
+          } catch (e) {}
+          return items;
+        }
+      } catch (e) {}
+    } else {
+      this.ensureReady().then(async () => {
+        try {
+          const list = await this.memoriesCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+          const items = (list as any).items || (Array.isArray(list) ? list : []);
+          if (items.length > 0) {
+            localStorage.setItem('memex_snapshot_memories', JSON.stringify(items));
+            gitliteStatus.lastSyncedAt = new Date().toLocaleTimeString();
+          }
+        } catch (e) {}
+      }).catch(() => {});
+    }
+
+    if (snapshotItems.length > 0) {
+      return snapshotItems;
+    }
+
+    try {
+      await this.ensureReady();
+      const list = await this.memoriesCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+      const items: MemoryDoc[] = (list as any).items || (Array.isArray(list) ? list : []);
+      if (items.length > 0) {
+        localStorage.setItem('memex_snapshot_memories', JSON.stringify(items));
+      }
+      return items;
+    } catch (e) {}
+
+    return [];
   }
+
 
   async createMemory(mem: Partial<MemoryDoc>): Promise<string> {
     await this.ensureReady();
@@ -784,7 +1013,9 @@ class GitLiteService {
       extracted_at: mem.extracted_at || now,
       updated_at: now
     };
-    return await this.memoriesCol.insertOne(doc as any);
+    const id = await this.memoriesCol.insertOne(doc as any);
+    this.refreshMemoriesSnapshot();
+    return id;
   }
 
   async updateMemory(id: string | number, payload: Partial<MemoryDoc>): Promise<boolean> {
@@ -792,6 +1023,7 @@ class GitLiteService {
     const updateData: any = { ...payload, updated_at: new Date().toISOString() };
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.memoriesCol.updateOne(filter as any, { $set: updateData });
+    this.refreshMemoriesSnapshot();
     return res.matchedCount > 0 || res.modifiedCount > 0;
   }
 
@@ -799,8 +1031,18 @@ class GitLiteService {
     await this.ensureReady();
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.memoriesCol.deleteOne(filter as any);
+    this.refreshMemoriesSnapshot();
     return res.deletedCount > 0;
   }
+
+  private async refreshMemoriesSnapshot(): Promise<void> {
+    try {
+      const list = await this.memoriesCol.find({}, { sort: { priority: -1, updated_at: -1 } });
+      const items = (list as any).items || (Array.isArray(list) ? list : []);
+      localStorage.setItem('memex_snapshot_memories', JSON.stringify(items));
+    } catch (e) {}
+  }
+
 
   async toggleMemoryFavorite(id: string | number, isFavorite: boolean): Promise<void> {
     await this.updateMemory(id, { is_favorite: isFavorite });

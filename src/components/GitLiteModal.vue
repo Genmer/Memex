@@ -506,15 +506,12 @@ async function handleDirectTokenConnect() {
 }
 
 const currentAuthTitle = ref('正在等待 Gitee 网页授权确认...');
-
-
 const currentAuthDesc = ref('请在弹出的 Gitee 页面点击「同意授权」。授权完成后窗口会自动关闭并完成数据库挂载！');
 
-const callbackUrl = ref('http://127.0.0.1:18365/callback');
-
-// 默认直接预填用户已有的 Gitee 官方配置（18365端口）
+// 默认直接预填用户已有的 Gitee 官方配置
 const DEFAULT_CLIENT_ID = '21abcc19023889aaf5ceb4fca91f07a539e2c887e6f3eb54bdf14edc9c64f41a';
 const DEFAULT_CLIENT_SECRET = 'ab992f41d821b04c25ecd1f3dadeeb6a9aeadbb2a679aae43495f43fdc458b56';
+
 
 const giteeClientId = ref(localStorage.getItem('memex_gitlite_gitee_client_id') || DEFAULT_CLIENT_ID);
 const giteeClientSecret = ref(localStorage.getItem('memex_gitlite_gitee_client_secret') || DEFAULT_CLIENT_SECRET);
@@ -595,9 +592,6 @@ async function handleManualEnterCode() {
 
 async function startGiteeAuth() {
   authErrorMessage.value = '';
-  isAuthenticating.value = true;
-  currentAuthTitle.value = '正在等待 Gitee 网页授权确认...';
-  currentAuthDesc.value = '请在弹出的 Gitee 页面点击「同意授权」。授权完成后窗口会自动关闭并完成数据库挂载！';
 
   const clientId = giteeClientId.value.trim() || DEFAULT_CLIENT_ID;
   const clientSecret = giteeClientSecret.value.trim() || DEFAULT_CLIENT_SECRET;
@@ -605,11 +599,27 @@ async function startGiteeAuth() {
   localStorage.setItem('memex_gitlite_gitee_client_id', clientId);
   localStorage.setItem('memex_gitlite_gitee_client_secret', clientSecret);
 
+  const isTauriEnv = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__);
+  const redirectUri = isTauriEnv 
+    ? 'http://127.0.0.1:18365/callback' 
+    : (window.location.origin + window.location.pathname);
+
+  // 在 Web 纯网页端 / 手机端，直接将当前窗口重定向到 Gitee 授权页（授权后 Gitee 自动跳回本页面）
+  if (!isTauriEnv && typeof window !== 'undefined') {
+    const authUrl = `https://gitee.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+    window.location.href = authUrl;
+    return;
+  }
+
+  isAuthenticating.value = true;
+  currentAuthTitle.value = '正在等待 Gitee 网页授权确认...';
+  currentAuthDesc.value = '请在弹出的 Gitee 页面点击「同意授权」。授权完成后窗口会自动关闭并完成数据库挂载！';
+
   try {
     await gitliteDb.loginAndConnectWithGiteeOAuth({
       clientId,
       clientSecret,
-      redirectUri: callbackUrl.value,
+      redirectUri,
       onProgress: (stage, message) => {
         if (stage === 'exchanging_token') {
           currentAuthTitle.value = '已收到授权码，正在换取安全令牌...';
@@ -633,6 +643,7 @@ async function startGiteeAuth() {
     isAuthenticating.value = false;
   }
 }
+
 
 
 async function startGitHubAuth() {

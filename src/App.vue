@@ -896,12 +896,13 @@ onMounted(async () => {
   
   window.addEventListener('keydown', handleKeydown)
   
-  // Show AI key prompt on first launch if no key configured
+  // Show AI key prompt only on first launch if never dismissed
   setTimeout(() => {
-    if (!hasAiKey.value && !sessionStorage.getItem('ai_prompt_dismissed')) {
+    if (!hasAiKey.value && !localStorage.getItem('ai_prompt_dismissed') && !sessionStorage.getItem('ai_prompt_dismissed')) {
       showAiKeyPrompt.value = true
     }
   }, 1500)
+
 })
 
 onUnmounted(() => {

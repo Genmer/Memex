@@ -252,6 +252,43 @@
                 </div>
               </button>
 
+              <!-- Gitee / GitHub Token Direct Connect (Best for Web / Mobile) -->
+              <div class="p-4 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="font-bold text-xs text-neutral-100 flex items-center gap-1.5">
+                    <span>🔑 网页 / 手机端 Token 极速直连</span>
+                    <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">推荐</span>
+                  </div>
+                  <a 
+                    href="https://gitee.com/profile/personal_access_tokens/new" 
+                    target="_blank" 
+                    class="text-[11px] text-indigo-400 hover:text-indigo-300 underline flex items-center gap-0.5"
+                  >
+                    <span>1秒获取 Gitee 令牌 ↗</span>
+                  </a>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <input 
+                    v-model="directTokenInput" 
+                    type="password"
+                    placeholder="在此粘贴 Gitee 私人令牌 Token (仅需 projects 权限)"
+                    class="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-neutral-100 font-mono focus:outline-none focus:border-indigo-500 placeholder-neutral-500"
+                  />
+                  <button 
+                    @click="handleDirectTokenConnect"
+                    :disabled="isConnectingToken || !directTokenInput.trim()"
+                    class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                  >
+                    <svg v-if="isConnectingToken" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span>{{ isConnectingToken ? '连接中...' : '连接' }}</span>
+                  </button>
+                </div>
+                <div class="text-[11px] text-neutral-400">
+                  💡 网页与手机端无需本地 18365 端口服务，输入 Token 即可自动识别身份与创建私有数据库！
+                </div>
+              </div>
+
               <!-- App Details Accordion (For custom needs) -->
               <div class="pt-2">
                 <button 
@@ -259,6 +296,7 @@
                   class="text-xs text-neutral-400 hover:text-neutral-200 flex items-center gap-1 font-medium transition-colors">
                   <span>{{ showCustomApp ? '收起应用参数' : '⚙️ 查看 / 自定义 gitlite 应用凭据' }}</span>
                 </button>
+
 
                 <div v-if="showCustomApp" class="mt-3 bg-neutral-950/80 border border-neutral-800 rounded-xl p-3.5 space-y-2.5 animate-fadeIn text-xs">
                   <div class="text-[11px] text-neutral-400">已内置预置 <span class="font-mono text-neutral-200 font-bold">gitlite</span> 官方应用凭据 (回调端口 18365)：</div>
@@ -435,7 +473,32 @@ const isAuthenticating = ref(false);
 const showCustomApp = ref(false);
 const authErrorMessage = ref('');
 
+const directTokenInput = ref(localStorage.getItem('memex_gitlite_token') || '');
+const isConnectingToken = ref(false);
+
+async function handleDirectTokenConnect() {
+  if (!directTokenInput.value.trim() || isConnectingToken.value) return;
+  isConnectingToken.value = true;
+  authErrorMessage.value = '';
+  try {
+    const raw = directTokenInput.value.trim();
+    const isGithub = raw.startsWith('ghp_') || raw.startsWith('github_pat_');
+    const provider = isGithub ? 'github' : 'gitee';
+    
+    await gitliteDb.loginAndConnectWithToken(raw, provider);
+    emit('refresh');
+    toast.success(`🎉 成功直连 ${provider === 'gitee' ? 'Gitee 码云' : 'GitHub'}！私有数据库已就绪`);
+  } catch (err: any) {
+    const msg = err.message || String(err);
+    authErrorMessage.value = msg;
+    toast.error(`Token 连接失败: ${msg}`);
+  } finally {
+    isConnectingToken.value = false;
+  }
+}
+
 const currentAuthTitle = ref('正在等待 Gitee 网页授权确认...');
+
 
 const currentAuthDesc = ref('请在弹出的 Gitee 页面点击「同意授权」。授权完成后窗口会自动关闭并完成数据库挂载！');
 

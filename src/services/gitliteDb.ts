@@ -664,6 +664,52 @@ class GitLiteService {
     });
   }
 
+  /**
+   * 通过 Gitee / GitHub Token 快速一键直连（免任何回调端口，Web/手机 100% 稳妥可用）
+   */
+  async loginAndConnectWithToken(token: string, provider: 'gitee' | 'github' = 'gitee'): Promise<boolean> {
+    const runtime = createBrowserRuntime();
+    gitliteStatus.syncState = 'syncing';
+
+    const cleanToken = token.trim();
+    if (!cleanToken) throw new Error('请输入有效的访问令牌 (Token)');
+
+    let owner = '';
+    if (provider === 'gitee') {
+      const userRes = await runtime.fetch(`https://gitee.com/api/v5/user?access_token=${cleanToken}`);
+      const userData = await userRes.json();
+      owner = userData?.login;
+      if (!owner) throw new Error(`未能识别 Gitee 用户身份: ${userData?.message || 'Token 无效或权限不足'}`);
+    } else {
+      const userRes = await runtime.fetch('https://api.github.com/user', {
+        headers: { Authorization: `token ${cleanToken}`, Accept: 'application/json' }
+      });
+      const userData = await userRes.json();
+      owner = userData?.login;
+      if (!owner) throw new Error(`未能识别 GitHub 用户身份: ${userData?.message || 'Token 无效'}`);
+    }
+
+    const repo = 'gitlite-repo';
+    const database = 'memex-db';
+
+    localStorage.setItem('memex_gitlite_provider', provider);
+    localStorage.setItem('memex_gitlite_owner', owner);
+    localStorage.setItem('memex_gitlite_token', cleanToken);
+    localStorage.setItem('memex_gitlite_repo', repo);
+    localStorage.setItem('memex_gitlite_db', database);
+
+    return await this.init({
+      provider,
+      owner,
+      token: cleanToken,
+      repo,
+      database,
+      force: true,
+      silent: false
+    });
+  }
+
+
 
 
 

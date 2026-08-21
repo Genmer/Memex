@@ -17,6 +17,8 @@ import MemoWorkspaceApp from './components/MemoVault/MemoWorkspaceApp.vue'
 import GitLiteCapsule from './components/GitLiteCapsule.vue'
 import GitLiteLiveBanner from './components/GitLiteLiveBanner.vue'
 import { gitliteDb, gitliteStatus } from './services/gitliteDb'
+import { APP_VERSION } from './version'
+
 
 import { runAutoMigrationIfNeeded, exportFullJsonBackup, importFullJsonBackup } from './services/dbMigration'
 
@@ -858,6 +860,17 @@ const aiSkillContext = computed(() => {
 
 onMounted(async () => {
   initTheme()
+
+  // 检查是否从 Gitee / OAuth 授权跳转回本页面（带 ?code=xxx）
+  try {
+    const handled = await gitliteDb.checkAndHandleUrlOAuthCallback()
+    if (handled) {
+      await fetchData()
+    }
+  } catch (oauthErr) {
+    console.warn('[OAuth URL Callback] error:', oauthErr)
+  }
+
   // 触发 GitLite 自动迁移与就绪校验（保留原 SQLite 数据）
   try {
     await runAutoMigrationIfNeeded()
@@ -867,6 +880,7 @@ onMounted(async () => {
 
   await fetchData()
   await fetchConfigs()
+
 
   
   try {
@@ -935,22 +949,26 @@ onUnmounted(() => {
     <!-- Main Content Area -->
     <main class="app-main flex-1 flex flex-col min-w-0 bg-white/5 backdrop-blur-md relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] border-l border-white/10 relative transition-colors duration-200">
       
-      <!-- Topbar / Breadcrumb -->
-      <header class="app-header h-16 shrink-0 flex items-center justify-between px-3.5 sm:px-6 md:px-8 bg-black/10 border-b border-white/5 backdrop-blur-xl transition-colors duration-200">
-        <div class="flex items-center gap-2 sm:gap-3 shrink-0 mr-2 sm:mr-8">
+      <!-- Topbar / Breadcrumb (iOS Dynamic Island & Safe Area Top Supported) -->
+      <header class="app-header h-auto min-h-[4rem] pt-[env(safe-area-inset-top,0px)] shrink-0 flex items-center justify-between px-3.5 sm:px-6 md:px-8 bg-black/20 border-b border-white/5 backdrop-blur-xl transition-colors duration-200 z-20">
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0 mr-2 sm:mr-8 py-2">
           <!-- Mobile Drawer Toggle Button -->
           <button 
             @click="isMobileSidebarOpen = true"
-            class="md:hidden p-2 -ml-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 shrink-0 transition-colors"
+            class="md:hidden p-2 -ml-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 shrink-0 transition-colors cursor-pointer"
             title="打开菜单"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
-          <h2 class="text-base sm:text-lg md:text-xl font-medium tracking-wide text-white/90 drop-shadow-md truncate">
-            {{ viewTitle }}
-          </h2>
+          <div class="flex items-center gap-2 min-w-0">
+            <h2 class="text-base sm:text-lg md:text-xl font-medium tracking-wide text-white/90 drop-shadow-md truncate">
+              {{ viewTitle }}
+            </h2>
+            <span class="text-[10px] font-mono text-indigo-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 shrink-0">{{ APP_VERSION }}</span>
+          </div>
         </div>
+
 
 
         <!-- Global Search Bar / Omnibar Trigger -->

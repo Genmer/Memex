@@ -524,11 +524,18 @@ class GitLiteService {
       || localStorage.getItem('memex_gitlite_gitee_client_secret')
       || 'ab992f41d821b04c25ecd1f3dadeeb6a9aeadbb2a679aae43495f43fdc458b56';
 
-    const redirectUri = opts?.redirectUri || 'http://127.0.0.1:18365/callback';
-    const authUrl = `https://gitee.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
     const isTauri = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__);
+    const currentWebUrl = typeof window !== 'undefined' ? (window.location.origin + window.location.pathname) : 'http://127.0.0.1:18365/callback';
+    const redirectUri = opts?.redirectUri || (isTauri ? 'http://127.0.0.1:18365/callback' : currentWebUrl);
+    const authUrl = `https://gitee.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
 
-    // 1. 多通道并发捕获授权码（先挂载监听，防止瞬间回调丢失）
+    // 如果是在 Web 浏览器 / 手机端，直接将当前窗口重定向到 Gitee 授权页（授权后 Gitee 会自动跳回本页面）
+    if (!isTauri && typeof window !== 'undefined') {
+      window.location.href = authUrl;
+      return true;
+    }
+
+    // 1. 多通道并发捕获授权码（仅 Tauri 桌面端）
     const waitForCodePromise = new Promise<string>((resolve, reject) => {
       let resolved = false;
       const cleanups: (() => void)[] = [];
@@ -553,52 +560,17 @@ class GitLiteService {
         });
       }
 
-      if (typeof window !== 'undefined') {
-        // 通道 B: 浏览器 window.opener postMessage
-        const msgHandler = (e: MessageEvent) => {
-          if (e.data?.type === 'GITEE_OAUTH_CODE' && e.data?.code) {
-            triggerResolve(e.data.code);
-          }
-        };
-        window.addEventListener('message', msgHandler);
-        cleanups.push(() => window.removeEventListener('message', msgHandler));
-
-        // 通道 C: LocalStorage Storage 事件与轮询
-        const storageHandler = (e: StorageEvent) => {
-          if (e.key === 'memex_oauth_callback_code' && e.newValue) {
-            triggerResolve(e.newValue);
-          }
-        };
-        window.addEventListener('storage', storageHandler);
-        cleanups.push(() => window.removeEventListener('storage', storageHandler));
-
-        // 通道 D: 手动贴入 CustomEvent 监听
-        const customHandler = (e: any) => {
-          if (e.detail) triggerResolve(String(e.detail));
-        };
-        window.addEventListener('memex:oauth:manual_code', customHandler);
-        cleanups.push(() => window.removeEventListener('memex:oauth:manual_code', customHandler));
-
-        const pollTimer = setInterval(() => {
-          const stored = localStorage.getItem('memex_oauth_callback_code');
-          if (stored) {
-            triggerResolve(stored);
-          }
-        }, 200);
-        cleanups.push(() => clearInterval(pollTimer));
-      }
-
       // 超时控制 (120 秒)
       const timeoutTimer = setTimeout(() => {
         if (!resolved) {
           cleanups.forEach(c => c());
-          reject(new Error('等待授权超时 (120s)，请重试或点击手动输入 Code'));
+          reject(new Error('等待授权超时 (120s)，请重试'));
         }
       }, 120_000);
       cleanups.push(() => clearTimeout(timeoutTimer));
     });
 
-    // 2. 打开系统外部默认浏览器
+    // 2. 打开系统外部默认浏览器 (Tauri)
     if (isTauri) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
@@ -606,9 +578,8 @@ class GitLiteService {
       } catch (e) {
         if (typeof window !== 'undefined') window.open(authUrl, '_blank');
       }
-    } else if (typeof window !== 'undefined') {
-      window.open(authUrl, '_blank');
     }
+
 
     const code = await waitForCodePromise;
 
@@ -708,6 +679,79 @@ class GitLiteService {
       silent: false
     });
   }
+
+  /**
+   * 页面初始化时自动检测 URL 中的 ?code=xxx 并全自动完成换 Token、建仓与挂载数据库
+   */
+  async checkAndHandleUrlOAuthCallback(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (!code) return false;
+
+    const toast = useToast();
+    toast.info('🔄 正在使用 Gitee 授权码连接私有数据库...', 3000);
+
+    const clientId = localStorage.getItem('memex_gitlite_gitee_client_id') || '21abcc19023889aaf5ceb4fca91f07a539e2c887e6f3eb54bdf14edc9c64f41a';
+    const clientSecret = localStorage.getItem('memex_gitlite_gitee_client_secret') || 'ab992f41d821b04c25ecd1f3dadeeb6a9aeadbb2a679aae43495f43fdc458b56';
+    const redirectUri = window.location.origin + window.location.pathname;
+
+    try {
+      const runtime = createBrowserRuntime();
+      // 换取 token
+      const tokenRes = await runtime.fetch('https://gitee.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          client_secret: clientSecret
+        }).toString()
+      });
+      const tokenData = await tokenRes.json();
+      const token = tokenData?.access_token;
+      if (!token) throw new Error(tokenData?.error_description || tokenData?.error || '换取令牌失败');
+
+      // 识别用户名
+      const userRes = await runtime.fetch(`https://gitee.com/api/v5/user?access_token=${token}`);
+      const userData = await userRes.json();
+      const owner = userData?.login;
+      if (!owner) throw new Error('未能识别 Gitee 用户身份');
+
+      const repo = 'gitlite-repo';
+      const database = 'memex-db';
+
+      localStorage.setItem('memex_gitlite_provider', 'gitee');
+      localStorage.setItem('memex_gitlite_owner', owner);
+      localStorage.setItem('memex_gitlite_token', token);
+      localStorage.setItem('memex_gitlite_repo', repo);
+      localStorage.setItem('memex_gitlite_db', database);
+
+      // 清理 URL 参数
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      await this.init({
+        provider: 'gitee',
+        owner,
+        token,
+        repo,
+        database,
+        force: true,
+        silent: false
+      });
+
+      toast.success(`🎉 Gitee 授权登录成功！欢迎 ${owner}，私有数据库已连接！`, 3500);
+      return true;
+    } catch (err: any) {
+      console.error('[OAuth URL Callback Error]:', err);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      toast.error(`Gitee 自动登录失败: ${err.message || err}`, 4000);
+      return false;
+    }
+  }
+
 
 
 

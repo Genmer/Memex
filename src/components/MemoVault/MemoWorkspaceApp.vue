@@ -829,23 +829,27 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
 
     <!-- ================= DEDICATED MEMO MAIN WORKSPACE CANVAS ================= -->
     <main class="flex-1 flex flex-col min-w-0 bg-[#0e1017] relative overflow-hidden">
-      <!-- Topbar Header (Row 1) -->
-      <header class="h-14 md:h-16 shrink-0 flex items-center justify-between px-3.5 sm:px-6 md:px-8 bg-black/30 border-b border-white/5 backdrop-blur-xl z-20">
-        <div class="flex items-center gap-2 sm:gap-3 min-w-0 mr-2 sm:mr-6">
+      <!-- Topbar Header (Row 1 with iOS Dynamic Island / Safe Area Top Supported) -->
+      <header class="h-auto min-h-[3.5rem] md:min-h-[4rem] pt-[env(safe-area-inset-top,0px)] shrink-0 flex items-center justify-between px-3.5 sm:px-6 md:px-8 bg-black/30 border-b border-white/5 backdrop-blur-xl z-20">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0 mr-2 sm:mr-6 py-2">
           <!-- Mobile Drawer Trigger Button -->
           <button 
             @click="isMobileSidebarOpen = true"
-            class="md:hidden p-2 -ml-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 shrink-0 transition-colors"
+            class="md:hidden p-2 -ml-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 shrink-0 transition-colors cursor-pointer"
             title="打开分类与菜单"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
-          <h2 class="text-sm sm:text-base md:text-lg font-bold tracking-wide text-white/95 truncate">
-            {{ currentBreadcrumb }}
-          </h2>
+          <div class="flex items-center gap-2 min-w-0">
+            <h2 class="text-sm sm:text-base md:text-lg font-bold tracking-wide text-white/95 truncate">
+              {{ currentBreadcrumb }}
+            </h2>
+            <span class="text-[10px] font-mono text-purple-300/80 font-bold px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 shrink-0">{{ APP_VERSION }}</span>
+          </div>
           <span class="text-xs text-white/40 font-mono shrink-0 hidden sm:inline">({{ memos.length }} 条)</span>
         </div>
+
 
         <!-- Global Memo Search Bar (Desktop) -->
         <div class="flex-1 max-w-xs lg:max-w-md relative hidden md:block">

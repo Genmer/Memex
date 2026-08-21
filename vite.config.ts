@@ -37,8 +37,12 @@ export default defineConfig({
       '/proxy-gitee': {
         target: 'https://gitee.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/proxy-gitee/, '')
+        rewrite: (path) => path.replace(/^\/proxy-gitee/, ''),
+        headers: {
+          Origin: 'https://gitee.com'
+        }
       }
+
     }
   }
 })

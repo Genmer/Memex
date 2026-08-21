@@ -216,16 +216,15 @@ class GitLiteService {
   private initPromise: Promise<boolean> | null = null;
 
   async init(options?: {
-    provider?: 'github' | 'gitee' | 'memory';
-    token?: string;
+    provider?: 'memory' | 'github' | 'gitee';
     owner?: string;
     repo?: string;
+    token?: string;
     database?: string;
-    allowForeignRepo?: boolean;
     force?: boolean;
     silent?: boolean;
   }): Promise<boolean> {
-    if (this.isInitializing && this.initPromise) {
+    if (this.isInitializing && this.initPromise && !options?.force) {
       return this.initPromise;
     }
     this.isInitializing = true;
@@ -267,7 +266,10 @@ class GitLiteService {
             gitliteStatus.repo = savedRepo;
             gitliteStatus.database = savedDb;
             gitliteStatus.statusMessage = `已连接 GitHub (${savedOwner}/${savedRepo})`;
+            gitliteStatus.error = undefined;
+            gitliteStatus.syncState = 'synced';
             if (!isSilent) toast.success(`✅ GitHub 云端数据库已连接 (${savedOwner}/${savedRepo})`, 2500);
+
           } catch (cloudErr: any) {
             console.warn('[GitLite] GitHub init failed, fallback to memory:', cloudErr);
             gitliteStatus.error = cloudErr.message;
@@ -306,10 +308,17 @@ class GitLiteService {
             gitliteStatus.repo = savedRepo;
             gitliteStatus.database = savedDb;
             gitliteStatus.statusMessage = `已连接 Gitee (${savedOwner}/${savedRepo})`;
+            gitliteStatus.error = undefined;
+            gitliteStatus.syncState = 'synced';
             if (!isSilent) toast.success(`✅ Gitee 远程数据库已就绪 (${savedOwner}/${savedRepo})`, 2500);
+
+
           } catch (cloudErr: any) {
-            console.warn('[GitLite] Gitee init failed, fallback to memory:', cloudErr);
-            gitliteStatus.error = cloudErr.message;
+            console.warn('[GitLite] Gitee init failed:', cloudErr);
+            gitliteStatus.error = cloudErr.message || String(cloudErr);
+            if (options?.force) {
+              throw cloudErr;
+            }
             providerInstance = new MemoryProvider();
             this.client = await GitLiteClient.create({
               provider: providerInstance,
@@ -320,8 +329,9 @@ class GitLiteService {
               allowForeignRepo: true
             });
             gitliteStatus.provider = 'memory';
-            gitliteStatus.statusMessage = 'Gitee 连接超时，已使用本地离线数据';
+            gitliteStatus.statusMessage = 'Gitee 连接异常，已使用本地离线数据';
           }
+
         } else {
           gitliteStatus.statusMessage = '本地离线数据库就绪';
           providerInstance = new MemoryProvider();
@@ -638,30 +648,49 @@ class GitLiteService {
   /**
    * 通过 Gitee / GitHub Token 快速一键直连（免任何回调端口，Web/手机 100% 稳妥可用）
    */
-  async loginAndConnectWithToken(token: string, provider: 'gitee' | 'github' = 'gitee'): Promise<boolean> {
+  async loginAndConnectWithToken(token: string, provider: 'gitee' | 'github' = 'gitee', customOwner?: string): Promise<boolean> {
     const runtime = createBrowserRuntime();
     gitliteStatus.syncState = 'syncing';
+    gitliteStatus.error = undefined;
+
+
 
     const cleanToken = token.trim();
     if (!cleanToken) throw new Error('请输入有效的访问令牌 (Token)');
 
-    let owner = '';
-    if (provider === 'gitee') {
-      const userRes = await runtime.fetch(`https://gitee.com/api/v5/user?access_token=${cleanToken}`);
-      const userData = await userRes.json();
-      owner = userData?.login;
-      if (!owner) throw new Error(`未能识别 Gitee 用户身份: ${userData?.message || 'Token 无效或权限不足'}`);
-    } else {
-      const userRes = await runtime.fetch('https://api.github.com/user', {
-        headers: { Authorization: `token ${cleanToken}`, Accept: 'application/json' }
-      });
-      const userData = await userRes.json();
-      owner = userData?.login;
-      if (!owner) throw new Error(`未能识别 GitHub 用户身份: ${userData?.message || 'Token 无效'}`);
+    let owner = customOwner?.trim() || localStorage.getItem('memex_gitlite_owner') || '';
+
+    // 优先尝试从 API 动态获取用户名
+    try {
+      if (provider === 'gitee') {
+        const userRes = await runtime.fetch(`https://gitee.com/api/v5/user?access_token=${cleanToken}`);
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          if (userData?.login) owner = userData.login;
+        } else {
+          console.warn('[GitLite] gitee user api returned status:', userRes.status);
+        }
+      } else {
+        const userRes = await runtime.fetch('https://api.github.com/user', {
+          headers: { Authorization: `token ${cleanToken}`, Accept: 'application/json' }
+        });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          if (userData?.login) owner = userData.login;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[GitLite] Fetch user profile error (will fallback):', apiErr);
+    }
+
+    if (!owner) {
+      // 容错降级为当前工作区或已有用户名
+      owner = localStorage.getItem('memex_gitlite_owner') || 'Genmer';
     }
 
     const repo = 'gitlite-repo';
     const database = 'memex-db';
+
 
     localStorage.setItem('memex_gitlite_provider', provider);
     localStorage.setItem('memex_gitlite_owner', owner);
@@ -679,6 +708,7 @@ class GitLiteService {
       silent: false
     });
   }
+
 
   /**
    * 页面初始化时自动检测 URL 中的 ?code=xxx 并全自动完成换 Token、建仓与挂载数据库

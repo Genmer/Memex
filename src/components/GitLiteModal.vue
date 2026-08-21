@@ -223,45 +223,61 @@
                   <span class="text-[11px] bg-white/20 px-2 py-0.5 rounded-lg text-white group-hover:translate-x-0.5 transition-transform">前往 ↗</span>
                 </a>
 
-                <div class="space-y-1.5 pt-1">
-                  <div class="text-[11px] text-neutral-300 font-medium">2. 将生成的 Token 粘贴在下方并连接：</div>
-                  <div class="flex items-center gap-2">
-                    <div class="relative flex-1">
-                      <input 
-                        v-model="directTokenInput" 
-                        type="text"
-                        autocapitalize="off"
-                        autocorrect="off"
-                        spellcheck="false"
-                        autocomplete="off"
-                        placeholder="在此粘贴 Gitee 私人令牌 (Token)"
-                        class="w-full bg-neutral-950 border border-neutral-700 rounded-xl pl-3 pr-16 py-2.5 text-xs text-neutral-100 font-mono focus:outline-none focus:border-indigo-500 placeholder-neutral-500"
-                      />
-                      <button 
-                        @click="pasteFromClipboard"
-                        type="button"
-                        class="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/10 hover:bg-white/20 text-neutral-300 rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
-                        title="从剪贴板粘贴"
-                      >
-                        📋 粘贴
-                      </button>
+                <div class="space-y-2 pt-1">
+                  <div class="text-[11px] text-neutral-300 font-medium">2. 确认 Gitee 账号并粘贴令牌 Token：</div>
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <div class="w-1/3">
+                        <input 
+                          v-model="directOwnerInput" 
+                          type="text"
+                          autocapitalize="off"
+                          autocorrect="off"
+                          spellcheck="false"
+                          placeholder="账号 (如 Genmer)"
+                          class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2.5 text-xs text-neutral-100 font-mono focus:outline-none focus:border-indigo-500 placeholder-neutral-500"
+                          title="Gitee 账号用户名"
+                        />
+                      </div>
+                      <div class="flex-1 relative">
+                        <input 
+                          v-model="directTokenInput" 
+                          type="text"
+                          autocapitalize="off"
+                          autocorrect="off"
+                          spellcheck="false"
+                          autocomplete="off"
+                          placeholder="粘贴 32 位 Token 字符串"
+                          class="w-full bg-neutral-950 border border-neutral-700 rounded-xl pl-3 pr-16 py-2.5 text-xs text-neutral-100 font-mono focus:outline-none focus:border-indigo-500 placeholder-neutral-500"
+                        />
+                        <button 
+                          @click="pasteFromClipboard"
+                          type="button"
+                          class="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/10 hover:bg-white/20 text-neutral-300 rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
+                          title="从剪贴板粘贴"
+                        >
+                          📋 粘贴
+                        </button>
+                      </div>
                     </div>
+
                     <button 
                       @click="handleDirectTokenConnect"
                       :disabled="isConnectingToken || !directTokenInput.trim()"
-                      class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer active:scale-95"
+                      class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-[0.99]"
                     >
                       <svg v-if="isConnectingToken" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      <span>{{ isConnectingToken ? '连接中...' : '一键直连' }}</span>
+                      <span>{{ isConnectingToken ? '正在验证并连接 Gitee 私有仓库...' : '🚀 一键连接并挂载私有数据库' }}</span>
                     </button>
                   </div>
-
                 </div>
 
-                <div class="text-[11px] text-neutral-400 leading-relaxed pt-0.5">
-                  💡 零端口与域名依赖，自动识别身份并创建私有仓库与分支，手机电脑多端秒级同步！
+                <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-[11px] leading-relaxed">
+                  💡 <strong>提示</strong>：Gitee 令牌是一串约 32 位的随机英数字符（如 <code class="font-mono bg-black/40 px-1 py-0.5 rounded text-amber-100">2a9f6d...</code>），只有在点击【重新生成令牌】并提交时弹出的对话框中可见一次，请勿填入名称描述 <code class="font-mono bg-black/40 px-1 py-0.5 rounded text-white">gitlite</code>。
                 </div>
               </div>
+
+
 
               <!-- 2. OAuth Options Section -->
               <div class="pt-2">
@@ -491,9 +507,9 @@ const isAuthenticating = ref(false);
 const showCustomApp = ref(false);
 const authErrorMessage = ref('');
 
+const directOwnerInput = ref(localStorage.getItem('memex_gitlite_owner') || 'Genmer');
 const directTokenInput = ref(localStorage.getItem('memex_gitlite_token') || '');
 const isConnectingToken = ref(false);
-
 
 async function pasteFromClipboard() {
   try {
@@ -509,8 +525,6 @@ async function pasteFromClipboard() {
   }
 }
 
-
-
 async function handleDirectTokenConnect() {
   if (!directTokenInput.value.trim() || isConnectingToken.value) return;
   isConnectingToken.value = true;
@@ -519,9 +533,16 @@ async function handleDirectTokenConnect() {
     const raw = directTokenInput.value.trim();
     const isGithub = raw.startsWith('ghp_') || raw.startsWith('github_pat_');
     const provider = isGithub ? 'github' : 'gitee';
+    const owner = directOwnerInput.value.trim() || undefined;
+
+    if (provider === 'gitee' && raw.length < 20) {
+      throw new Error('您填写的似乎不是 Token 密钥本身。Gitee 私人令牌是一串约 32 位的随机英数字符（如 2a3b4c5d...），请在 Gitee 页面点击【重新生成令牌】并复制弹出的令牌密钥！');
+    }
     
-    await gitliteDb.loginAndConnectWithToken(raw, provider);
+    await gitliteDb.loginAndConnectWithToken(raw, provider, owner);
+
     emit('refresh');
+    emit('close');
     toast.success(`🎉 成功直连 ${provider === 'gitee' ? 'Gitee 码云' : 'GitHub'}！私有数据库已就绪`);
   } catch (err: any) {
     const msg = err.message || String(err);
@@ -531,6 +552,7 @@ async function handleDirectTokenConnect() {
     isConnectingToken.value = false;
   }
 }
+
 
 const currentAuthTitle = ref('正在等待 Gitee 网页授权确认...');
 const currentAuthDesc = ref('请在弹出的 Gitee 页面点击「同意授权」。授权完成后窗口会自动关闭并完成数据库挂载！');

@@ -51,24 +51,43 @@ function sha1(str: string): string {
  * 2. 纯 Web 浏览器预览时，自动走 Vite proxy 绕过 CORS。
  */
 export async function smartFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url);
+  let urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url);
   const method = init?.method || (typeof input === 'object' && 'method' in input ? (input as any).method : 'GET') || 'GET';
-
-  // 1. 如果在 Tauri 桌面环境中运行，优先使用 Rust 后端 reqwest 代理
   const isTauri = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__);
-  if (isTauri) {
-    try {
-      const headersObj: Record<string, string> = {};
-      if (init?.headers) {
-        if (init.headers instanceof Headers) {
-          init.headers.forEach((v, k) => { headersObj[k] = v; });
-        } else if (Array.isArray(init.headers)) {
-          init.headers.forEach(([k, v]) => { headersObj[k] = v; });
-        } else {
-          Object.assign(headersObj, init.headers);
+
+  const headersObj: Record<string, string> = {};
+  if (init?.headers) {
+    if (init.headers instanceof Headers) {
+      init.headers.forEach((v, k) => { headersObj[k] = v; });
+    } else if (Array.isArray(init.headers)) {
+      init.headers.forEach(([k, v]) => { headersObj[k] = v; });
+    } else {
+      Object.assign(headersObj, init.headers);
+    }
+  }
+
+  // 1. 深度适配 Gitee API 的私人令牌 (PAT) 认证协议 (无论 Tauri 还是 Web 均强制修正 Bearer 为标准 token 及 query 参数)
+  if (urlStr.includes('gitee.com') || urlStr.includes('/proxy-gitee/')) {
+    const rawToken = headersObj['Authorization'] || headersObj['authorization'] || '';
+    if (rawToken) {
+      const cleanToken = rawToken.replace(/^(Bearer|token)\s+/i, '').trim();
+      if (cleanToken) {
+        // Gitee 私人令牌规范：设置 Authorization: token <token> 并在 URL 追加 access_token 双重保险
+        headersObj['Authorization'] = `token ${cleanToken}`;
+        if (!urlStr.includes('access_token=')) {
+          const separator = urlStr.includes('?') ? '&' : '?';
+          urlStr = `${urlStr}${separator}access_token=${encodeURIComponent(cleanToken)}`;
         }
       }
+    }
+    // 移除前端受限的 User-Agent
+    delete headersObj['User-Agent'];
+    delete headersObj['user-agent'];
+  }
 
+  // 2. 如果在 Tauri 桌面环境中运行，优先使用 Rust 后端 reqwest 代理
+  if (isTauri) {
+    try {
       let bodyStr: string | undefined = undefined;
       if (init?.body) {
         bodyStr = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
@@ -92,9 +111,10 @@ export async function smartFetch(input: RequestInfo | URL, init?: RequestInit): 
     }
   }
 
-  // 2. 纯 Web 浏览器开发预览模式：通过 Vite dev proxy 绕过 CORS
+  // 3. Web 浏览器模式：仅在本地开发环境 (DEV) 下才通过 Vite dev proxy 代理
   let targetUrl = urlStr;
-  if (typeof window !== 'undefined' && !isTauri) {
+  const isDev = Boolean((import.meta as any).env?.DEV);
+  if (typeof window !== 'undefined' && !isTauri && isDev) {
     if (targetUrl.startsWith('https://github.com/')) {
       targetUrl = targetUrl.replace('https://github.com/', '/proxy-github/');
     } else if (targetUrl.startsWith('https://api.github.com/')) {
@@ -104,8 +124,17 @@ export async function smartFetch(input: RequestInfo | URL, init?: RequestInit): 
     }
   }
 
-  return window.fetch(targetUrl, init);
+  const fetchInit: RequestInit = {
+    ...init,
+    headers: Object.keys(headersObj).length > 0 ? headersObj : init?.headers
+  };
+
+
+  return window.fetch(targetUrl, fetchInit);
 }
+
+
+
 
 export function createBrowserRuntime(): RuntimeAdapter {
   const fsStorage = new Map<string, string>();

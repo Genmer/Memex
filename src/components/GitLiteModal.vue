@@ -37,11 +37,87 @@
           </button>
         </div>
 
+        <!-- Navigation Tabs -->
+        <div class="flex items-center px-6 pt-3 border-b border-neutral-800 bg-neutral-900/60 gap-4">
+          <button 
+            @click="activeModalTab = 'cloud'"
+            class="pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-all"
+            :class="activeModalTab === 'cloud' ? 'text-indigo-400 border-indigo-500 font-bold' : 'text-neutral-400 border-transparent hover:text-neutral-200'"
+          >
+            <span>☁️ 云端数据库同步</span>
+          </button>
+          <button 
+            @click="activeModalTab = 'mobile'"
+            class="pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-all relative"
+            :class="activeModalTab === 'mobile' ? 'text-indigo-400 border-indigo-500 font-bold' : 'text-neutral-400 border-transparent hover:text-neutral-200'"
+          >
+            <span>📱 在 iPhone / 手机上使用</span>
+            <span class="text-[10px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30">扫码直连</span>
+          </button>
+        </div>
+
         <!-- Body (Scrollable) -->
         <div class="p-6 overflow-y-auto space-y-5 text-neutral-300 text-sm flex-1">
           
+          <!-- ================= TAB 2: MOBILE / IPHONE GUIDE ================= -->
+          <div v-if="activeModalTab === 'mobile'" class="space-y-4 animate-fadeIn">
+            <!-- QR Card -->
+            <div class="bg-neutral-950/80 border border-neutral-800 rounded-2xl p-5 flex flex-col items-center text-center space-y-3.5">
+              <div class="text-xs text-neutral-300 font-medium">iPhone / 手机扫一扫立即打开 Memex</div>
+              
+              <!-- QR Image -->
+              <div class="p-2.5 bg-white rounded-2xl shadow-xl shadow-black/60 inline-block">
+                <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="Mobile QR Code" class="w-40 h-40 rounded-xl" />
+                <div v-else class="w-40 h-40 flex items-center justify-center text-neutral-500 text-xs font-mono">
+                  生成二维码中...
+                </div>
+              </div>
+
+              <!-- Address Box -->
+              <div class="w-full bg-neutral-900 border border-neutral-700/80 rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
+                <div class="font-mono text-neutral-200 truncate select-all">{{ mobileWebUrl }}</div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button 
+                    @click="copyMobileUrl" 
+                    class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[11px] transition-colors">
+                    📋 复制
+                  </button>
+                  <button 
+                    @click="openMobileUrlInBrowser" 
+                    class="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-[11px] transition-colors">
+                    🌐 打开
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3-Step Instruction -->
+            <div class="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-4 space-y-2.5 text-xs">
+              <div class="font-bold text-neutral-200 flex items-center gap-1.5">
+                <span>📲 如何在 iPhone 上作为独立 App 运行？</span>
+              </div>
+              <div class="space-y-2 text-neutral-400">
+                <div class="flex items-start gap-2">
+                  <span class="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">1</span>
+                  <div><b>扫码打开</b>：使用 iPhone 系统相机或微信扫描上方二维码打开网页。</div>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
+                  <div><b>添加到主屏幕</b>：在 Safari 底部点击<b>「分享」图标</b>（带箭头方块），向下滑动选择<b>「添加到主屏幕」</b>。</div>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="w-4 h-4 rounded-full bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
+                  <div><b>全端互通</b>：在手机端点击顶部登录同一个 Gitee 账号，备忘录与技能全自动双向秒级同步！</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= TAB 1: CLOUD STORAGE & SYNC ================= -->
+          <template v-else>
           <!-- ================= SCENARIO A: ALREADY CONNECTED ================= -->
           <div v-if="gitliteStatus.provider !== 'memory'" class="space-y-4 animate-fadeIn">
+
             <!-- Connected Success Banner -->
             <div class="bg-gradient-to-br from-emerald-950/40 via-neutral-900 to-neutral-900 border border-emerald-500/40 rounded-2xl p-5 space-y-4">
               <div class="flex items-center justify-between">
@@ -279,6 +355,7 @@
               </label>
             </div>
           </div>
+          </template>
 
         </div>
 
@@ -294,7 +371,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import QRCode from 'qrcode';
 import { gitliteStatus, gitliteDb } from '../services/gitliteDb';
 
 import { exportFullJsonBackup, importFullJsonBackup } from '../services/dbMigration';
@@ -310,6 +388,48 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToast();
+
+const activeModalTab = ref<'cloud' | 'mobile'>('cloud');
+const mobileWebUrl = ref('https://genmer.github.io/Memex/');
+const qrCodeDataUrl = ref('');
+
+async function generateQrCode() {
+  try {
+    qrCodeDataUrl.value = await QRCode.toDataURL(mobileWebUrl.value, {
+      width: 320,
+      margin: 1.5,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    });
+  } catch (err) {
+    console.error('QR Code error:', err);
+  }
+}
+
+watch([() => props.isOpen, activeModalTab], ([open, tab]) => {
+  if (open && tab === 'mobile' && !qrCodeDataUrl.value) {
+    generateQrCode();
+  }
+});
+
+function copyMobileUrl() {
+  navigator.clipboard.writeText(mobileWebUrl.value);
+  toast.success('✓ 手机访问地址已复制到剪贴板！');
+}
+
+async function openMobileUrlInBrowser() {
+  if (typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__)) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_external_url', { url: mobileWebUrl.value });
+      return;
+    } catch(e) {}
+  }
+  window.open(mobileWebUrl.value, '_blank');
+}
+
 
 const isAuthenticating = ref(false);
 const showCustomApp = ref(false);

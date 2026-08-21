@@ -43,6 +43,8 @@ import { importFilesToMemos } from '../../services/dbMigration'
 import { useToast } from '../../composables/useToast'
 import { useTheme } from '../../composables/useTheme'
 import { useI18n } from '../../composables/useI18n'
+import { APP_VERSION } from '../../version'
+
 
 const emit = defineEmits(['switch-mode'])
 
@@ -813,9 +815,10 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="text-[10px] font-mono text-purple-300/50 font-medium">v1.0.2</span>
+          <span class="text-[10px] font-mono text-purple-300/50 font-medium">{{ APP_VERSION }}</span>
 
           <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言">
+
 
             <Globe :size="15" />
           </button>

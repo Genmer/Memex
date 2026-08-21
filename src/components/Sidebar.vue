@@ -20,6 +20,8 @@ import {
 } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
 import { useTheme } from '../composables/useTheme'
+import { APP_VERSION } from '../version'
+
 
 const props = defineProps<{
   uniqueSources: string[],
@@ -154,8 +156,9 @@ const setMode = (mode: 'agent' | 'memo') => {
         <span class="font-semibold text-base tracking-wide text-white/90">{{ t('app.title') }}</span>
       </div>
       <div class="flex items-center gap-1.5">
-        <span class="text-[10px] font-mono text-indigo-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30">v1.0.2</span>
+        <span class="text-[10px] font-mono text-indigo-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30">{{ APP_VERSION }}</span>
         <button 
+
           @click="emit('close-mobile')"
           class="md:hidden p-1.5 rounded-lg bg-white/10 text-white/60 hover:text-white transition-colors"
           title="收起菜单"
@@ -305,8 +308,9 @@ const setMode = (mode: 'agent' | 'memo') => {
       </div>
 
       <div class="flex items-center gap-2">
-        <span class="text-[10px] font-mono text-white/30 tracking-tight">v1.0.2</span>
+        <span class="text-[10px] font-mono text-white/30 tracking-tight">{{ APP_VERSION }}</span>
         <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言 / Toggle Language">
+
 
           <Globe :size="15" />
         </button>

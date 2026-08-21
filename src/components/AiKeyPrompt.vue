@@ -109,11 +109,16 @@ const saveKey = async () => {
                 </label>
                 <input 
                   v-model="apiKey"
-                  type="password"
+                  type="text"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                  autocomplete="off"
                   placeholder="sk-xxxxxxxxxxxxxxxx"
                   class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-indigo-500 transition-all font-mono"
                   @keydown.enter="saveKey"
                 />
+
               </div>
               
               <div class="space-y-1.5">

@@ -200,129 +200,128 @@
                 <button @click="authErrorMessage = ''" class="text-red-400 hover:text-red-200 text-xs font-bold shrink-0 p-1">✕</button>
               </div>
 
-              <div class="flex items-center justify-between">
-                <h4 class="font-semibold text-neutral-100 flex items-center gap-1.5 text-xs">
-                  <span>🔐 网页授权一键登录（免 Token · 自动建仓）</span>
-                </h4>
-                <span class="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium">全自动闭环</span>
-              </div>
-
-              <!-- Gitee One-Click OAuth Button (Primary) -->
-              <button 
-                @click="startGiteeAuth"
-                class="w-full flex items-center justify-between p-4 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-950/60 via-red-900/25 to-neutral-900 hover:border-red-400/80 hover:from-red-950/80 transition-all shadow-xl shadow-red-950/40 group text-left cursor-pointer active:scale-[0.99]">
-                <div class="flex items-center gap-3.5">
-                  <div class="w-11 h-11 rounded-xl bg-red-600 text-white font-black flex items-center justify-center text-xl shadow-md shadow-red-600/30 group-hover:scale-105 transition-transform">
-                    G
-                  </div>
-                  <div>
-                    <div class="font-bold text-sm text-neutral-100 flex items-center gap-2">
-                      <span>登录 Gitee 码云账号</span>
-                      <span class="text-[10px] bg-red-500/25 text-red-300 px-2 py-0.5 rounded-full border border-red-500/30 font-medium">一键授权 · 免输入 Token</span>
-                    </div>
-                    <div class="text-xs text-neutral-400 mt-0.5">点击授权后自动跳回本页面，自动建私有库与分支</div>
+              <!-- 1. Primary for Mobile/Web: Direct Token Connect with Prominent Link -->
+              <div class="p-4 rounded-2xl border border-indigo-500/50 bg-gradient-to-br from-indigo-950/40 via-neutral-900 to-neutral-900 space-y-3.5 shadow-xl shadow-indigo-950/30">
+                <div class="flex items-center justify-between">
+                  <div class="font-bold text-sm text-neutral-100 flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">🔑</span>
+                    <span>Gitee 私人令牌 Token 直连</span>
+                    <span class="text-[10px] bg-indigo-500/25 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-bold">手机/网页推荐</span>
                   </div>
                 </div>
 
-                <div class="flex items-center text-red-400 group-hover:text-red-300 group-hover:translate-x-1 transition-all">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                </div>
-              </button>
-
-              <!-- GitHub Device Flow Button -->
-              <button 
-                @click="startGitHubAuth"
-                class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-800 bg-neutral-900/80 hover:border-neutral-700 hover:bg-neutral-800/80 transition-all group text-left cursor-pointer active:scale-[0.99]">
-                <div class="flex items-center gap-3.5">
-                  <div class="w-10 h-10 rounded-xl bg-neutral-800 border border-neutral-700 text-white flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                <!-- Prominent Button to open Gitee Token Creation URL -->
+                <a 
+                  href="https://gitee.com/profile/personal_access_tokens/new" 
+                  target="_blank" 
+                  class="w-full py-2.5 px-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-red-950/50 flex items-center justify-between group active:scale-[0.99]"
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="text-base">🚀</span>
+                    <span>1. 点击打开 Gitee 页面获取 Token (勾选 projects)</span>
                   </div>
-                  <div>
-                    <div class="font-bold text-xs text-neutral-200 flex items-center gap-1.5">
-                      <span>登录 GitHub 账号</span>
-                      <span class="text-[9px] bg-neutral-800 text-neutral-400 px-1.5 py-0.2 rounded border border-neutral-700">Device Flow</span>
-                    </div>
-                    <div class="text-[11px] text-neutral-400 mt-0.5">Device Flow 免密网页确认</div>
-                  </div>
-                </div>
+                  <span class="text-[11px] bg-white/20 px-2 py-0.5 rounded-lg text-white group-hover:translate-x-0.5 transition-transform">前往 ↗</span>
+                </a>
 
-                <div class="flex items-center text-neutral-400 group-hover:text-neutral-200 group-hover:translate-x-1 transition-all">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                </div>
-              </button>
-
-              <!-- Optional Direct Token / Custom App Options (Collapsible) -->
-              <div class="pt-1">
-                <button 
-                  @click="showCustomApp = !showCustomApp"
-                  class="text-xs text-neutral-400 hover:text-neutral-200 flex items-center gap-1 font-medium transition-colors cursor-pointer">
-                  <span>{{ showCustomApp ? '收起高级选项' : '⚙️ 备用方式：直接填 Token / 自定义应用凭据' }}</span>
-                </button>
-
-                <div v-if="showCustomApp" class="mt-3 bg-neutral-950/80 border border-neutral-800 rounded-xl p-3.5 space-y-3 animate-fadeIn text-xs">
-                  <div>
-                    <label class="block text-[11px] font-medium text-neutral-300 mb-1">🔑 备用 Token 直连 (可选)</label>
-                    <div class="flex items-center gap-2">
+                <div class="space-y-1.5 pt-1">
+                  <div class="text-[11px] text-neutral-300 font-medium">2. 将生成的 Token 粘贴在下方并连接：</div>
+                  <div class="flex items-center gap-2">
+                    <div class="relative flex-1">
                       <input 
                         v-model="directTokenInput" 
-                        type="password"
-                        placeholder="粘贴 Gitee 私人令牌"
-                        class="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-100 font-mono focus:outline-none focus:border-indigo-500"
+                        type="text"
+                        autocapitalize="off"
+                        autocorrect="off"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="在此粘贴 Gitee 私人令牌 (Token)"
+                        class="w-full bg-neutral-950 border border-neutral-700 rounded-xl pl-3 pr-16 py-2.5 text-xs text-neutral-100 font-mono focus:outline-none focus:border-indigo-500 placeholder-neutral-500"
                       />
                       <button 
-                        @click="handleDirectTokenConnect"
-                        :disabled="isConnectingToken || !directTokenInput.trim()"
-                        class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 shrink-0"
+                        @click="pasteFromClipboard"
+                        type="button"
+                        class="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/10 hover:bg-white/20 text-neutral-300 rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
+                        title="从剪贴板粘贴"
                       >
-                        {{ isConnectingToken ? '连接中...' : '直连' }}
+                        📋 粘贴
                       </button>
                     </div>
+                    <button 
+                      @click="handleDirectTokenConnect"
+                      :disabled="isConnectingToken || !directTokenInput.trim()"
+                      class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <svg v-if="isConnectingToken" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      <span>{{ isConnectingToken ? '连接中...' : '一键直连' }}</span>
+                    </button>
                   </div>
-                  <div class="pt-1 border-t border-neutral-800">
-                    <div class="text-[11px] text-neutral-400 mb-1">OAuth 应用凭据 (默认无需修改):</div>
-                    <div class="space-y-1.5">
-                      <input 
-                        v-model="giteeClientId" 
-                        placeholder="Client ID"
-                        class="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1 text-xs text-neutral-200 font-mono focus:outline-none focus:border-red-500" />
-                      <input 
-                        v-model="giteeClientSecret" 
-                        type="password"
-                        placeholder="Client Secret"
-                        class="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1 text-xs text-neutral-200 font-mono focus:outline-none focus:border-red-500" />
-                    </div>
-                  </div>
+
+                </div>
+
+                <div class="text-[11px] text-neutral-400 leading-relaxed pt-0.5">
+                  💡 零端口与域名依赖，自动识别身份并创建私有仓库与分支，手机电脑多端秒级同步！
                 </div>
               </div>
 
-
-
-              <!-- App Details Accordion (For custom needs) -->
+              <!-- 2. OAuth Options Section -->
               <div class="pt-2">
                 <button 
                   @click="showCustomApp = !showCustomApp"
-                  class="text-xs text-neutral-400 hover:text-neutral-200 flex items-center gap-1 font-medium transition-colors">
-                  <span>{{ showCustomApp ? '收起应用参数' : '⚙️ 查看 / 自定义 gitlite 应用凭据' }}</span>
+                  class="text-xs text-neutral-400 hover:text-neutral-200 flex items-center gap-1 font-medium transition-colors cursor-pointer">
+                  <span>{{ showCustomApp ? '收起其他登录选项' : '⚙️ 其他方式：Gitee / GitHub 网页授权 & 自定义配置' }}</span>
                 </button>
 
+                <div v-if="showCustomApp" class="mt-3 space-y-3 animate-fadeIn text-xs">
+                  <!-- Gitee One-Click OAuth Button -->
+                  <button 
+                    @click="startGiteeAuth"
+                    class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-red-500/30 bg-neutral-900/90 hover:border-red-400/80 transition-all text-left cursor-pointer">
+                    <div class="flex items-center gap-3">
+                      <div class="w-9 h-9 rounded-xl bg-red-600 text-white font-black flex items-center justify-center text-base shadow">
+                        G
+                      </div>
+                      <div>
+                        <div class="font-bold text-xs text-neutral-200 flex items-center gap-1.5">
+                          <span>Gitee 网页授权登录</span>
+                          <span class="text-[9px] bg-red-500/20 text-red-300 px-1.5 py-0.2 rounded border border-red-500/30">OAuth</span>
+                        </div>
+                        <div class="text-[11px] text-neutral-400 mt-0.5">需在 Gitee 应用配置当前域名回调</div>
+                      </div>
+                    </div>
+                    <svg class="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                  </button>
 
-                <div v-if="showCustomApp" class="mt-3 bg-neutral-950/80 border border-neutral-800 rounded-xl p-3.5 space-y-2.5 animate-fadeIn text-xs">
-                  <div class="text-[11px] text-neutral-400">已内置预置 <span class="font-mono text-neutral-200 font-bold">gitlite</span> 官方应用凭据 (回调端口 18365)：</div>
-                  <div>
-                    <label class="block text-[10px] text-neutral-400 mb-0.5">gitlite Client ID</label>
-                    <input 
-                      v-model="giteeClientId" 
-                      class="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 font-mono focus:outline-none focus:border-red-500" />
-                  </div>
-                  <div>
-                    <label class="block text-[10px] text-neutral-400 mb-0.5">gitlite Client Secret</label>
-                    <input 
-                      v-model="giteeClientSecret" 
-                      type="password"
-                      class="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 font-mono focus:outline-none focus:border-red-500" />
+                  <!-- GitHub Device Flow Button -->
+                  <button 
+                    @click="startGitHubAuth"
+                    class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-800 bg-neutral-900/90 hover:border-neutral-700 transition-all text-left cursor-pointer">
+                    <div class="flex items-center gap-3">
+                      <div class="w-9 h-9 rounded-xl bg-neutral-800 border border-neutral-700 text-white flex items-center justify-center text-base">
+                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                      </div>
+                      <div>
+                        <div class="font-bold text-xs text-neutral-200 flex items-center gap-1.5">
+                          <span>GitHub 账号连接</span>
+                          <span class="text-[9px] bg-neutral-800 text-neutral-400 px-1.5 py-0.2 rounded border border-neutral-700">Device Flow</span>
+                        </div>
+                        <div class="text-[11px] text-neutral-400 mt-0.5">Device Flow 免密网页确认</div>
+                      </div>
+                    </div>
+                    <svg class="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+
+                  <!-- Callback URI info for custom OAuth -->
+                  <div class="p-3 bg-neutral-950/80 border border-neutral-800 rounded-xl space-y-1.5">
+                    <div class="text-[11px] text-neutral-300 font-medium">📍 Gitee 应用回调地址:</div>
+                    <div class="bg-neutral-900 border border-neutral-700 rounded-lg p-2 flex items-center justify-between gap-2 font-mono text-[11px] text-emerald-400 select-all">
+                      <span class="truncate">{{ currentRedirectUri }}</span>
+                      <button @click="copyRedirectUri" class="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[10px] shrink-0">复制</button>
+                    </div>
                   </div>
                 </div>
               </div>
+
+
             </div>
 
             <!-- Authenticating Waiting Screen (Dynamic Steps) -->
@@ -477,12 +476,40 @@ async function openMobileUrlInBrowser() {
 }
 
 
+const currentRedirectUri = computed(() => {
+  if (typeof window === 'undefined') return 'https://genmer.github.io/Memex/'
+  const isTauriEnv = Boolean((window as any).__TAURI_INTERNALS__)
+  return isTauriEnv ? 'http://127.0.0.1:18365/callback' : (window.location.origin + window.location.pathname)
+})
+
+function copyRedirectUri() {
+  navigator.clipboard.writeText(currentRedirectUri.value)
+  toast.success('✓ 回调地址已复制到剪贴板！')
+}
+
 const isAuthenticating = ref(false);
 const showCustomApp = ref(false);
 const authErrorMessage = ref('');
 
 const directTokenInput = ref(localStorage.getItem('memex_gitlite_token') || '');
 const isConnectingToken = ref(false);
+
+
+async function pasteFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText()
+    if (text && text.trim()) {
+      directTokenInput.value = text.trim()
+      toast.success('✓ 已从剪贴板粘贴令牌！')
+    } else {
+      toast.info('剪贴板为空，请手动长按输入框粘贴')
+    }
+  } catch (err) {
+    toast.info('请长按输入框直接粘贴')
+  }
+}
+
+
 
 async function handleDirectTokenConnect() {
   if (!directTokenInput.value.trim() || isConnectingToken.value) return;

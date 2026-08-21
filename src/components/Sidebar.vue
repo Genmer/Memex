@@ -16,11 +16,14 @@ import {
   Moon, 
   Monitor, 
   BookOpen, 
-  ArrowLeftRight
+  ArrowLeftRight,
+  RotateCcw
 } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
 import { useTheme } from '../composables/useTheme'
 import { APP_VERSION } from '../version'
+import { clearCacheAndHardReload } from '../utils/cacheHelper'
+
 
 
 const props = defineProps<{
@@ -307,14 +310,20 @@ const setMode = (mode: 'agent' | 'memo') => {
         </button>
       </div>
 
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] font-mono text-white/30 tracking-tight">{{ APP_VERSION }}</span>
-        <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言 / Toggle Language">
-
-
+      <div class="flex items-center gap-1.5">
+        <button 
+          @click="clearCacheAndHardReload"
+          class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 text-white/40 border border-white/5 hover:border-amber-500/30 transition-all flex items-center gap-1 font-mono text-[10px] cursor-pointer group"
+          title="清空本地快照并强制重载最新版"
+        >
+          <span>{{ APP_VERSION }}</span>
+          <RotateCcw :size="10" class="group-hover:rotate-180 transition-transform duration-300 text-white/30 group-hover:text-amber-300" />
+        </button>
+        <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="切换语言 / Toggle Language">
           <Globe :size="15" />
         </button>
       </div>
+
     </div>
   </div>
 </template>

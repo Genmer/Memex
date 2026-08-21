@@ -28,7 +28,8 @@ import {
   FolderPlus,
   ArrowLeftRight,
   Trash2,
-  Brain
+  Brain,
+  RotateCcw
 } from 'lucide-vue-next'
 import MemoCard from './MemoCard.vue'
 import MemoTimeline from './MemoTimeline.vue'
@@ -44,6 +45,8 @@ import { useToast } from '../../composables/useToast'
 import { useTheme } from '../../composables/useTheme'
 import { useI18n } from '../../composables/useI18n'
 import { APP_VERSION } from '../../version'
+import { clearCacheAndHardReload } from '../../utils/cacheHelper'
+
 
 
 const emit = defineEmits(['switch-mode'])
@@ -814,15 +817,21 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           </button>
         </div>
 
-        <div class="flex items-center gap-2">
-          <span class="text-[10px] font-mono text-purple-300/50 font-medium">{{ APP_VERSION }}</span>
+        <div class="flex items-center gap-1.5">
+          <button 
+            @click="clearCacheAndHardReload"
+            class="px-1.5 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300/60 hover:text-purple-200 border border-purple-500/20 hover:border-purple-500/40 transition-all flex items-center gap-1 font-mono text-[10px] cursor-pointer group"
+            title="清空本地快照并强制重载最新版"
+          >
+            <span>{{ APP_VERSION }}</span>
+            <RotateCcw :size="10" class="group-hover:rotate-180 transition-transform duration-300 text-purple-300/40 group-hover:text-purple-200" />
+          </button>
 
-          <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言">
-
-
+          <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="切换语言">
             <Globe :size="15" />
           </button>
         </div>
+
       </div>
     </aside>
 
@@ -845,7 +854,14 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
             <h2 class="text-sm sm:text-base md:text-lg font-bold tracking-wide text-white/95 truncate">
               {{ currentBreadcrumb }}
             </h2>
-            <span class="text-[10px] font-mono text-purple-300/80 font-bold px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 shrink-0">{{ APP_VERSION }}</span>
+            <button 
+              @click="clearCacheAndHardReload"
+              class="text-[10px] font-mono text-purple-300 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded bg-purple-500/15 hover:bg-amber-500/20 border border-purple-500/30 hover:border-amber-500/40 shrink-0 transition-all flex items-center gap-1 cursor-pointer"
+              title="点击清空本地缓存并强制刷新"
+            >
+              <span>{{ APP_VERSION }}</span>
+            </button>
+
           </div>
           <span class="text-xs text-white/40 font-mono shrink-0 hidden sm:inline">({{ memos.length }} 条)</span>
         </div>

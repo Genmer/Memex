@@ -18,6 +18,8 @@ import GitLiteCapsule from './components/GitLiteCapsule.vue'
 import GitLiteLiveBanner from './components/GitLiteLiveBanner.vue'
 import { gitliteDb, gitliteStatus } from './services/gitliteDb'
 import { APP_VERSION } from './version'
+import { clearCacheAndHardReload } from './utils/cacheHelper'
+
 
 
 import { runAutoMigrationIfNeeded, exportFullJsonBackup, importFullJsonBackup } from './services/dbMigration'
@@ -966,7 +968,14 @@ onUnmounted(() => {
             <h2 class="text-base sm:text-lg md:text-xl font-medium tracking-wide text-white/90 drop-shadow-md truncate">
               {{ viewTitle }}
             </h2>
-            <span class="text-[10px] font-mono text-indigo-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 shrink-0">{{ APP_VERSION }}</span>
+            <button 
+              @click="clearCacheAndHardReload"
+              class="text-[10px] font-mono text-indigo-300 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 hover:bg-amber-500/20 border border-indigo-500/30 hover:border-amber-500/40 shrink-0 transition-all flex items-center gap-1 cursor-pointer"
+              title="点击清空本地缓存并强制刷新"
+            >
+              <span>{{ APP_VERSION }}</span>
+            </button>
+
           </div>
         </div>
 

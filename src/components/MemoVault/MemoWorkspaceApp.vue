@@ -11,6 +11,7 @@ import {
   Calendar, 
   Columns, 
   Download, 
+  Upload,
   RefreshCw, 
   Pin, 
   Star, 
@@ -33,6 +34,9 @@ import MemoCard from './MemoCard.vue'
 import MemoTimeline from './MemoTimeline.vue'
 import MemoSplitView from './MemoSplitView.vue'
 import MemoEditor from './MemoEditor.vue'
+import GitLiteCapsule from '../GitLiteCapsule.vue'
+import { gitliteDb } from '../../services/gitliteDb'
+import { importFilesToMemos } from '../../services/dbMigration'
 import { useToast } from '../../composables/useToast'
 import { useTheme } from '../../composables/useTheme'
 import { useI18n } from '../../composables/useI18n'
@@ -150,27 +154,65 @@ const currentBreadcrumb = computed(() => {
 const loadData = async () => {
   isLoading.value = true
   try {
-    let filterTypeParam: string | null = null
-    if (selectedFilter.value === 'pinned') filterTypeParam = 'pinned'
-    else if (selectedFilter.value === 'favorite') filterTypeParam = 'favorite'
-    else if (selectedFilter.value === 'memory') filterTypeParam = 'memory'
-    else if (selectedFilter.value === 'todo') filterTypeParam = 'todo'
-    else if (selectedFilter.value === 'journal') filterTypeParam = 'journal'
-    else if (selectedTypeFilter.value !== 'all') filterTypeParam = selectedTypeFilter.value
+    // 优先读取 GitLite 数据库集合
+    let allMemos = await gitliteDb.getMemos()
+    
+    // 如果 GitLite 中暂无数据，尝试从 SQLite 读取
+    if (allMemos.length === 0) {
+      try {
+        const sqliteMemos: any = await invoke('get_memos', {
+          folder: null, tag: null, search: null, filterType: null
+        })
+        if (Array.isArray(sqliteMemos) && sqliteMemos.length > 0) {
+          allMemos = sqliteMemos
+        }
+      } catch (e) {}
+    }
 
-    const data: any = await invoke('get_memos', {
-      folder: selectedFolder.value || null,
-      tag: selectedTag.value || null,
-      search: searchQuery.value.trim() || null,
-      filterType: filterTypeParam
-    })
-    memos.value = data
+    // 内存极速过滤与排序
+    let filtered = allMemos.filter(m => !m.is_archived)
 
-    const folderData: any = await invoke('get_memo_folders')
-    folders.value = folderData
+    if (selectedFolder.value) {
+      filtered = filtered.filter(m => m.folder === selectedFolder.value || m.folder?.startsWith(selectedFolder.value + '/'))
+    }
 
-    const tagData: any = await invoke('get_memo_tags')
-    tags.value = tagData
+    if (selectedTag.value) {
+      const tagLower = selectedTag.value.toLowerCase()
+      filtered = filtered.filter(m => m.tags && m.tags.toLowerCase().includes(tagLower))
+    }
+
+    if (searchQuery.value.trim()) {
+      const q = searchQuery.value.toLowerCase().trim()
+      filtered = filtered.filter(m => 
+        m.title.toLowerCase().includes(q) || 
+        m.content.toLowerCase().includes(q) || 
+        (m.tags && m.tags.toLowerCase().includes(q))
+      )
+    }
+
+    if (selectedFilter.value === 'pinned') {
+      filtered = filtered.filter(m => m.is_pinned)
+    } else if (selectedFilter.value === 'favorite') {
+      filtered = filtered.filter(m => m.is_favorite)
+    } else if (selectedFilter.value === 'memory') {
+      filtered = filtered.filter(m => m.note_type === 'memory')
+    } else if (selectedFilter.value === 'todo') {
+      filtered = filtered.filter(m => m.note_type === 'todo')
+    } else if (selectedFilter.value === 'journal') {
+      filtered = filtered.filter(m => m.note_type === 'journal')
+    } else if (selectedTypeFilter.value !== 'all') {
+      filtered = filtered.filter(m => m.note_type === selectedTypeFilter.value)
+    }
+
+    // 确保有 id 属性用于模板兼容 (_id 或 legacy_id 或 id)
+    memos.value = filtered.map(m => ({
+      ...m,
+      id: m.id || m.legacy_id || m._id
+    }))
+
+    // 获取文件夹与标签统计
+    folders.value = await gitliteDb.getMemoFolders()
+    tags.value = await gitliteDb.getMemoTags()
   } catch (err: any) {
     toast.error('加载备忘数据失败: ' + err)
   } finally {
@@ -220,35 +262,37 @@ const handleOpenEdit = (memo: any) => {
 
 const handleSaveMemo = async (payload: any) => {
   try {
-    if (payload.id) {
-      await invoke('update_memo', {
-        id: payload.id,
-        payload: {
-          title: payload.title,
-          content: payload.content,
-          folder: payload.folder,
-          note_type: payload.note_type,
-          color: payload.color,
-          tags: payload.tags,
-          is_pinned: payload.is_pinned,
-          is_favorite: payload.is_favorite
-        }
+    const memoId = payload.id || payload._id
+    if (memoId) {
+      await gitliteDb.updateMemo(String(memoId), {
+        title: payload.title,
+        content: payload.content,
+        folder: payload.folder,
+        note_type: payload.note_type,
+        color: payload.color,
+        tags: payload.tags,
+        is_pinned: payload.is_pinned,
+        is_favorite: payload.is_favorite
       })
-      toast.success('备忘已保存')
+      // 保持 SQLite 同步（双保险）
+      if (typeof payload.id === 'number') {
+        invoke('update_memo', { id: payload.id, payload }).catch(() => {})
+      }
+      toast.success('备忘已保存 (GitLite 同步中)')
     } else {
-      await invoke('create_memo', {
-        payload: {
-          title: payload.title,
-          content: payload.content,
-          folder: payload.folder,
-          note_type: payload.note_type,
-          color: payload.color,
-          tags: payload.tags,
-          is_pinned: payload.is_pinned,
-          is_favorite: payload.is_favorite
-        }
+      await gitliteDb.createMemo({
+        title: payload.title,
+        content: payload.content,
+        folder: payload.folder,
+        note_type: payload.note_type,
+        color: payload.color,
+        tags: payload.tags,
+        is_pinned: payload.is_pinned,
+        is_favorite: payload.is_favorite
       })
-      toast.success('新备忘创建成功')
+      // 保持 SQLite 同步（双保险）
+      invoke('create_memo', { payload }).catch(() => {})
+      toast.success('新备忘创建成功 (GitLite 同步中)')
     }
     showEditor.value = false
     await loadData()
@@ -257,12 +301,15 @@ const handleSaveMemo = async (payload: any) => {
   }
 }
 
-const handleDeleteMemo = async (id: number) => {
+const handleDeleteMemo = async (id: any) => {
   if (!confirm('确定要删除这篇备忘吗？')) return
   try {
-    await invoke('delete_memo', { id })
+    await gitliteDb.deleteMemo(String(id))
+    if (typeof id === 'number') {
+      invoke('delete_memo', { id }).catch(() => {})
+    }
     toast.success('备忘已删除')
-    if (editingMemo.value?.id === id) {
+    if (editingMemo.value?.id === id || editingMemo.value?._id === id) {
       showEditor.value = false
     }
     await loadData()
@@ -271,10 +318,13 @@ const handleDeleteMemo = async (id: number) => {
   }
 }
 
-const handleTogglePin = async (id: number, isPinned: boolean) => {
+const handleTogglePin = async (id: any, isPinned: boolean) => {
   try {
-    await invoke('toggle_memo_pinned', { id, isPinned })
-    const target = memos.value.find(m => m.id === id)
+    await gitliteDb.toggleMemoPinned(String(id), isPinned)
+    if (typeof id === 'number') {
+      invoke('toggle_memo_pinned', { id, isPinned }).catch(() => {})
+    }
+    const target = memos.value.find(m => m.id === id || m._id === id)
     if (target) target.is_pinned = isPinned
     toast.success(isPinned ? '已置顶' : '已取消置顶')
     await loadData()
@@ -283,14 +333,18 @@ const handleTogglePin = async (id: number, isPinned: boolean) => {
   }
 }
 
-const handleToggleFavorite = async (id: number, isFavorite: boolean) => {
+const handleToggleFavorite = async (id: any, isFavorite: boolean) => {
   try {
-    await invoke('toggle_memo_favorite', { id, isFavorite })
-    const target = memos.value.find(m => m.id === id)
+    await gitliteDb.toggleMemoFavorite(String(id), isFavorite)
+    if (typeof id === 'number') {
+      invoke('toggle_memo_favorite', { id, isFavorite }).catch(() => {})
+    }
+    const target = memos.value.find(m => m.id === id || m._id === id)
     if (target) target.is_favorite = isFavorite
     toast.success(isFavorite ? '已收藏' : '已取消收藏')
   } catch (err: any) {
     toast.error('操作失败: ' + err)
+
   }
 }
 
@@ -379,6 +433,44 @@ const handleExportMarkdown = async () => {
     toast.error('导出失败: ' + err)
   }
 }
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+
+const triggerFileInput = () => {
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+    fileInputRef.value.click()
+  }
+}
+
+const handleFileInputChange = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (!target.files || target.files.length === 0) return
+
+  const filesToRead: { name: string; content: string }[] = []
+  for (let i = 0; i < target.files.length; i++) {
+    const f = target.files[i]
+    try {
+      const text = await f.text()
+      filesToRead.push({ name: f.name, content: text })
+    } catch (e) {
+      console.warn('Read file failed:', f.name, e)
+    }
+  }
+
+  if (filesToRead.length === 0) return
+
+  try {
+    const targetFolder = selectedFolder.value || '默认备忘'
+    const res = await importFilesToMemos(filesToRead, targetFolder)
+    toast.success(res.message)
+    await loadData()
+  } catch (err: any) {
+    toast.error('导入失败: ' + err)
+  }
+}
+
 
 const selectFilter = (f: 'all' | 'pinned' | 'favorite' | 'memory' | 'todo' | 'journal') => {
   selectedFilter.value = f
@@ -687,11 +779,17 @@ watch([selectedTypeFilter], () => {
           </button>
         </div>
 
-        <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言">
-          <Globe :size="15" />
-        </button>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-mono text-purple-300/50 font-medium">v1.0.2</span>
+
+          <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言">
+
+            <Globe :size="15" />
+          </button>
+        </div>
       </div>
     </aside>
+
 
     <!-- ================= DEDICATED MEMO MAIN WORKSPACE CANVAS ================= -->
     <main class="flex-1 flex flex-col min-w-0 bg-[#0e1017] relative">
@@ -787,6 +885,29 @@ watch([selectedTypeFilter], () => {
             </button>
           </div>
 
+          <!-- GitLite Status Capsule -->
+          <GitLiteCapsule @refresh="loadData" />
+
+          <!-- Hidden File Input for Import -->
+          <input 
+            type="file" 
+            ref="fileInputRef" 
+            class="hidden" 
+            multiple 
+            accept=".md,.markdown,.json,.txt" 
+            @change="handleFileInputChange" 
+          />
+
+          <!-- Import Button -->
+          <button 
+            @click="triggerFileInput"
+            class="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
+            title="导入 Markdown / JSON 备忘"
+          >
+            <Upload :size="14" />
+            <span>导入</span>
+          </button>
+
           <!-- Export Button -->
           <button 
             @click="handleExportMarkdown"
@@ -796,6 +917,7 @@ watch([selectedTypeFilter], () => {
             <Download :size="14" />
             <span>导出</span>
           </button>
+
 
           <!-- Refresh -->
           <button 

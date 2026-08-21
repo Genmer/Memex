@@ -8,8 +8,10 @@ import {
 } from 'lucide-vue-next'
 import MarkdownViewer from './MarkdownViewer.vue'
 import { useToast } from '../composables/useToast'
+import { gitliteDb } from '../services/gitliteDb'
 
 const toast = useToast()
+
 
 const props = defineProps<{
   skill: any
@@ -222,38 +224,45 @@ const save = async () => {
   try {
     if (props.isNew) {
       if (isSkill.value) {
-        await invoke('create_skill', {
+        await gitliteDb.createSkill({
           name,
           content: draftContent.value,
-          sourceTool: 'memex_native',
-          tags
+          source_tool: 'memex_native',
+          tags: tags || undefined
         })
+        invoke('create_skill', { name, content: draftContent.value, sourceTool: 'memex_native', tags }).catch(() => {})
       } else {
-        await invoke('create_memory', {
+        await gitliteDb.createMemory({
           name,
           content: draftContent.value,
-          sourceTool: 'memex_native',
-          tags
+          source_tool: 'memex_native',
+          tags: tags || undefined
         })
+        invoke('create_memory', { name, content: draftContent.value, sourceTool: 'memex_native', tags }).catch(() => {})
       }
-      toast.success('创建成功')
+      toast.success('创建成功 (GitLite 同步中)')
     } else {
+      const assetId = asset.value.id || asset.value._id
       if (isSkill.value) {
-        await invoke('update_skill', {
-          id: asset.value.id,
+        await gitliteDb.updateSkill(assetId, {
           name,
           content: draftContent.value,
-          tags
+          tags: tags || undefined
         })
+        if (typeof asset.value.id === 'number') {
+          invoke('update_skill', { id: asset.value.id, name, content: draftContent.value, tags }).catch(() => {})
+        }
       } else {
-        await invoke('update_memory', {
-          id: asset.value.id,
+        await gitliteDb.updateMemory(assetId, {
           name,
           content: draftContent.value,
-          tags
+          tags: tags || undefined
         })
+        if (typeof asset.value.id === 'number') {
+          invoke('update_memory', { id: asset.value.id, name, content: draftContent.value, tags }).catch(() => {})
+        }
       }
-      toast.success('保存成功')
+      toast.success('保存成功 (GitLite 同步中)')
     }
     editing.value = false
     emit('saved')
@@ -263,13 +272,20 @@ const save = async () => {
 }
 
 const remove = async () => {
-  if (!asset.value.id) return
+  const assetId = asset.value.id || asset.value._id
+  if (!assetId) return
   if (!confirm(`确定要删除此${typeLabel.value}吗？`)) return
   try {
     if (isSkill.value) {
-      await invoke('delete_skill', { id: asset.value.id })
+      await gitliteDb.deleteSkill(assetId)
+      if (typeof asset.value.id === 'number') {
+        invoke('delete_skill', { id: asset.value.id }).catch(() => {})
+      }
     } else {
-      await invoke('delete_memory', { id: asset.value.id })
+      await gitliteDb.deleteMemory(assetId)
+      if (typeof asset.value.id === 'number') {
+        invoke('delete_memory', { id: asset.value.id }).catch(() => {})
+      }
     }
     toast.success('删除成功')
     emit('deleted', asset.value.id, props.type)
@@ -277,6 +293,7 @@ const remove = async () => {
     toast.error('删除失败: ' + err)
   }
 }
+
 </script>
 
 <template>

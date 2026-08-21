@@ -9,6 +9,7 @@ import {
   Calendar, 
   Columns, 
   Download, 
+  Upload,
   RefreshCw, 
   Tag as TagIcon, 
   Layers, 
@@ -19,6 +20,8 @@ import MemoTimeline from './MemoTimeline.vue'
 import MemoSplitView from './MemoSplitView.vue'
 import MemoEditor from './MemoEditor.vue'
 import { useToast } from '../../composables/useToast'
+import { importFilesToMemos } from '../../services/dbMigration'
+
 
 const props = defineProps<{
   selectedFolder?: string | null,
@@ -183,6 +186,43 @@ const handleExportMarkdown = async () => {
   }
 }
 
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+const triggerFileInput = () => {
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+    fileInputRef.value.click()
+  }
+}
+
+const handleFileInputChange = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (!target.files || target.files.length === 0) return
+
+  const filesToRead: { name: string; content: string }[] = []
+  for (let i = 0; i < target.files.length; i++) {
+    const f = target.files[i]
+    try {
+      const text = await f.text()
+      filesToRead.push({ name: f.name, content: text })
+    } catch (e) {
+      console.warn('Read file failed:', f.name, e)
+    }
+  }
+
+  if (filesToRead.length === 0) return
+
+  try {
+    const targetFolder = props.selectedFolder || '默认备忘'
+    const res = await importFilesToMemos(filesToRead, targetFolder)
+    toast.success(res.message)
+    await loadData()
+  } catch (err: any) {
+    toast.error('导入失败: ' + err)
+  }
+}
+
+
 watch([() => props.selectedFolder, () => props.selectedTag, () => props.filterType, selectedTypeFilter], () => {
   loadData()
 })
@@ -274,6 +314,26 @@ onMounted(() => {
           </button>
         </div>
 
+        <!-- Hidden File Input for Import -->
+        <input 
+          type="file" 
+          ref="fileInputRef" 
+          class="hidden" 
+          multiple 
+          accept=".md,.markdown,.json,.txt" 
+          @change="handleFileInputChange" 
+        />
+
+        <!-- Import -->
+        <button 
+          @click="triggerFileInput"
+          class="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-2xl text-xs font-medium transition-colors flex items-center gap-1.5"
+          title="导入 Markdown / JSON 备忘"
+        >
+          <Upload :size="14" />
+          <span>导入</span>
+        </button>
+
         <!-- Export -->
         <button 
           @click="handleExportMarkdown"
@@ -283,6 +343,7 @@ onMounted(() => {
           <Download :size="14" />
           <span>导出</span>
         </button>
+
 
         <!-- Refresh -->
         <button 

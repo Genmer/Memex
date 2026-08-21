@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gitee 授权成功 - Memex</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px; background: #0b0d13; color: #f3f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    }
+    .card {
+      background: #151822; border: 1px solid #2d3348; border-radius: 24px;
+      padding: 36px 28px; max-width: 460px; width: 100%; text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(79, 70, 229, 0.15);
+      animation: fadeIn 0.3s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .icon-badge {
+      width: 52px; height: 52px; border-radius: 16px; margin: 0 auto 16px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+    }
+    .icon-badge svg { width: 26px; height: 26px; fill: none; stroke: #fff; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .status-tag {
+      display: inline-block; padding: 3px 10px;
+      background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-bottom: 10px;
+    }
+    h2 { margin: 0 0 6px 0; font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px; }
+    p.desc { margin: 0 0 20px 0; font-size: 13px; color: #9ca3af; line-height: 1.5; }
+    
+    .code-box {
+      background: #090b10; border: 1px solid #312e81; border-radius: 12px;
+      padding: 12px 14px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px;
+      font-weight: 700; color: #a5b4fc; word-break: break-all;
+      margin-bottom: 16px; user-select: all; text-align: center;
+    }
+
+    .btn-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 13px 0; background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff; border: none; border-radius: 12px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 6px 16px -4px rgba(16, 185, 129, 0.4); text-decoration: none;
+    }
+    .btn-primary:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 10px 20px -4px rgba(16, 185, 129, 0.5); }
+    
+    .btn-secondary {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 12px 0; background: #232736;
+      color: #e5e7eb; border: 1px solid #374151; border-radius: 12px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: #2d3348; color: #fff; }
+    .btn-secondary.copied { background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #34d399; }
+    
+    .tips {
+      font-size: 12px; color: #6b7280; line-height: 1.6;
+      border-top: 1px solid #242938; padding-top: 16px; text-align: left;
+    }
+    .tips b { color: #d1d5db; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-badge">
+      <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+    </div>
+    <div class="status-tag">Gitee 网页授权已通过</div>
+    <h2>🎉 授权成功！</h2>
+    <p class="desc">您的 Gitee 账号已授权给 GitLite 数据库引擎。</p>
+
+    <div class="code-box" id="codeText">__CODE__</div>
+
+    <div class="btn-group">
+      <!-- 方式 1: 点击直接复制 -->
+      <button class="btn-primary" id="copyBtn" onclick="copyCode()">
+        <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+        <span id="btnText">📋 点击复制授权码 (自动复制已就绪)</span>
+      </button>
+
+      <!-- 方式 2: 一键唤醒跳转客户端 -->
+      <a href="memex://oauth?code=__CODE__" class="btn-secondary" id="openAppBtn" onclick="handleOpenApp()">
+        <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        <span>🚀 点击直接跳转唤醒 Memex 客户端</span>
+      </a>
+    </div>
+
+    <div class="tips">
+      💡 <b>操作指引</b>：<br>
+      • <b>推荐</b>：点击上方<b>「📋 复制授权码」</b>，返回 Memex 客户端点击<b>「📋 贴入授权码 Code」</b>即可秒级自动注入完成！<br>
+      • 也可以点击<b>「🚀 跳转唤醒 Memex 客户端」</b>尝试直接唤醒应用。
+    </div>
+  </div>
+
+  <script>
+    const code = '__CODE__';
+    
+    // 页面打开时自动尝试复制
+    try {
+      if (code && code !== '__' + 'CODE__') {
+        navigator.clipboard.writeText(code);
+      }
+    } catch(e) {}
+
+    function copyCode() {
+      navigator.clipboard.writeText(code).then(() => {
+        const btnText = document.getElementById('btnText');
+        btnText.innerText = '✓ 已复制！返回客户端点「贴入Code」即可';
+        setTimeout(() => {
+          btnText.innerText = '📋 再次复制授权码 Code';
+        }, 3500);
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        document.getElementById('btnText').innerText = '✓ 已复制！返回客户端点「贴入Code」即可';
+      });
+    }
+
+    function handleOpenApp() {
+      copyCode();
+    }
+  </script>
+</body>
+</html>

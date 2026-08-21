@@ -14,6 +14,10 @@ import AiKeyPrompt from './components/AiKeyPrompt.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import AiUsageStats from './components/AiUsageStats.vue'
 import MemoWorkspaceApp from './components/MemoVault/MemoWorkspaceApp.vue'
+import GitLiteCapsule from './components/GitLiteCapsule.vue'
+import { gitliteDb } from './services/gitliteDb'
+import { runAutoMigrationIfNeeded, exportFullJsonBackup, importFullJsonBackup } from './services/dbMigration'
+
 import { useI18n } from './composables/useI18n'
 import { useToast } from './composables/useToast'
 import { useTheme } from './composables/useTheme'
@@ -149,15 +153,30 @@ const pinnedSources = ref<string[]>([])
 
 const fetchData = async () => {
   try {
-    skills.value = await invoke('get_skills')
-    memories.value = await invoke('get_memories')
+    // 优先从 GitLite 集合读取
+    let sList = await gitliteDb.getSkills()
+    let mList = await gitliteDb.getMemories()
+
+    // 如果 GitLite 中暂无数据，从 SQLite 备用读取
+    if (sList.length === 0 && mList.length === 0) {
+      try {
+        const sqliteSkills: any = await invoke('get_skills')
+        const sqliteMemories: any = await invoke('get_memories')
+        if (Array.isArray(sqliteSkills) && sqliteSkills.length > 0) sList = sqliteSkills
+        if (Array.isArray(sqliteMemories) && sqliteMemories.length > 0) mList = sqliteMemories
+      } catch (e) {}
+    }
+
+    skills.value = sList.map(s => ({ ...s, id: s.id || s.legacy_id || s._id }))
+    memories.value = mList.map(m => ({ ...m, id: m.id || m.legacy_id || m._id }))
+
     if (skills.value.length === 0 && !sessionStorage.getItem('prompt_shown')) {
       showWelcomePrompt.value = true
       sessionStorage.setItem('prompt_shown', 'true')
     }
   } catch (error) {
-    // Mock fallback for pure-browser preview (no Tauri runtime)
-    console.warn('Tauri invoke failed, using mock data:', error)
+    // Mock fallback for pure-browser preview
+    console.warn('Data fetch failed, using mock data:', error)
     skills.value = mockSkills
     memories.value = mockMemories
   }
@@ -165,8 +184,21 @@ const fetchData = async () => {
 
 const fetchConfigs = async () => {
   try {
-    const configs: any[] = await invoke('get_configs')
-    scanTargets.value = await invoke('get_scan_targets')
+    let configs: any[] = await gitliteDb.getConfigs()
+    let targets: any[] = await gitliteDb.getScanTargets()
+
+    if (configs.length === 0) {
+      try {
+        configs = await invoke('get_configs')
+      } catch (e) {}
+    }
+    if (targets.length === 0) {
+      try {
+        targets = await invoke('get_scan_targets')
+      } catch (e) {}
+    }
+
+    scanTargets.value = targets
     const pinned = configs.find(c => c.key_name === 'PINNED_SOURCES')
     if (pinned && pinned.key_value) {
       try {
@@ -184,12 +216,13 @@ const fetchConfigs = async () => {
       aiModel.value = aiMdl.key_value
     }
   } catch (error) {
-    console.warn('Tauri config fetch failed, using mock configs:', error)
+    console.warn('Config fetch failed, using mock configs:', error)
     scanTargets.value = mockTargets
     pinnedSources.value = []
     hasAiKey.value = false
   }
 }
+
 
 const mockSkills = [
   {
@@ -326,30 +359,47 @@ const removeTarget = async (id: number) => {
 }
 
 const exportAssets = async () => {
-  const path = await save({
-    defaultPath: `memex-backup-${new Date().toISOString().slice(0, 10)}.json`,
-    filters: [{ name: 'JSON', extensions: ['json'] }]
-  })
-  if (!path) return
   try {
-    const n: number = await invoke('export_assets', { path })
-    toast.success(`已导出 ${n} 个资产`)
-  } catch (err) {
+    const jsonStr = await exportFullJsonBackup()
+    const filePath = await save({
+      defaultPath: `memex-full-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'JSON Backup', extensions: ['json'] }]
+    })
+    if (filePath) {
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filePath.split('/').pop() || 'memex-backup.json'
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('已导出全量数据备份 (Memos + Skills + Memories + Configs)')
+    }
+  } catch (err: any) {
     toast.error('导出失败: ' + err)
   }
 }
 
 const importAssets = async () => {
-  const path = await open({ multiple: false, filters: [{ name: 'JSON', extensions: ['json'] }] })
-  if (!path || typeof path !== 'string') return
-  try {
-    const n: number = await invoke('import_assets', { path })
-    toast.success(`已导入 ${n} 个新资产`)
-    await fetchData()
-  } catch (err) {
-    toast.error('导入失败: ' + err)
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async (e: any) => {
+    const file = e.target?.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      await importFullJsonBackup(text)
+      toast.success('已成功导入全量备份数据！')
+      await fetchData()
+      await fetchConfigs()
+    } catch (err: any) {
+      toast.error('导入失败: ' + err)
+    }
   }
+  input.click()
 }
+
 
 const scanNow = async () => {
   if (isScanning.value) return
@@ -797,8 +847,16 @@ const aiSkillContext = computed(() => {
 
 onMounted(async () => {
   initTheme()
+  // 触发 GitLite 自动迁移与就绪校验（保留原 SQLite 数据）
+  try {
+    await runAutoMigrationIfNeeded()
+  } catch (migErr) {
+    console.warn('[GitLite] 自动迁移校验跳过:', migErr)
+  }
+
   await fetchData()
   await fetchConfigs()
+
   
   try {
     if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
@@ -927,8 +985,13 @@ onUnmounted(() => {
             <svg v-if="isScanning" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             {{ isScanning ? t('header.syncing') : t('header.sync') }}
           </button>
+
+          <!-- GitLite Status Capsule -->
+          <GitLiteCapsule @refresh="fetchData" />
+
           <button
             @click="openAiChat()"
+
             class="p-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-indigo-300 rounded-lg transition-colors"
             title="AI 助手"
           >

@@ -22,14 +22,14 @@ renderer.code = function({ text, lang }: { text: string, lang?: string }) {
     }
   }
   const displayLang = language || 'plaintext'
-  return `<div class="code-block-wrapper relative my-2.5 rounded-xl overflow-hidden border border-white/10 bg-[#13161f] shadow-inner group">
+  return `<div class="code-block-wrapper relative my-2.5 rounded-xl overflow-hidden border group">
     <div class="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 select-none pointer-events-auto">
-      <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wider bg-black/60 text-purple-300/90 border border-white/10">${displayLang}</span>
-      <button class="copy-code-btn px-2 py-0.5 rounded text-[10px] bg-black/60 hover:bg-purple-600/80 text-white/80 hover:text-white border border-white/10 transition-all flex items-center gap-1 cursor-pointer shadow-sm">
+      <span class="code-lang-tag px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wider">${displayLang}</span>
+      <button class="copy-code-btn px-2 py-0.5 rounded text-[10px] transition-all flex items-center gap-1 cursor-pointer shadow-sm">
         <span>复制</span>
       </button>
     </div>
-    <pre class="p-3.5 overflow-x-auto text-xs leading-relaxed font-mono text-white/90"><code>${highlighted}</code></pre>
+    <pre class="code-block-pre p-3.5 overflow-x-auto text-xs leading-relaxed font-mono"><code>${highlighted}</code></pre>
   </div>`
 }
 
@@ -71,4 +71,13 @@ export const copyCodeFromClick = async (event: MouseEvent): Promise<boolean> => 
     }
   }
   return false
+}
+
+export const extractCleanTitle = (text: string): string => {
+  if (!text) return ''
+  let cleaned = text.replace(/^```[a-zA-Z0-9_-]*\r?\n?/, '')
+  cleaned = cleaned.replace(/\r?\n?```\s*$/, '')
+  cleaned = cleaned.replace(/^#+\s+/, '').replace(/^>\s+/, '').replace(/^-\s+(\[[ x]\]\s+)?/, '').trim()
+  const firstLine = cleaned.split('\n').map((l: string) => l.trim()).find((l: string) => l.length > 0) || ''
+  return firstLine.slice(0, 40).trim() || '未命名备忘'
 }

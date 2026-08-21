@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { marked } from 'marked'
+import { renderMarkdown } from '../../utils/markdown'
 import { 
   Pin, 
   Star, 
@@ -32,13 +32,8 @@ const tagsList = computed(() => {
 
 const renderedPreview = computed(() => {
   if (!props.memo.content) return ''
-  // Strip code blocks or limit preview text for clean card display
   const truncated = props.memo.content.slice(0, 300)
-  try {
-    return marked.parse(truncated)
-  } catch {
-    return truncated
-  }
+  return renderMarkdown(truncated)
 })
 
 const colorStyles = computed(() => {
@@ -109,6 +104,20 @@ const getTypeLabel = (type: string) => {
     default: return '自由备忘'
   }
 }
+const displayTitle = computed(() => {
+  const t = (props.memo.title || '').trim()
+  if (!t || t.startsWith('```') || t.startsWith('#')) {
+    let cleaned = (t || props.memo.content || '')
+      .replace(/^```[a-zA-Z0-9_-]*\r?\n?/, '')
+      .replace(/\r?\n?```\s*$/, '')
+      .replace(/^#+\s+/, '')
+      .replace(/^>\s+/, '')
+      .trim()
+    const firstLine = cleaned.split('\n').map((l: string) => l.trim()).find((l: string) => l.length > 0) || ''
+    return firstLine.slice(0, 40).trim() || '未命名备忘'
+  }
+  return t
+})
 </script>
 
 <template>
@@ -167,7 +176,7 @@ const getTypeLabel = (type: string) => {
 
       <!-- Title -->
       <h3 class="text-base font-bold text-white/95 group-hover:text-white transition-colors mb-2 leading-snug line-clamp-2">
-        {{ memo.title || '无标题备忘' }}
+        {{ displayTitle }}
       </h3>
 
       <!-- Todo Checklist Progress Bar (if todo items exist) -->

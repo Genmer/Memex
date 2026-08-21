@@ -18,9 +18,10 @@ import {
   X,
   ChevronDown,
   Sparkles,
-  Tag
+  Tag,
+  FileText
 } from 'lucide-vue-next'
-import { renderMarkdown, copyCodeFromClick } from '../../utils/markdown'
+import { renderMarkdown, copyCodeFromClick, extractCleanTitle } from '../../utils/markdown'
 import { useToast } from '../../composables/useToast'
 
 const toast = useToast()
@@ -170,12 +171,27 @@ const handleContentChange = () => {
   isSaved.value = false
 }
 
+
+const getCleanTitle = (memo: any) => {
+  const t = (memo.title || '').trim()
+  if (!t || t.startsWith('```') || t.startsWith('#')) {
+    return extractCleanTitle(t || memo.content)
+  }
+  return t
+}
+
 const handleSaveCurrent = () => {
   if (!selectedId.value && !currentTitle.value.trim() && !currentContent.value.trim()) return
 
+  let finalTitle = currentTitle.value.trim()
+  if (!finalTitle || finalTitle.startsWith('```') || finalTitle.startsWith('#')) {
+    finalTitle = extractCleanTitle(finalTitle ? finalTitle : currentContent.value)
+    currentTitle.value = finalTitle
+  }
+
   emit('save', {
     id: selectedId.value,
-    title: currentTitle.value.trim() || '未命名备忘',
+    title: finalTitle,
     content: currentContent.value,
     folder: currentFolder.value,
     note_type: currentNoteType.value,
@@ -240,8 +256,53 @@ const currentCodeLang = computed(() => {
 
 const getLangLabel = (val: string) => {
   if (!val) return '代码块'
-  const item = codeLanguages.find(l => l.value === val)
+  const item = codeLanguages.find(l => l.value.toLowerCase() === val.toLowerCase())
   return item ? item.label.split(' ')[0] : val.toUpperCase()
+}
+
+const removeCodeBlock = () => {
+  showCodeMenu.value = false
+  selectedCodeLang.value = ''
+
+  const trimmed = currentContent.value.trim()
+  // 1. If entire content is wrapped in a code block ```lang\n...\n```
+  const fullBlockMatch = trimmed.match(/^```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n?```$/)
+  if (fullBlockMatch) {
+    currentContent.value = fullBlockMatch[1] + '\n'
+    isSaved.value = false
+    toast.success('已清除代码块格式，恢复普通文本')
+    return
+  }
+
+  // 2. If user has text selected in textarea wrapped in ```...```
+  if (editorTextarea.value) {
+    const textarea = editorTextarea.value
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = currentContent.value.substring(start, end)
+
+    if (selectedText) {
+      const selMatch = selectedText.trim().match(/^```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n?```$/)
+      if (selMatch) {
+        const unwrapped = selMatch[1]
+        currentContent.value = currentContent.value.substring(0, start) + unwrapped + currentContent.value.substring(end)
+        isSaved.value = false
+        toast.success('已解除所选区域的代码块')
+        return
+      }
+    }
+  }
+
+  // 3. Fallback: if content starts with ```
+  if (trimmed.startsWith('```')) {
+    const stripped = trimmed.replace(/^```[a-zA-Z0-9_-]*\r?\n?/, '').replace(/\r?\n?```$/, '')
+    currentContent.value = stripped + '\n'
+    isSaved.value = false
+    toast.success('已清除代码块标记')
+    return
+  }
+
+  toast.info('已取消格式选择，当前为普通文本')
 }
 
 const applyCodeLanguage = (lang: string) => {
@@ -367,12 +428,22 @@ const handleClickOutside = (e: MouseEvent) => {
   }
 }
 
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && showCodeMenu.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    showCodeMenu.value = false
+  }
+}
+
 onMounted(() => {
   window.addEventListener('click', handleClickOutside)
+  window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -420,7 +491,7 @@ onUnmounted(() => {
             </div>
           </div>
           <h4 class="text-xs font-bold text-white/90 truncate">
-            {{ memo.title || '无标题' }}
+            {{ getCleanTitle(memo) }}
           </h4>
           <p class="text-[11px] text-white/50 truncate font-sans">
             {{ memo.content?.slice(0, 50) || '无内容' }}
@@ -441,17 +512,20 @@ onUnmounted(() => {
           <div class="flex items-center gap-2 flex-1">
             <!-- Folder Select & Create -->
             <div v-if="!isAddingFolder" class="flex items-center gap-1">
-              <select 
-                v-model="currentFolder"
-                @change="handleFolderSelect"
-                class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white/80 focus:outline-none cursor-pointer"
-              >
-                <option v-for="f in allFolders" :key="f" :value="f">{{ f }}</option>
-                <option value="__new__">+ 新建分类...</option>
-              </select>
+              <div class="relative inline-flex items-center">
+                <select 
+                  v-model="currentFolder"
+                  @change="handleFolderSelect"
+                  class="appearance-none pl-2.5 pr-7 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white/80 focus:outline-none cursor-pointer"
+                >
+                  <option v-for="f in allFolders" :key="f" :value="f" class="bg-[#181b26] text-white">{{ f }}</option>
+                  <option value="__new__" class="bg-[#181b26] text-purple-300">+ 新建分类...</option>
+                </select>
+                <ChevronDown :size="11" class="absolute right-2 pointer-events-none opacity-50 text-white/60" />
+              </div>
               <button 
                 @click="startAddingFolder" 
-                class="p-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/50 hover:text-white border border-white/10 transition-colors"
+                class="p-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/50 hover:text-white border border-white/10 transition-colors cursor-pointer"
                 title="新建分类"
               >
                 <Plus :size="12" />
@@ -628,34 +702,75 @@ onUnmounted(() => {
           
           <!-- Code Block Dropdown -->
           <div class="relative inline-flex items-center" ref="codeMenuRef">
-            <button 
-              @click.stop="showCodeMenu = !showCodeMenu"
-              class="px-2 py-0.5 rounded-lg hover:bg-white/10 hover:text-white flex items-center gap-1 transition-colors text-xs cursor-pointer border"
+            <!-- Invisible Backdrop to reliably close dropdown when clicking anywhere -->
+            <div 
+              v-if="showCodeMenu" 
+              class="fixed inset-0 z-40 bg-transparent cursor-default" 
+              @click.stop="showCodeMenu = false"
+            ></div>
+
+            <!-- Format Trigger Button -->
+            <div 
+              class="inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden"
               :class="currentCodeLang 
-                ? 'bg-purple-600/25 border-purple-500/50 text-purple-200 font-semibold' 
-                : 'border-white/10 text-white/60 hover:border-white/20'"
-              title="切换/插入代码块语言格式"
+                ? 'bg-purple-600/25 border-purple-500/50 text-purple-200' 
+                : 'border-white/10 text-white/60 hover:border-white/20 hover:bg-white/10'"
             >
-              <Code2 :size="13" :class="currentCodeLang ? 'text-purple-300' : 'text-white/60'" />
-              <span>{{ currentCodeLang ? `格式: ${getLangLabel(currentCodeLang)}` : '代码块格式' }}</span>
-              <ChevronDown :size="10" class="opacity-60 ml-0.5" />
-            </button>
+              <button 
+                @click.stop="showCodeMenu = !showCodeMenu"
+                class="px-2 py-0.5 flex items-center gap-1 text-xs cursor-pointer hover:text-white"
+                :class="currentCodeLang ? 'font-semibold' : ''"
+                title="切换/插入代码块语言格式 (JSON, Properties, YAML, HTML等)"
+              >
+                <Code2 :size="13" :class="currentCodeLang ? 'text-purple-300' : 'text-white/60'" />
+                <span>{{ currentCodeLang ? `格式: ${getLangLabel(currentCodeLang)}` : '代码块格式' }}</span>
+                <ChevronDown :size="10" class="opacity-60 ml-0.5" />
+              </button>
+              <button 
+                v-if="currentCodeLang"
+                @click.stop="removeCodeBlock"
+                class="px-1.5 py-0.5 hover:bg-purple-500/30 text-purple-300 hover:text-white transition-colors cursor-pointer border-l border-purple-500/30"
+                title="取消代码块格式，恢复为普通文本"
+              >
+                <X :size="11" />
+              </button>
+            </div>
 
             <!-- Dropdown Language Menu -->
             <div 
               v-if="showCodeMenu" 
-              class="absolute top-full left-0 mt-1.5 w-60 bg-[#181b26] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
+              class="absolute top-full left-0 mt-1.5 w-64 bg-[#181b26] border border-white/15 rounded-xl shadow-2xl z-50 p-2 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl"
             >
               <div class="px-2 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1.5 flex items-center justify-between">
                 <span>选择代码/配置语言</span>
-                <span class="text-[9px] font-mono text-purple-400">```lang</span>
+                <button 
+                  @click.stop="showCodeMenu = false"
+                  class="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors cursor-pointer"
+                  title="取消 / 关闭菜单"
+                >
+                  <X :size="12" />
+                </button>
               </div>
+
+              <!-- Clear/Cancel Code Block Option -->
+              <button 
+                @click="removeCodeBlock"
+                class="w-full px-2.5 py-1.5 mb-1 rounded-lg text-xs text-left flex items-center justify-between transition-colors group cursor-pointer border border-dashed border-white/10 hover:border-white/25 hover:bg-white/5 text-white/70 hover:text-white"
+                title="取消代码块包裹，还原为纯文本"
+              >
+                <div class="flex items-center gap-2">
+                  <FileText :size="13" class="text-white/40 group-hover:text-purple-300 shrink-0" />
+                  <span>纯普通文本 (取消/清除代码块)</span>
+                </div>
+                <span class="text-[10px] font-mono opacity-40 group-hover:opacity-100 group-hover:text-purple-300">无格式</span>
+              </button>
+
               <div class="max-h-48 overflow-y-auto space-y-0.5 pr-1">
                 <button 
                   v-for="l in codeLanguages" 
                   :key="l.value"
                   @click="applyCodeLanguage(l.value)"
-                  class="w-full px-2 py-1.5 rounded-lg text-xs text-left flex items-center justify-between transition-colors group cursor-pointer"
+                  class="w-full px-2.5 py-1.5 rounded-lg text-xs text-left flex items-center justify-between transition-colors group cursor-pointer"
                   :class="currentCodeLang === l.value ? 'bg-purple-600/30 text-purple-200 font-bold' : 'text-white/80 hover:text-white hover:bg-white/5'"
                 >
                   <div class="flex items-center gap-2">

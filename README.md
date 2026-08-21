@@ -16,6 +16,10 @@ Memex 的诞生正是为了解决这些“记忆孤岛”。
 
 ## ✨ 核心特性 (Features)
 
+- **☁️ GitLite 云端/本地多端同步引擎**：零服务器成本与运维负担，默认以 GitLite 作为主存储与全库同步基座，全站备忘录、技能指令、项目记忆、配置与扫描路径实时双向同步。
+- **🔐 网页授权一键登录 (免 Token · 自动建仓)**：支持国内免翻 **Gitee 码云**官方 OAuth 授权与 **GitHub** Device Flow，点击「同意授权」后全自动创建私有数据库仓库并挂载。
+- **⚡ 智能回调与双向唤醒闭环**：macOS 原生 TCP 监听 `18365` 端口秒级自动捕获授权回调；网页端提供「📋 点击复制授权码」与「🚀 直接跳转唤醒客户端」双保险；客户端支持剪贴板智能一键注入。
+- **🔄 主动/手动双向秒级同步 (Pull & Push)**：在顶部状态胶囊或管理弹窗中随时一键发起双向同步，主动拉取云端分支更新并推送本地修改。
 - **🚀 极速本地扫描**：由底层 Rust 引擎提供的高效并行扫描，支持自动探测常用的 AI 框架路径（`.trae-cn`, `.zcode`, `.claude`, `.agents` 等）。
 - **⌨️ 快捷键命令面板 (⌘K Omnibar)**：随时按下 `⌘K` 或 `Ctrl+K` 唤起浮动命令面板，支持模糊搜索 Skills / Memories 以及一键执行扫描、新建、备份等全局指令。
 - **📊 核心大盘与多源冲突诊断**：统计全库多工具资产分布（Donut Chart），并实时诊断同名技能在不同框架下的优先级覆写与冲突胜出者。
@@ -30,7 +34,8 @@ Memex 的诞生正是为了解决这些“记忆孤岛”。
 ## 🛠️ 技术栈 (Tech Stack)
 
 - **Frontend**: Vue 3 (Composition API), Vite, TailwindCSS
-- **Backend (Desktop)**: Tauri, Rust, SQLite
+- **Storage & Sync Engine**: GitLite (Git-backed serverless database), SQLite (Local Cache)
+- **Backend (Desktop)**: Tauri v2, Rust
 - **Icons**: Lucide Vue Next
 - **LLM Integration**: Reqwest (Rust HTTP Client for OpenAI-compatible endpoints)
 
@@ -69,54 +74,47 @@ Memex 的诞生正是为了解决这些“记忆孤岛”。
 
 ## 📖 使用指南 (Usage)
 
-1. **快捷键与命令面板**
+1. **GitLite 云端数据库同步**
+   - 点击顶部状态栏的 **GitLite 云端数据库胶囊**。
+   - 点击 **「登录 Gitee 码云账号」**（国内免翻，极速秒连）或 GitHub。
+   - 系统将自动打开系统默认浏览器，在授权页点击「同意授权」后即可自动完成私有仓库创建与连接挂载。
+   - 可随时点击 **「⚡ 立即主动同步云端」** 进行双向拉取与推送。
+
+2. **快捷键与命令面板**
    - 按下 `⌘K` (Mac) 或 `Ctrl+K` (Windows/Linux) 随时打开全局命令面板。
    - 输入关键词快速模糊检索技能，或者使用上下方向键导航并按回车直接打开详情抽屉或执行操作。
 
-2. **配置 AI 助手**
+3. **配置 AI 助手**
    - 进入应用的【设置】（左侧边栏底部的齿轮图标）。
    - 在底部输入你的 DeepSeek API Key（或其他兼容格式的 API Key）。
    - 填写要使用的模型名称（默认：`deepseek-chat` 或 `deepseek-reasoner`）。
 
-3. **管理扫描目标 (Scan Targets)**
+4. **管理扫描目标 (Scan Targets)**
    - 在【设置】中，通过“扫描目标管理器”点击【添加路径】。
    - 选择你需要让 Memex 接管监控的文件夹。应用会自动赋予对应目录不同的优先级。
    - 默认自带常用的 `~/.agents/skills` 及 `~/.gemini/config` 的扫描规则。
-
-4. **查看与同步**
-   - 点击顶部右上角的 **[扫描本地数据]** 按钮，应用会调用 Rust 后端将所有 Markdown 沉淀迅速转化为本地数据库结构。
-   - 在 Dashboard 或 Skills 面板中，即可使用搜索、收藏及复制（Copy with Prefix）功能。
 
 ---
 
 ## 📝 更新日志 (Changelog)
 
-### v1.3.0 (Latest)
-- **[AI] 🤖 英文技能 AI 通俗中文释义与分类提炼**：针对大量纯英文、冗长复杂的 Prompt 技能，引入 DeepSeek 驱动的语义理解引擎，自动提炼一针见血、通俗易懂的中文一句话用途（25-45字）、精准中文分类（如：代码架构、调试排错、测试部署等）与中文技术标签。
-- **[UI/UX] 悬浮即现与卡片胶囊**：在单行列表视图和网格卡片视图中，直观呈现 AI 中文分类胶囊与释义；鼠标悬浮即时显示完整用途解释；支持在详情抽屉中一键重新解析或手动编辑。
-- **[Batch] ⚡ 批量 AI 语义提炼**：在批量操作模式下一键批量并发解析多项技能，全自动入库 SQLite 持久化并融合进全局搜索索引。
-- **[Search] 🔍 中文反向检索英文技能**：搜索框与 ⌘K 命令面板全面支持通过 AI 提炼的中文用途和分类进行极速模糊匹配，用中文即可瞬间定位纯英文技能。
+### v1.0.2 (Latest)
+- **[GitLite] ☁️ 全面接入 GitLite 作为默认主存储引擎**：备忘录、技能、工程记忆、AI 配置与扫描路径默认直连 GitLite，实现无服务器多端云同步。
+- **[OAuth] 🔐 Gitee 官方应用一键授权集成**：官方授权应用名称统一为 `gitlite`，支持国内免翻极速秒连与自动建仓。
+- **[Desktop] ⚡ 原生浏览器唤起与 TCP 回调**：修复 macOS 原生桌面环境下外部浏览器唤起与 18365 端口 TCP 回调捕获。
+- **[Sync] 🔄 主动/手动双向同步**：新增显式主动同步按钮（Pull & Push），支持毫秒级冲突解决与增量提交。
+- **[UI/UX] 🌟 授权成功页交互闭环**：授权成功页新增「一键复制授权码」与「直接跳转唤醒客户端」双保险；客户端弹窗支持剪贴板智能一键自动注入。
+- **[Design] 🍞 全站 Toast 统一**：全面移除浏览器原生阻塞式 `alert()`，接入非阻塞毛玻璃 Toast 提示。
 
-### v1.2.0
-- **[Theme]** 全新支持**浅色模式 (Light ☀️)、深色模式 (Dark 🌙) 与跟随系统 (Auto 💻)** 三档主题一键切换，完美适配 macOS 浅色与深邃 Midnight 空间美学。
-- **[Performance]** 突破性性能重构：引入 `content-visibility: auto` 与硬件加速，优化超大列表分批流式挂载（消除百项 DOM 瞬间初始化冻结），移除重复卡片的高开销 GPU backdrop-filter，标签切换与滚动帧率稳定在 60 FPS！
-- **[Markdown]** 集成全新的 GFM Markdown 渲染引擎，支持深浅双主题代码语法高亮与一键复制代码块。
+### v1.0.1
+- **[Core]** 优化 SQLite 向 GitLite 首次启动无损平滑迁移机制。
+- **[Fix]** 修复 Gitee OAuth 授权参数与回调兼容性。
 
-### v1.1.0
-- **[Feature]** 新增 **⌘K 全局命令面板 (Command Palette / Omnibar)**，支持模糊搜索、动作直达与纯键盘流畅操作。
-- **[Feature]** 列表视图全新升级为**单行紧凑数据表格流 (Single-Row Data Table)**，信息密度提升 300%，彻底消除文字重叠。
-- **[Feature]** 记忆库支持**按项目聚类视图 (Project Clustered View)**，自动解析 Trae / ZCode 工程哈希目录为真实项目名。
-- **[Feature]** 新增**资产批量管理模式 (Batch Operations)**，支持多选、批量收藏、批量追加标签与批量删除。
-- **[Feature]** Dashboard 新增**多源技能覆写与冲突健康诊断看板**，实时洞悉同名 Skill 胜出优先级。
-- **[Core]** 优化标签解析与清洗引擎，彻底过滤多行 YAML 块标记（`>`、`|`）脏数据，支持全局跨源智能跳转。
-
-### v1.0.0-alpha
-- **[Feature]** 完成基础 Tauri 框架搭建，集成 SQLite 数据持久化。
-- **[Feature]** 实现 SkillCard 和 MemoryCard，采用极简 Glassmorphism 毛玻璃特效。
-- **[UI/UX]** 新增网格 (Grid) 与列表 (List) 双重视图一键切换，自适应渲染。
-- **[Core]** 构建了动态扫描目标管理器 (Scan Targets Manager)，放弃僵化的单例配置，升级为多路并发智能扫描。
-- **[Core]** 引入基于优先级的同名技能覆写机制（解决跨级重复与冲突问题）。
-- **[AI]** 搭建 AiChatPanel，支持通过大模型自动分析诊断环境错误，甚至通过大模型输出指令来热修复本地 `configs` 表。
+### v1.0.0
+- **[Feature]** 完成基础 Tauri 框架搭建与资产可视化中枢。
+- **[Feature]** 实现 SkillCard 和 MemoryCard 极简 Glassmorphism 毛玻璃特效。
+- **[AI]** 搭建 AiChatPanel，支持通过大模型自动分析诊断环境错误。
 
 ---
 *Built with passion for the Agentic AI Ecosystem.*
+

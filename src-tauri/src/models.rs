@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub id: i64,
     pub key_name: String,
@@ -11,7 +11,7 @@ pub struct Config {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Memory {
     pub id: i64,
     pub name: String,
@@ -27,7 +27,7 @@ pub struct Memory {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Skill {
     pub id: i64,
     pub name: String,
@@ -45,7 +45,7 @@ pub struct Skill {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScanTarget {
     pub id: i64,
     pub path: String,
@@ -54,6 +54,7 @@ pub struct ScanTarget {
     pub is_enabled: bool,
     pub created_at: String,
 }
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SkillAiAnalysisResult {
@@ -184,4 +185,15 @@ pub struct MemoFolderSummary {
 pub struct MemoTagSummary {
     pub name: String,
     pub count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SqliteExportDump {
+    pub skills: Vec<Skill>,
+    pub memories: Vec<Memory>,
+    pub memos: Vec<Memo>,
+    pub configs: Vec<Config>,
+    pub scan_targets: Vec<ScanTarget>,
+    pub category_syntheses: Vec<CategorySynthesisResult>,
+    pub ai_usage_logs: Vec<AiUsageLog>,
 }

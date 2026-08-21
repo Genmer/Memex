@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { marked } from 'marked'
+import { renderMarkdown } from '../../utils/markdown'
 import { 
   CheckSquare, 
   Pin, 
@@ -44,17 +44,24 @@ const groupedTimeline = computed(() => {
   return groups
 })
 
-const renderMarkdown = (text: string) => {
-  try {
-    return marked.parse(text || '')
-  } catch {
-    return text
-  }
-}
-
 const getTags = (tagsStr?: string) => {
   if (!tagsStr) return []
   return tagsStr.split(',').map(t => t.trim()).filter(Boolean)
+}
+
+const getCleanTitle = (memo: any) => {
+  const t = (memo.title || '').trim()
+  if (!t || t.startsWith('```') || t.startsWith('#')) {
+    let cleaned = (t || memo.content || '')
+      .replace(/^```[a-zA-Z0-9_-]*\r?\n?/, '')
+      .replace(/\r?\n?```\s*$/, '')
+      .replace(/^#+\s+/, '')
+      .replace(/^>\s+/, '')
+      .trim()
+    const firstLine = cleaned.split('\n').map((l: string) => l.trim()).find((l: string) => l.length > 0) || ''
+    return firstLine.slice(0, 40).trim() || '未命名备忘'
+  }
+  return t
 }
 </script>
 
@@ -118,7 +125,7 @@ const getTags = (tagsStr?: string) => {
 
           <!-- Title -->
           <h4 class="text-base font-bold text-white mb-2 group-hover:text-indigo-300 transition-colors">
-            {{ memo.title }}
+            {{ getCleanTitle(memo) }}
           </h4>
 
           <!-- Todo checklist info -->

@@ -151,8 +151,10 @@ const setMode = (mode: 'agent' | 'memo') => {
         </div>
         <span class="font-semibold text-base tracking-wide text-white/90">{{ t('app.title') }}</span>
       </div>
-      <span class="text-[10px] font-mono text-white/40 px-1.5 py-0.5 rounded bg-white/5">v0.1.0</span>
+      <span class="text-[10px] font-mono text-indigo-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30">v1.0.2</span>
     </div>
+
+
 
     <!-- Workspace Mode Switcher (Agent 武器库 vs 备忘与日志) -->
     <div class="p-3 border-b border-white/5 bg-black/10">
@@ -291,9 +293,14 @@ const setMode = (mode: 'agent' | 'memo') => {
         </button>
       </div>
 
-      <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言 / Toggle Language">
-        <Globe :size="15" />
-      </button>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] font-mono text-white/30 tracking-tight">v1.0.2</span>
+        <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors" title="切换语言 / Toggle Language">
+
+          <Globe :size="15" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
+

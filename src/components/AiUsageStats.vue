@@ -16,6 +16,7 @@ import {
   Clock
 } from 'lucide-vue-next'
 import { useToast } from '../composables/useToast'
+import { gitliteDb } from '../services/gitliteDb'
 
 const toast = useToast()
 
@@ -59,17 +60,22 @@ const formatNumber = (val: number) => {
 const loadData = async () => {
   isLoading.value = true
   try {
-    const statsData: any = await invoke('get_ai_usage_stats', {
-      timeRange: timeRange.value
-    })
-    stats.value = statsData
+    let statsData: any = await gitliteDb.getAiUsageDashboardStats()
+    let logsData: any = await gitliteDb.getAiUsageLogs(100)
 
-    const logsData: any = await invoke('get_ai_usage_logs', {
-      limit: 100,
-      offset: 0,
-      actionType: selectedActionFilter.value === 'all' ? null : selectedActionFilter.value
-    })
-    logs.value = logsData
+    if ((!logsData || logsData.length === 0) && (!statsData || statsData.total_tokens === 0)) {
+      try {
+        statsData = await invoke('get_ai_usage_stats', { timeRange: timeRange.value })
+        logsData = await invoke('get_ai_usage_logs', {
+          limit: 100,
+          offset: 0,
+          actionType: selectedActionFilter.value === 'all' ? null : selectedActionFilter.value
+        })
+      } catch (e) {}
+    }
+
+    stats.value = statsData || stats.value
+    logs.value = logsData || []
   } catch (err: any) {
     toast.error('加载统计数据失败: ' + err)
   } finally {
@@ -80,13 +86,15 @@ const loadData = async () => {
 const clearLogs = async () => {
   if (!confirm('确定要清空所有 AI Token 消耗历史记录吗？此操作不可恢复。')) return
   try {
-    await invoke('clear_ai_usage_logs')
-    toast.success('已清空使用日志')
+    await gitliteDb.clearAiUsageLogs()
+    invoke('clear_ai_usage_logs').catch(() => {})
+    toast.success('已清空使用日志 (GitLite 同步)')
     await loadData()
   } catch (err: any) {
     toast.error('清空失败: ' + err)
   }
 }
+
 
 watch([timeRange, selectedActionFilter], () => {
   loadData()

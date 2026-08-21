@@ -21,9 +21,12 @@ import {
   Plus,
   Check,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  FileText,
+  Brain,
+  Calendar
 } from 'lucide-vue-next'
-import { renderMarkdown, copyCodeFromClick } from '../../utils/markdown'
+import { renderMarkdown, copyCodeFromClick, extractCleanTitle } from '../../utils/markdown'
 import { useToast } from '../../composables/useToast'
 
 const toast = useToast()
@@ -186,8 +189,50 @@ const currentCodeLang = computed(() => {
 
 const getLangLabel = (val: string) => {
   if (!val) return '代码块'
-  const item = codeLanguages.find(l => l.value === val)
+  const item = codeLanguages.find(l => l.value.toLowerCase() === val.toLowerCase())
   return item ? item.label.split(' ')[0] : val.toUpperCase()
+}
+
+const removeCodeBlock = () => {
+  showCodeMenu.value = false
+  selectedCodeLang.value = ''
+
+  const trimmed = content.value.trim()
+  // 1. If entire content is wrapped in a code block ```lang\n...\n```
+  const fullBlockMatch = trimmed.match(/^```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n?```$/)
+  if (fullBlockMatch) {
+    content.value = fullBlockMatch[1] + '\n'
+    toast.success('已清除代码块格式，恢复普通文本')
+    return
+  }
+
+  // 2. If user has text selected in textarea wrapped in ```...```
+  if (editorTextarea.value) {
+    const textarea = editorTextarea.value
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = content.value.substring(start, end)
+
+    if (selectedText) {
+      const selMatch = selectedText.trim().match(/^```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n?```$/)
+      if (selMatch) {
+        const unwrapped = selMatch[1]
+        content.value = content.value.substring(0, start) + unwrapped + content.value.substring(end)
+        toast.success('已解除所选区域的代码块')
+        return
+      }
+    }
+  }
+
+  // 3. Fallback if starts with ```
+  if (trimmed.startsWith('```')) {
+    const stripped = trimmed.replace(/^```[a-zA-Z0-9_-]*\r?\n?/, '').replace(/\r?\n?```$/, '')
+    content.value = stripped + '\n'
+    toast.success('已清除代码块标记')
+    return
+  }
+
+  toast.info('已清除格式选择，当前为普通文本')
 }
 
 const applyCodeLanguage = (lang: string) => {
@@ -309,7 +354,7 @@ const handleClickOutside = (e: MouseEvent) => {
 }
 
 const colorOptions = [
-  { id: 'default', label: '默认石墨', class: 'bg-white/15 border-white/30' },
+  { id: 'default', label: '默认石墨', class: 'bg-slate-400 border-slate-500' },
   { id: 'indigo', label: '深海靛紫', class: 'bg-indigo-500 border-indigo-400' },
   { id: 'emerald', label: '翡翠葱绿', class: 'bg-emerald-500 border-emerald-400' },
   { id: 'amber', label: '日落暖橙', class: 'bg-amber-500 border-amber-400' },
@@ -317,6 +362,7 @@ const colorOptions = [
   { id: 'cyan', label: '极光霓青', class: 'bg-cyan-500 border-cyan-400' },
   { id: 'purple', label: '星河梦幻', class: 'bg-purple-500 border-purple-400' }
 ]
+
 
 const insertMarkdown = (before: string, after: string = '', defaultText: string = '') => {
   if (!editorTextarea.value) return
@@ -341,8 +387,8 @@ const insertTimestamp = () => {
 }
 
 const handleSave = () => {
-  if (!title.value.trim()) {
-    title.value = content.value.slice(0, 30).trim() || '未命名备忘'
+  if (!title.value.trim() || title.value.trim().startsWith('```')) {
+    title.value = extractCleanTitle(title.value.trim() ? title.value : content.value)
   }
 
   const payload = {
@@ -362,11 +408,17 @@ const handleSave = () => {
 
 const handleKeydown = (e: KeyboardEvent) => {
   if (!props.show) return
-  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+  if (e.key === 'Escape') {
+    if (showCodeMenu.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      showCodeMenu.value = false
+      return
+    }
+    emit('close')
+  } else if ((e.metaKey || e.ctrlKey) && e.key === 's') {
     e.preventDefault()
     handleSave()
-  } else if (e.key === 'Escape') {
-    emit('close')
   }
 }
 
@@ -393,38 +445,43 @@ onUnmounted(() => {
           <div class="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10">
             <button 
               @click="noteType = 'markdown'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              :class="noteType === 'markdown' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              :class="noteType === 'markdown' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
-              📝 笔记
+              <FileText :size="12" />
+              <span>笔记</span>
             </button>
             <button 
               @click="noteType = 'memory'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              :class="noteType === 'memory' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              :class="noteType === 'memory' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
-              🧠 记忆
+              <Brain :size="12" />
+              <span>记忆</span>
             </button>
             <button 
               @click="noteType = 'journal'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              :class="noteType === 'journal' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              :class="noteType === 'journal' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
-              📅 日志
+              <Calendar :size="12" />
+              <span>日志</span>
             </button>
             <button 
               @click="noteType = 'todo'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              :class="noteType === 'todo' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              :class="noteType === 'todo' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
-              ✅ 待办
+              <CheckSquare :size="12" />
+              <span>待办</span>
             </button>
             <button 
               @click="noteType = 'fleeting'"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              :class="noteType === 'fleeting' ? 'bg-indigo-600 text-white font-bold' : 'text-white/50 hover:text-white'"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              :class="noteType === 'fleeting' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
-              ⚡ 灵感
+              <Sparkles :size="12" />
+              <span>灵感</span>
             </button>
           </div>
 
@@ -434,7 +491,7 @@ onUnmounted(() => {
               v-for="c in colorOptions" 
               :key="c.id"
               @click="color = c.id as any"
-              class="w-4 h-4 rounded-full border transition-transform hover:scale-125 relative"
+              class="w-4 h-4 rounded-full border transition-transform hover:scale-125 relative cursor-pointer"
               :class="[c.class, color === c.id ? 'ring-2 ring-white scale-110' : 'opacity-70']"
               :title="c.label"
             ></button>
@@ -446,7 +503,7 @@ onUnmounted(() => {
           <!-- Pin & Star -->
           <button 
             @click="isPinned = !isPinned"
-            class="p-2 rounded-xl border transition-all"
+            class="p-2 rounded-xl border transition-all cursor-pointer"
             :class="isPinned ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'"
             title="置顶"
           >
@@ -454,7 +511,7 @@ onUnmounted(() => {
           </button>
           <button 
             @click="isFavorite = !isFavorite"
-            class="p-2 rounded-xl border transition-all"
+            class="p-2 rounded-xl border transition-all cursor-pointer"
             :class="isFavorite ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'"
             title="收藏"
           >
@@ -522,17 +579,20 @@ onUnmounted(() => {
             <span class="text-white/50 font-medium">分类:</span>
             
             <div v-if="!isAddingFolder" class="flex items-center gap-1">
-              <select 
-                v-model="folder"
-                @change="handleFolderSelect"
-                class="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white font-medium focus:outline-none focus:border-indigo-500/50 cursor-pointer"
-              >
-                <option v-for="f in allFolders" :key="f" :value="f">{{ f }}</option>
-                <option value="__new__">+ 新建分类...</option>
-              </select>
+              <div class="relative inline-flex items-center">
+                <select 
+                  v-model="folder"
+                  @change="handleFolderSelect"
+                  class="appearance-none pl-2.5 pr-7 py-1 bg-white/5 border border-white/10 rounded-lg text-white font-medium focus:outline-none focus:border-indigo-500/50 cursor-pointer text-xs"
+                >
+                  <option v-for="f in allFolders" :key="f" :value="f" class="bg-[#181b26] text-white">{{ f }}</option>
+                  <option value="__new__" class="bg-[#181b26] text-purple-300">+ 新建分类...</option>
+                </select>
+                <ChevronDown :size="11" class="absolute right-2 pointer-events-none opacity-50 text-white/60" />
+              </div>
               <button 
                 @click="startAddingFolder" 
-                class="p-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/10 transition-colors"
+                class="p-1 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white border border-white/10 transition-colors cursor-pointer"
                 title="新建分类"
               >
                 <Plus :size="13" />
@@ -631,18 +691,39 @@ onUnmounted(() => {
 
         <!-- Code Block Language Dropdown -->
         <div class="relative inline-flex items-center" ref="codeMenuRef">
-          <button 
-            @click.stop="showCodeMenu = !showCodeMenu" 
-            class="px-2.5 py-1 rounded-lg hover:bg-white/10 hover:text-white flex items-center gap-1.5 transition-all border text-xs cursor-pointer shadow-sm"
+          <!-- Invisible Backdrop to reliably close dropdown when clicking anywhere -->
+          <div 
+            v-if="showCodeMenu" 
+            class="fixed inset-0 z-40 bg-transparent cursor-default" 
+            @click.stop="showCodeMenu = false"
+          ></div>
+
+          <!-- Format Trigger Button -->
+          <div 
+            class="inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden"
             :class="currentCodeLang 
-              ? 'bg-purple-600/25 border-purple-500/50 text-purple-200 font-semibold' 
-              : 'border-white/10 text-white/70 hover:border-white/20'"
-            title="切换/插入代码块语言格式 (JSON, Properties, YAML, HTML等)"
+              ? 'bg-purple-600/25 border-purple-500/50 text-purple-200' 
+              : 'border-white/10 text-white/70 hover:border-white/20 hover:bg-white/10'"
           >
-            <Code2 :size="14" :class="currentCodeLang ? 'text-purple-300' : 'text-white/60'" />
-            <span>{{ currentCodeLang ? `格式: ${getLangLabel(currentCodeLang)}` : '代码块格式' }}</span>
-            <ChevronDown :size="11" class="opacity-60 ml-0.5" />
-          </button>
+            <button 
+              @click.stop="showCodeMenu = !showCodeMenu" 
+              class="px-2.5 py-1 flex items-center gap-1.5 text-xs cursor-pointer hover:text-white"
+              :class="currentCodeLang ? 'font-semibold' : ''"
+              title="切换/插入代码块语言格式 (JSON, Properties, YAML, HTML等)"
+            >
+              <Code2 :size="14" :class="currentCodeLang ? 'text-purple-300' : 'text-white/60'" />
+              <span>{{ currentCodeLang ? `格式: ${getLangLabel(currentCodeLang)}` : '代码块格式' }}</span>
+              <ChevronDown :size="11" class="opacity-60 ml-0.5" />
+            </button>
+            <button 
+              v-if="currentCodeLang"
+              @click.stop="removeCodeBlock"
+              class="px-1.5 py-1 hover:bg-purple-500/30 text-purple-300 hover:text-white transition-colors cursor-pointer border-l border-purple-500/30"
+              title="取消代码块格式，恢复为普通文本"
+            >
+              <X :size="12" />
+            </button>
+          </div>
 
           <!-- Dropdown Language Menu -->
           <div 
@@ -651,8 +732,28 @@ onUnmounted(() => {
           >
             <div class="px-2 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider border-b border-white/5 mb-1.5 flex items-center justify-between">
               <span>选择代码/配置语言</span>
-              <span class="text-[9px] font-mono text-purple-400">```lang</span>
+              <button 
+                @click.stop="showCodeMenu = false"
+                class="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors cursor-pointer"
+                title="取消 / 关闭菜单"
+              >
+                <X :size="12" />
+              </button>
             </div>
+
+            <!-- Clear/Cancel Code Block Option -->
+            <button 
+              @click="removeCodeBlock"
+              class="w-full px-2.5 py-1.5 mb-1 rounded-lg text-xs text-left flex items-center justify-between transition-colors group cursor-pointer border border-dashed border-white/10 hover:border-white/25 hover:bg-white/5 text-white/70 hover:text-white"
+              title="取消代码块包裹，还原为纯文本"
+            >
+              <div class="flex items-center gap-2">
+                <FileText :size="13" class="text-white/40 group-hover:text-purple-300 shrink-0" />
+                <span>纯普通文本 (取消/清除代码块)</span>
+              </div>
+              <span class="text-[10px] font-mono opacity-40 group-hover:opacity-100 group-hover:text-purple-300">无格式</span>
+            </button>
+
             <div class="max-h-56 overflow-y-auto space-y-0.5 pr-1">
               <button 
                 v-for="l in codeLanguages" 

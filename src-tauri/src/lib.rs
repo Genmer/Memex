@@ -2358,6 +2358,314 @@ fn export_memos_markdown(state: State<'_, DbState>) -> Result<String, String> {
     Ok(out)
 }
 
+#[tauri::command]
+fn export_all_sqlite_data(state: State<'_, DbState>) -> Result<models::SqliteExportDump, String> {
+    let db = state.db.lock().unwrap();
+    let conn = db.as_ref().unwrap();
+
+    // 1. skills
+    let mut skills_stmt = conn
+        .prepare("SELECT id, name, content, source_tool, local_path, prefix_template, tags, summary_zh, category_zh, tags_zh, priority, is_favorite, created_at, updated_at FROM skills")
+        .map_err(|e| e.to_string())?;
+    let skills = skills_stmt
+        .query_map([], |row| {
+            Ok(models::Skill {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                content: row.get(2)?,
+                source_tool: row.get(3)?,
+                local_path: row.get(4)?,
+                prefix_template: row.get(5)?,
+                tags: row.get(6)?,
+                summary_zh: row.get(7)?,
+                category_zh: row.get(8)?,
+                tags_zh: row.get(9)?,
+                priority: row.get(10)?,
+                is_favorite: row.get(11)?,
+                created_at: row.get(12)?,
+                updated_at: row.get(13)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    // 2. memories
+    let mut memories_stmt = conn
+        .prepare("SELECT id, name, source_tool, session_id, content, tags, summary_zh, category_zh, priority, is_favorite, extracted_at, updated_at FROM memories")
+        .map_err(|e| e.to_string())?;
+    let memories = memories_stmt
+        .query_map([], |row| {
+            Ok(models::Memory {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                source_tool: row.get(2)?,
+                session_id: row.get(3)?,
+                content: row.get(4)?,
+                tags: row.get(5)?,
+                summary_zh: row.get(6)?,
+                category_zh: row.get(7)?,
+                priority: row.get(8)?,
+                is_favorite: row.get(9)?,
+                extracted_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    // 3. memos
+    let mut memos_stmt = conn
+        .prepare("SELECT id, title, content, folder, note_type, color, tags, is_pinned, is_favorite, is_archived, todo_total, todo_completed, created_at, updated_at FROM memos")
+        .map_err(|e| e.to_string())?;
+    let memos = memos_stmt
+        .query_map([], |row| {
+            Ok(models::Memo {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                content: row.get(2)?,
+                folder: row.get(3)?,
+                note_type: row.get(4)?,
+                color: row.get(5)?,
+                tags: row.get(6)?,
+                is_pinned: row.get(7)?,
+                is_favorite: row.get(8)?,
+                is_archived: row.get(9)?,
+                todo_total: row.get(10)?,
+                todo_completed: row.get(11)?,
+                created_at: row.get(12)?,
+                updated_at: row.get(13)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    // 4. configs
+    let mut configs_stmt = conn
+        .prepare("SELECT id, key_name, key_value, description, created_at, updated_at FROM configs")
+        .map_err(|e| e.to_string())?;
+    let configs = configs_stmt
+        .query_map([], |row| {
+            Ok(models::Config {
+                id: row.get(0)?,
+                key_name: row.get(1)?,
+                key_value: row.get(2)?,
+                description: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    // 5. scan_targets
+    let mut st_stmt = conn
+        .prepare("SELECT id, path, override_tool, priority, is_enabled, created_at FROM scan_targets")
+        .map_err(|e| e.to_string())?;
+    let scan_targets = st_stmt
+        .query_map([], |row| {
+            Ok(models::ScanTarget {
+                id: row.get(0)?,
+                path: row.get(1)?,
+                override_tool: row.get(2)?,
+                priority: row.get(3)?,
+                is_enabled: row.get(4)?,
+                created_at: row.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    // 6. category_syntheses
+    let mut cs_stmt = conn
+        .prepare("SELECT category_key, category_name, total_skills, overview_zh, core_capabilities, recommended_workflows, updated_at FROM category_syntheses")
+        .map_err(|e| e.to_string())?;
+    let category_syntheses = cs_stmt
+        .query_map([], |row| {
+            let core_caps_str: String = row.get(4)?;
+            let rec_wf_str: String = row.get(5)?;
+            let core_capabilities: Vec<String> = serde_json::from_str(&core_caps_str).unwrap_or_default();
+            let recommended_workflows: Vec<String> = serde_json::from_str(&rec_wf_str).unwrap_or_default();
+            Ok(models::CategorySynthesisResult {
+                category_key: row.get(0)?,
+                category_name: row.get(1)?,
+                total_skills: row.get::<_, i64>(2)? as usize,
+                overview_zh: row.get(3)?,
+                core_capabilities,
+                recommended_workflows,
+                updated_at: row.get(6)?,
+            })
+        })
+
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    // 7. ai_usage_logs
+    let mut logs_stmt = conn
+        .prepare("SELECT id, action_type, target_name, model, prompt_tokens, completion_tokens, total_tokens, duration_ms, status, error_message, created_at FROM ai_usage_logs ORDER BY created_at DESC")
+        .map_err(|e| e.to_string())?;
+    let ai_usage_logs = logs_stmt
+        .query_map([], |row| {
+            Ok(models::AiUsageLog {
+                id: row.get(0)?,
+                action_type: row.get(1)?,
+                target_name: row.get(2)?,
+                model: row.get(3)?,
+                prompt_tokens: row.get(4)?,
+                completion_tokens: row.get(5)?,
+                total_tokens: row.get(6)?,
+                duration_ms: row.get(7)?,
+                status: row.get(8)?,
+                error_message: row.get(9)?,
+                created_at: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    Ok(models::SqliteExportDump {
+        skills,
+        memories,
+        memos,
+        configs,
+        scan_targets,
+        category_syntheses,
+        ai_usage_logs,
+    })
+}
+
+#[derive(serde::Deserialize)]
+pub struct ProxyRequestOptions {
+    pub url: String,
+    pub method: String,
+    pub headers: Option<std::collections::HashMap<String, String>>,
+    pub body: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+pub struct ProxyResponse {
+    pub status: u16,
+    pub body: String,
+}
+
+#[tauri::command]
+async fn proxy_http_request(options: ProxyRequestOptions) -> Result<ProxyResponse, String> {
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let method = match options.method.to_uppercase().as_str() {
+        "POST" => reqwest::Method::POST,
+        "PUT" => reqwest::Method::PUT,
+        "DELETE" => reqwest::Method::DELETE,
+        "PATCH" => reqwest::Method::PATCH,
+        _ => reqwest::Method::GET,
+    };
+
+    let mut req = client.request(method, &options.url);
+    if let Some(headers) = options.headers {
+        for (k, v) in headers {
+            req = req.header(&k, &v);
+        }
+    }
+    if let Some(body) = options.body {
+        req = req.body(body);
+    }
+
+    let resp = req.send().await.map_err(|e| format!("Network request failed: {}", e))?;
+    let status = resp.status().as_u16();
+    let text = resp.text().await.map_err(|e| format!("Failed to read body: {}", e))?;
+
+    Ok(ProxyResponse { status, body: text })
+}
+
+#[tauri::command]
+async fn wait_for_oauth_callback(port: u16) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::net::TcpListener;
+        use std::io::{Read, Write};
+
+        let mut listener_opt = None;
+        for _ in 0..5 {
+            if let Ok(l) = TcpListener::bind(format!("127.0.0.1:{}", port)) {
+                listener_opt = Some(l);
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(300));
+        }
+
+        let listener = listener_opt.ok_or_else(|| format!("端口 {} 绑定失败，请检查端口是否被占用", port))?;
+
+        for stream in listener.incoming() {
+
+            if let Ok(mut stream) = stream {
+                let mut buffer = [0; 4096];
+                if let Ok(n) = stream.read(&mut buffer) {
+                    let req = String::from_utf8_lossy(&buffer[..n]);
+                    
+                    if let Some(pos) = req.find("code=") {
+                        let after_code = &req[pos + 5..];
+                        let code: String = after_code.chars()
+                            .take_while(|&c| c != '&' && c != ' ' && c != '\r' && c != '\n' && c != '"' && c != '\'' && c != '#')
+                            .collect();
+
+                        if !code.is_empty() {
+                            let html_template = include_str!("oauth_success.html");
+                            let final_html = html_template.replace("__CODE__", &code);
+                            let response_header = format!(
+                                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n{}",
+                                final_html.len(),
+                                final_html
+                            );
+                            stream.write_all(response_header.as_bytes()).ok();
+                            stream.flush().ok();
+
+                            return Ok(code);
+                        }
+
+                    }
+                }
+            }
+        }
+        Err("未能获取到授权码".to_string())
+    }).await.map_err(|e| e.to_string())?
+}
+
+
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &url])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2416,8 +2724,16 @@ pub fn run() {
             toggle_memo_pinned,
             toggle_memo_favorite,
             batch_delete_memos,
-            export_memos_markdown
+            export_memos_markdown,
+            export_all_sqlite_data,
+            proxy_http_request,
+            wait_for_oauth_callback,
+            open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+
+
+

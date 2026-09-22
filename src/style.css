@@ -23,13 +23,23 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: #0c0e14;
   color: #f8fafc;
-  background-image: 
+  background-image:
     radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.12), transparent 25%),
     radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.12), transparent 25%),
     radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.08), transparent 30%);
   background-attachment: fixed;
   transition: background-color 0.25s ease, color 0.25s ease;
 }
+
+/* ================= Hover 抽搐修复（WKWebView / WebView2） =================
+   Tailwind v4 的 transition-colors 会连同 --tw-gradient-* 自定义属性一起过渡，
+   渐变按钮 hover 时引发逐帧重绘 + 阴影反复栅格化，视觉上表现为按钮缩小再放大的抽搐。
+   按钮与链接一律瞬时响应，不给引擎留过渡动画窗口。 */
+button,
+a {
+  transition-duration: 0s !important;
+}
+
 
 
 /* ================= LIGHT MODE COMPREHENSIVE OVERRIDES ================= */
@@ -226,6 +236,39 @@ html.light .bg-rose-500\/20 {
 html.light .bg-cyan-500\/20 {
   background-color: #cffafe !important;
   border-color: #a5f3fc !important;
+}
+
+/* GitLite 状态横幅/胶囊在浅色下的适配（原为深色主题配色，白底上发黑发绿看不清） */
+html.light .bg-emerald-950\/30,
+html.light .bg-emerald-950\/40 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+html.light .bg-rose-950\/40,
+html.light .bg-rose-950\/60 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+html.light .bg-amber-950\/30,
+html.light .bg-amber-950\/40 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+html.light .text-emerald-100\/90,
+html.light .text-emerald-200\/90 {
+  color: #065f46 !important;
+}
+html.light .text-rose-200\/80 {
+  color: #be123c !important;
+}
+html.light .text-amber-200\/90 {
+  color: #b45309 !important;
+}
+html.light .text-neutral-200.font-medium {
+  color: #1e293b !important;
+}
+html.light .gitlite-banner-desc {
+  color: #64748b !important;
 }
 
 /* Semi-transparent white layers */

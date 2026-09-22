@@ -25,7 +25,7 @@
           {{ bannerStyles.title }}
         </span>
         <span class="text-white/30 text-[10px] shrink-0 font-mono">|</span>
-        <span class="text-[11px] truncate" :class="bannerStyles.descClass">
+        <span class="text-[11px] truncate gitlite-banner-desc" :class="bannerStyles.descClass">
           {{ liveStatusText }}
         </span>
       </div>

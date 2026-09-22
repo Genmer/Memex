@@ -561,7 +561,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           <!-- Mode Switch Button -->
           <button 
             @click="emit('switch-mode', 'agent')"
-            class="p-2 rounded-xl bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 text-white/60 hover:text-indigo-200 transition-all flex items-center gap-1 text-xs"
+            class="p-2 rounded-xl bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 text-white/60 hover:text-indigo-200 transition-colors flex items-center gap-1 text-xs"
             title="切换回 Agent 武器库"
           >
             <Bot :size="14" />
@@ -583,13 +583,13 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
       <div class="p-3 border-b border-white/5 bg-black/10">
         <button 
           @click="emit('switch-mode', 'agent')"
-          class="w-full py-2 px-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 text-xs font-semibold flex items-center justify-between transition-all group"
+          class="w-full py-2 px-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 text-xs font-semibold flex items-center justify-between transition-colors group"
         >
           <span class="flex items-center gap-2">
             <Bot :size="14" class="text-indigo-400" />
             <span>切换至 Agent 武器库</span>
           </span>
-          <ArrowLeftRight :size="13" class="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+          <ArrowLeftRight :size="13" class="opacity-60" />
         </button>
       </div>
 
@@ -605,7 +605,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           <div class="space-y-0.5 pt-1">
             <button 
               @click="selectFilter('all')"
-              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors flex items-center justify-between"
               :class="selectedFilter === 'all' && !selectedFolder && !selectedTag ? 'bg-purple-600/20 text-purple-200 font-bold border border-purple-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
             >
               <span class="flex items-center gap-2.5">
@@ -617,7 +617,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
 
             <button 
               @click="selectFilter('pinned')"
-              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors flex items-center justify-between"
               :class="selectedFilter === 'pinned' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
             >
               <span class="flex items-center gap-2.5">
@@ -629,7 +629,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
 
             <button 
               @click="selectFilter('favorite')"
-              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors flex items-center justify-between"
               :class="selectedFilter === 'favorite' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
             >
               <span class="flex items-center gap-2.5">
@@ -641,7 +641,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
 
             <button 
               @click="selectFilter('memory')"
-              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors flex items-center justify-between"
               :class="selectedFilter === 'memory' ? 'bg-purple-600/20 text-purple-200 font-bold border border-purple-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
             >
               <span class="flex items-center gap-2.5">
@@ -653,7 +653,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
 
             <button 
               @click="selectFilter('todo')"
-              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors flex items-center justify-between"
               :class="selectedFilter === 'todo' ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
             >
               <span class="flex items-center gap-2.5">
@@ -667,7 +667,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
 
             <button 
               @click="selectFilter('journal')"
-              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center justify-between"
+              class="w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors flex items-center justify-between"
               :class="selectedFilter === 'journal' ? 'bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/40 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/5'"
             >
               <span class="flex items-center gap-2.5">
@@ -714,7 +714,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
               v-for="folder in displayFolders" 
               :key="folder.name"
               @click="selectFolder(folder.name)"
-              class="w-full py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-center justify-between group"
+              class="w-full py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors flex items-center justify-between group"
               :class="[
                 selectedFolder === folder.name 
                   ? 'bg-purple-600/20 text-purple-200 border border-purple-500/40 font-bold' 
@@ -733,7 +733,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
                 <!-- Add Subfolder Button -->
                 <button
                   @click="handleAddSubFolder(folder.name, $event)"
-                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-purple-300 hover:bg-white/10 rounded transition-all cursor-pointer"
+                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-purple-300 hover:bg-white/10 rounded transition-colors cursor-pointer"
                   title="在此分类下添加子分类"
                 >
                   <Plus :size="11" />
@@ -743,7 +743,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
                 <button
                   v-if="folder.name !== '默认备忘'"
                   @click="handleDeleteFolder(folder.name, $event)"
-                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 hover:bg-white/10 rounded transition-all cursor-pointer"
+                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 hover:bg-white/10 rounded transition-colors cursor-pointer"
                   title="删除此分类（关联备忘将安全移至默认分类）"
                 >
                   <Trash2 :size="11" />
@@ -774,7 +774,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
               v-for="tag in tags" 
               :key="tag.name"
               @click="selectTag(selectedTag === tag.name ? null : tag.name)"
-              class="px-2 py-1 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 border"
+              class="px-2 py-1 rounded-md text-xs font-mono transition-colors flex items-center gap-1.5 border"
               :class="[
                 selectedTag === tag.name
                   ? 'bg-purple-500/30 border-purple-400 text-purple-200 shadow-sm font-bold'
@@ -793,7 +793,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
         <div class="flex items-center bg-white/5 rounded-lg p-0.5 border border-white/10">
           <button 
             @click="setThemeMode('light')"
-            class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+            class="px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
             :class="themeMode === 'light' ? 'bg-white text-purple-600 shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
             title="浅色模式"
           >
@@ -801,7 +801,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           </button>
           <button 
             @click="setThemeMode('dark')"
-            class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+            class="px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
             :class="themeMode === 'dark' ? 'bg-purple-600 text-white shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
             title="深色模式"
           >
@@ -809,7 +809,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           </button>
           <button 
             @click="setThemeMode('auto')"
-            class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+            class="px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
             :class="themeMode === 'auto' ? 'bg-white/20 text-white shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
             title="跟随系统"
           >
@@ -820,11 +820,11 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
         <div class="flex items-center gap-1.5">
           <button 
             @click="clearCacheAndHardReload"
-            class="px-1.5 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300/60 hover:text-purple-200 border border-purple-500/20 hover:border-purple-500/40 transition-all flex items-center gap-1 font-mono text-[10px] cursor-pointer group"
+            class="px-1.5 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300/60 hover:text-purple-200 border border-purple-500/20 hover:border-purple-500/40 transition-colors flex items-center gap-1 font-mono text-[10px] cursor-pointer group"
             title="清空本地快照并强制重载最新版"
           >
             <span>{{ APP_VERSION }}</span>
-            <RotateCcw :size="10" class="group-hover:rotate-180 transition-transform duration-300 text-purple-300/40 group-hover:text-purple-200" />
+            <RotateCcw :size="10" class="transition-colors text-purple-300/40 group-hover:text-purple-200" />
           </button>
 
           <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="切换语言">
@@ -856,7 +856,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
             </h2>
             <button 
               @click="clearCacheAndHardReload"
-              class="text-[10px] font-mono text-purple-300 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded bg-purple-500/15 hover:bg-amber-500/20 border border-purple-500/30 hover:border-amber-500/40 shrink-0 transition-all flex items-center gap-1 cursor-pointer"
+              class="text-[10px] font-mono text-purple-300 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded bg-purple-500/15 hover:bg-amber-500/20 border border-purple-500/30 hover:border-amber-500/40 shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
               title="点击清空本地缓存并强制刷新"
             >
               <span>{{ APP_VERSION }}</span>
@@ -877,7 +877,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
             @input="loadData"
             type="text" 
             placeholder="搜索备忘标题、内容或标签..." 
-            class="w-full bg-white/5 hover:bg-white/[0.08] border border-white/10 focus:border-purple-500/50 rounded-full py-1.5 pl-10 pr-4 text-xs text-white placeholder-white/30 focus:outline-none transition-all shadow-inner"
+            class="w-full bg-white/5 hover:bg-white/[0.08] border border-white/10 focus:border-purple-500/50 rounded-full py-1.5 pl-10 pr-4 text-xs text-white placeholder-white/30 focus:outline-none transition-colors shadow-inner"
           />
         </div>
 
@@ -887,35 +887,35 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           <div class="hidden lg:flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs font-medium">
             <button 
               @click="selectedTypeFilter = 'all'; loadData()"
-              class="px-2.5 py-1 rounded-xl transition-all"
+              class="px-2.5 py-1 rounded-xl transition-colors"
               :class="selectedTypeFilter === 'all' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               全部
             </button>
             <button 
               @click="selectedTypeFilter = 'memory'; loadData()"
-              class="px-2.5 py-1 rounded-xl transition-all"
+              class="px-2.5 py-1 rounded-xl transition-colors"
               :class="selectedTypeFilter === 'memory' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               记忆
             </button>
             <button 
               @click="selectedTypeFilter = 'journal'; loadData()"
-              class="px-2.5 py-1 rounded-xl transition-all"
+              class="px-2.5 py-1 rounded-xl transition-colors"
               :class="selectedTypeFilter === 'journal' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               日志
             </button>
             <button 
               @click="selectedTypeFilter = 'todo'; loadData()"
-              class="px-2.5 py-1 rounded-xl transition-all"
+              class="px-2.5 py-1 rounded-xl transition-colors"
               :class="selectedTypeFilter === 'todo' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               待办
             </button>
             <button 
               @click="selectedTypeFilter = 'fleeting'; loadData()"
-              class="px-2.5 py-1 rounded-xl transition-all"
+              class="px-2.5 py-1 rounded-xl transition-colors"
               :class="selectedTypeFilter === 'fleeting' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50 hover:text-white'"
             >
               灵感
@@ -926,7 +926,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           <div class="hidden md:flex items-center bg-white/5 p-1 rounded-2xl border border-white/10">
             <button 
               @click="layoutMode = 'grid'"
-              class="p-1.5 rounded-xl transition-all"
+              class="p-1.5 rounded-xl transition-colors"
               :class="layoutMode === 'grid' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
               title="瀑布流卡片视图"
             >
@@ -934,7 +934,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
             </button>
             <button 
               @click="layoutMode = 'timeline'"
-              class="p-1.5 rounded-xl transition-all"
+              class="p-1.5 rounded-xl transition-colors"
               :class="layoutMode === 'timeline' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
               title="时间流日志视图"
             >
@@ -942,7 +942,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
             </button>
             <button 
               @click="layoutMode = 'split'"
-              class="p-1.5 rounded-xl transition-all"
+              class="p-1.5 rounded-xl transition-colors"
               :class="layoutMode === 'split' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
               title="双栏极速工作台"
             >
@@ -994,7 +994,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           <!-- Create Button (Adaptive on Mobile) -->
           <button 
             @click="handleOpenCreate"
-            class="py-1.5 sm:py-2 px-3 sm:px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/25 flex items-center gap-1.5 active:scale-95"
+            class="py-1.5 sm:py-2 px-3 sm:px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-purple-500/25 flex items-center gap-1.5"
             title="新建备忘"
           >
             <Plus :size="15" />
@@ -1014,35 +1014,35 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
         <div class="flex items-center gap-1.5 shrink-0">
           <button 
             @click="selectedTypeFilter = 'all'; loadData()"
-            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-colors shrink-0"
             :class="selectedTypeFilter === 'all' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
           >
             全部
           </button>
           <button 
             @click="selectedTypeFilter = 'memory'; loadData()"
-            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-colors shrink-0 flex items-center gap-1"
             :class="selectedTypeFilter === 'memory' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
           >
             <span>🧠 记忆</span>
           </button>
           <button 
             @click="selectedTypeFilter = 'journal'; loadData()"
-            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-colors shrink-0 flex items-center gap-1"
             :class="selectedTypeFilter === 'journal' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
           >
             <span>📅 日志</span>
           </button>
           <button 
             @click="selectedTypeFilter = 'todo'; loadData()"
-            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-colors shrink-0 flex items-center gap-1"
             :class="selectedTypeFilter === 'todo' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
           >
             <span>✅ 待办</span>
           </button>
           <button 
             @click="selectedTypeFilter = 'fleeting'; loadData()"
-            class="px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1"
+            class="px-3 py-1 rounded-full text-xs font-medium transition-colors shrink-0 flex items-center gap-1"
             :class="selectedTypeFilter === 'fleeting' ? 'bg-purple-600 text-white font-bold shadow-sm shadow-purple-600/30' : 'bg-white/5 text-white/60 hover:text-white border border-white/5'"
           >
             <span>💡 灵感</span>
@@ -1053,7 +1053,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
         <div class="flex md:hidden items-center bg-white/5 p-0.5 rounded-xl border border-white/10 shrink-0 ml-auto">
           <button 
             @click="layoutMode = 'grid'"
-            class="p-1 rounded-lg transition-all"
+            class="p-1 rounded-lg transition-colors"
             :class="layoutMode === 'grid' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'"
             title="卡片"
           >
@@ -1061,7 +1061,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
           </button>
           <button 
             @click="layoutMode = 'timeline'"
-            class="p-1 rounded-lg transition-all"
+            class="p-1 rounded-lg transition-colors"
             :class="layoutMode === 'timeline' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'"
             title="时间流"
           >
@@ -1101,7 +1101,7 @@ watch([selectedTypeFilter, () => gitliteStatus.lastSyncedAt, () => gitliteStatus
             </div>
             <button 
               @click="handleOpenCreate"
-              class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-500/30 flex items-center gap-1.5 mx-auto active:scale-95"
+              class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-purple-500/30 flex items-center gap-1.5 mx-auto"
             >
               <Plus :size="14" />
               <span>{{ selectedFolder ? `在 "${selectedFolder}" 下新建备忘` : '立即创建第一篇备忘' }}</span>

@@ -1,7 +1,7 @@
 {
   "name": "memex",
   "private": true,
-  "version": "1.0.17",
+  "version": "1.0.18",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@gitlite/core": "^0.1.0",
-    "@gitlite/sdk": "^0.1.0",
-    "@gitlite/ui": "^0.1.0",
+    "@gitlite/core": "^0.4.0",
+    "@gitlite/sdk": "^0.4.0",
+    "@gitlite/ui": "^0.4.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "~2",
     "highlight.js": "^11.12.0",

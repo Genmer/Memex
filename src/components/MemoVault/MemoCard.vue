@@ -123,7 +123,7 @@ const displayTitle = computed(() => {
 <template>
   <div 
     @click="emit('edit', memo)"
-    class="group relative rounded-2xl border p-5 transition-all duration-200 cursor-pointer flex flex-col justify-between hover:shadow-xl hover:-translate-y-0.5"
+    class="group relative rounded-2xl border p-5 transition-colors duration-200 cursor-pointer flex flex-col justify-between hover:shadow-xl hover:-translate-y-0.5"
     :class="colorStyles.card"
   >
     <!-- Top Meta Row -->
@@ -192,7 +192,7 @@ const displayTitle = computed(() => {
         </div>
         <div class="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
           <div 
-            class="h-full rounded-full transition-all duration-300"
+            class="h-full rounded-full transition-colors duration-300"
             :class="memo.todo_completed === memo.todo_total ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-amber-400'"
             :style="{ width: `${(memo.todo_completed / memo.todo_total) * 100}%` }"
           ></div>

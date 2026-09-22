@@ -167,15 +167,16 @@ const getInitialGitLiteStatus = (): GitLiteStatus => {
     const lastSync = localStorage.getItem('memex_gitlite_last_synced') || undefined;
 
     if (token && (provider === 'gitee' || provider === 'github')) {
+      // 连接尚未验证前不伪装成"已连接"，避免 UI 短暂显示假连接态、找不到重登入口
       return {
-        isReady: true,
+        isReady: false,
         provider,
         owner,
         repo,
         database: db,
-        syncState: 'synced',
-        isConnecting: false,
-        statusMessage: `已连接 ${provider === 'gitee' ? 'Gitee' : 'GitHub'} (${owner}/${repo})`,
+        syncState: 'syncing',
+        isConnecting: true,
+        statusMessage: `正在连接 ${provider === 'gitee' ? 'Gitee' : 'GitHub'} (${owner}/${repo})...`,
         pendingChanges: 0,
         lastCommitSha: undefined,
         lastSyncedAt: lastSync,
@@ -256,6 +257,7 @@ class GitLiteService {
               database: savedDb,
               policy: POLICIES.economy,
               allowForeignRepo: true,
+              allowEmptyRemote: true,
               onProgress: (step: any, detail?: any) => {
                 console.log(`[GitLite Init] ${step}`, detail);
                 gitliteStatus.statusMessage = `正在从云端拉取最新数据 (${step})...`;
@@ -280,7 +282,8 @@ class GitLiteService {
               ref: { owner: 'local-user', repo: 'gitlite-repo' },
               database: 'memex-db',
               policy: POLICIES.economy,
-              allowForeignRepo: true
+              allowForeignRepo: true,
+              allowEmptyRemote: true
             });
             gitliteStatus.provider = 'memory';
             gitliteStatus.statusMessage = '云端连接异常，已使用本地离线数据';
@@ -297,6 +300,7 @@ class GitLiteService {
               database: savedDb,
               policy: POLICIES.economy,
               allowForeignRepo: true,
+              allowEmptyRemote: true,
               onProgress: (step: any, detail?: any) => {
                 console.log(`[GitLite Init] ${step}`, detail);
                 gitliteStatus.statusMessage = `正在同步云端数据 (${step})...`;
@@ -326,7 +330,8 @@ class GitLiteService {
               ref: { owner: 'local-user', repo: 'gitlite-repo' },
               database: 'memex-db',
               policy: POLICIES.economy,
-              allowForeignRepo: true
+              allowForeignRepo: true,
+              allowEmptyRemote: true
             });
             gitliteStatus.provider = 'memory';
             gitliteStatus.statusMessage = 'Gitee 连接异常，已使用本地离线数据';
@@ -334,6 +339,7 @@ class GitLiteService {
 
         } else {
           gitliteStatus.statusMessage = '本地离线数据库就绪';
+          gitliteStatus.error = undefined;
           providerInstance = new MemoryProvider();
           this.client = await GitLiteClient.create({
             provider: providerInstance,
@@ -341,7 +347,8 @@ class GitLiteService {
             ref: { owner: 'local-user', repo: 'gitlite-repo' },
             database: 'memex-db',
             policy: POLICIES.economy,
-            allowForeignRepo: true
+            allowForeignRepo: true,
+            allowEmptyRemote: true
           });
           gitliteStatus.provider = 'memory';
           gitliteStatus.owner = 'local-user';
@@ -388,17 +395,13 @@ class GitLiteService {
           localStorage.setItem('memex_gitlite_last_synced', gitliteStatus.lastSyncedAt);
         });
 
+        // 本地优先：离线/内存模式下用本地快照水合集合；重连云端时把离线编辑合并推上去
+        await this.hydrateFromLocalSnapshots();
+
         gitliteStatus.isReady = true;
         gitliteStatus.syncState = 'synced';
         gitliteStatus.lastSyncedAt = gitliteStatus.lastSyncedAt || new Date().toLocaleTimeString();
         localStorage.setItem('memex_gitlite_last_synced', gitliteStatus.lastSyncedAt);
-
-        // 关键核心：初始化完成后，如果是云端模式，自动在后台静默拉取远端更新 (Auto Pull)
-        if (savedProvider === 'gitee' || savedProvider === 'github') {
-          setTimeout(() => {
-            this.syncNow().catch((err) => console.warn('[GitLite Auto Background Pull]', err));
-          }, 50);
-        }
 
         return true;
 
@@ -429,11 +432,9 @@ class GitLiteService {
 
     gitliteStatus.syncState = 'syncing';
     try {
-      // 1. 主动拉取远端变更 (Pull)
-      if (this.client && (this.client as any).sync) {
-        await (this.client as any).sync.pull();
-        // 2. 主动推送本地变更 (Flush Push)
-        await (this.client as any).sync.flush();
+      // 使用 0.4.0 官方双向同步 API（Pull + Flush Push 一体）
+      if (this.client) {
+        await this.client.syncNow();
       }
 
       gitliteStatus.syncState = 'synced';
@@ -660,32 +661,34 @@ class GitLiteService {
 
     let owner = customOwner?.trim() || localStorage.getItem('memex_gitlite_owner') || '';
 
-    // 优先尝试从 API 动态获取用户名
+    // 必须先通过 API 确认 Token 有效并识别身份，校验失败直接报错，
+    // 避免无效 Token 被静默保存造成"假连接成功、后续同步全挂"
     try {
       if (provider === 'gitee') {
         const userRes = await runtime.fetch(`https://gitee.com/api/v5/user?access_token=${cleanToken}`);
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          if (userData?.login) owner = userData.login;
-        } else {
-          console.warn('[GitLite] gitee user api returned status:', userRes.status);
+        if (!userRes.ok) {
+          throw new Error(userRes.status === 401
+            ? 'Gitee 令牌无效或已过期，请重新生成并粘贴'
+            : `Token 校验失败 (HTTP ${userRes.status})，请检查网络后重试`);
         }
+        const userData = await userRes.json();
+        if (!userData?.login) throw new Error('Gitee 返回数据异常，未能识别账号身份');
+        owner = userData.login;
       } else {
         const userRes = await runtime.fetch('https://api.github.com/user', {
           headers: { Authorization: `token ${cleanToken}`, Accept: 'application/json' }
         });
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          if (userData?.login) owner = userData.login;
+        if (!userRes.ok) {
+          throw new Error(userRes.status === 401
+            ? 'GitHub 令牌无效或已过期，请重新生成并粘贴'
+            : `Token 校验失败 (HTTP ${userRes.status})，请检查网络后重试`);
         }
+        const userData = await userRes.json();
+        if (!userData?.login) throw new Error('GitHub 返回数据异常，未能识别账号身份');
+        owner = userData.login;
       }
-    } catch (apiErr) {
-      console.warn('[GitLite] Fetch user profile error (will fallback):', apiErr);
-    }
-
-    if (!owner) {
-      // 容错降级为当前工作区或已有用户名
-      owner = localStorage.getItem('memex_gitlite_owner') || 'Genmer';
+    } catch (apiErr: any) {
+      throw new Error(apiErr?.message || String(apiErr));
     }
 
     const repo = 'gitlite-repo';
@@ -876,12 +879,14 @@ class GitLiteService {
     };
 
     const id = await this.memosCol.insertOne(doc as any);
+    this.markOfflineDirty();
     this.refreshMemosSnapshot();
     return id;
   }
 
   async updateMemo(id: string, payload: Partial<MemoDoc>): Promise<boolean> {
     await this.ensureReady();
+    this.markOfflineDirty();
     const updateData: any = { ...payload, updated_at: new Date().toISOString() };
     if (payload.content !== undefined) {
       const todoMatches = payload.content.match(/- \[[ xX]\]/g) || [];
@@ -897,6 +902,7 @@ class GitLiteService {
 
   async deleteMemo(id: string): Promise<boolean> {
     await this.ensureReady();
+    this.markOfflineDirty();
     const filter = (id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.memosCol.deleteOne(filter as any);
     this.refreshMemosSnapshot();
@@ -1032,12 +1038,14 @@ class GitLiteService {
       updated_at: now
     };
     const id = await this.skillsCol.insertOne(doc as any);
+    this.markOfflineDirty();
     this.refreshSkillsSnapshot();
     return id;
   }
 
   async updateSkill(id: string | number, payload: Partial<SkillDoc>): Promise<boolean> {
     await this.ensureReady();
+    this.markOfflineDirty();
     const updateData: any = { ...payload, updated_at: new Date().toISOString() };
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.skillsCol.updateOne(filter as any, { $set: updateData });
@@ -1047,6 +1055,7 @@ class GitLiteService {
 
   async deleteSkill(id: string | number): Promise<boolean> {
     await this.ensureReady();
+    this.markOfflineDirty();
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.skillsCol.deleteOne(filter as any);
     this.refreshSkillsSnapshot();
@@ -1134,12 +1143,14 @@ class GitLiteService {
       updated_at: now
     };
     const id = await this.memoriesCol.insertOne(doc as any);
+    this.markOfflineDirty();
     this.refreshMemoriesSnapshot();
     return id;
   }
 
   async updateMemory(id: string | number, payload: Partial<MemoryDoc>): Promise<boolean> {
     await this.ensureReady();
+    this.markOfflineDirty();
     const updateData: any = { ...payload, updated_at: new Date().toISOString() };
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.memoriesCol.updateOne(filter as any, { $set: updateData });
@@ -1149,6 +1160,7 @@ class GitLiteService {
 
   async deleteMemory(id: string | number): Promise<boolean> {
     await this.ensureReady();
+    this.markOfflineDirty();
     const filter = (typeof id === 'string' && id.length > 20) ? { _id: id } : { legacy_id: Number(id) };
     const res = await this.memoriesCol.deleteOne(filter as any);
     this.refreshMemoriesSnapshot();
@@ -1379,6 +1391,63 @@ class GitLiteService {
   private async ensureReady() {
     if (!this.client || !gitliteStatus.isReady) {
       await this.init();
+    }
+  }
+
+  /**
+   * 用 localStorage 快照水合当前集合：
+   * - 内存/离线模式（含登录过期回退）：集合为空则灌入快照，本地数据始终可见、可编辑，且不会被单条新写入覆盖快照
+   * - 云端模式：仅在首次上云（云端为空）或存在离线编辑标记时，把快照中云端缺失的文档补插并推送合并
+   */
+  private async hydrateFromLocalSnapshots(): Promise<void> {
+    const isLocalMode = gitliteStatus.provider === 'memory';
+    const hasOfflineEdits = localStorage.getItem('memex_offline_dirty') === '1';
+
+    const targets: Array<[string, Collection<any>]> = [
+      ['memex_snapshot_memos', this.memosCol],
+      ['memex_snapshot_skills', this.skillsCol],
+      ['memex_snapshot_memories', this.memoriesCol]
+    ];
+
+    for (const [key, col] of targets) {
+      try {
+        const cached = localStorage.getItem(key);
+        if (!cached) continue;
+        const items = JSON.parse(cached);
+        if (!Array.isArray(items) || items.length === 0) continue;
+
+        const list = await col.find({}, { limit: 1000 });
+        const existing: any[] = (list as any).items || (Array.isArray(list) ? list : []);
+        const existingIds = new Set(existing.map((d: any) => d._id));
+        const missing = items.filter((d: any) => d._id && !existingIds.has(d._id));
+
+        if (existing.length === 0) {
+          for (const doc of items) {
+            await col.insertOne(doc);
+          }
+        } else if (hasOfflineEdits && missing.length > 0) {
+          for (const doc of missing) {
+            await col.insertOne(doc);
+          }
+        }
+      } catch (e) {
+        console.warn(`[GitLite] hydrate snapshot failed: ${key}`, e);
+      }
+    }
+
+    if (!isLocalMode && hasOfflineEdits) {
+      try {
+        await this.client?.syncNow();
+        localStorage.removeItem('memex_offline_dirty');
+      } catch (e) {
+        console.warn('[GitLite] offline edits merge push failed (will retry next launch)', e);
+      }
+    }
+  }
+
+  private markOfflineDirty(): void {
+    if (gitliteStatus.provider === 'memory') {
+      try { localStorage.setItem('memex_offline_dirty', '1'); } catch (e) {}
     }
   }
 }

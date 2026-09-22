@@ -22,23 +22,22 @@ export async function runAutoMigrationIfNeeded(): Promise<MigrationReport> {
   // 确保 GitLite 引擎已就绪
   await gitliteDb.init();
 
-  // 如果已经迁移过，并且 GitLite 里已有备忘或技能数据，直接返回
+  // 如果已经迁移过，直接返回：即使 GitLite 当前为空（如登录过期离线模式），
+  // 也不再从 SQLite 重复灌入首次安装的示例数据，本地数据以快照水合为准
   if (isMigrated === 'true') {
     const existingMemos = await gitliteDb.getMemos();
     const existingSkills = await gitliteDb.getSkills();
-    if (existingMemos.length > 0 || existingSkills.length > 0) {
-      return {
-        migrated: false,
-        memosCount: existingMemos.length,
-        skillsCount: existingSkills.length,
-        memoriesCount: (await gitliteDb.getMemories()).length,
-        configsCount: (await gitliteDb.getConfigs()).length,
-        scanTargetsCount: (await gitliteDb.getScanTargets()).length,
-        categorySynthesesCount: (await gitliteDb.getCategorySyntheses()).length,
-        aiUsageLogsCount: (await gitliteDb.getAiUsageLogs(1000)).length,
-        timestamp: new Date().toISOString()
-      };
-    }
+    return {
+      migrated: false,
+      memosCount: existingMemos.length,
+      skillsCount: existingSkills.length,
+      memoriesCount: (await gitliteDb.getMemories()).length,
+      configsCount: (await gitliteDb.getConfigs()).length,
+      scanTargetsCount: (await gitliteDb.getScanTargets()).length,
+      categorySynthesesCount: (await gitliteDb.getCategorySyntheses()).length,
+      aiUsageLogsCount: (await gitliteDb.getAiUsageLogs(1000)).length,
+      timestamp: new Date().toISOString()
+    };
   }
 
   console.log('[GitLite Migration] 开始从现有 SQLite 数据库无损导出并迁移数据...');

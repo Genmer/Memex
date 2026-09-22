@@ -524,7 +524,7 @@ onUnmounted(() => {
           <!-- Pin & Star -->
           <button 
             @click="isPinned = !isPinned"
-            class="p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer"
+            class="p-1.5 sm:p-2 rounded-xl border transition-colors cursor-pointer"
             :class="isPinned ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'"
             title="置顶"
           >
@@ -532,7 +532,7 @@ onUnmounted(() => {
           </button>
           <button 
             @click="isFavorite = !isFavorite"
-            class="p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer"
+            class="p-1.5 sm:p-2 rounded-xl border transition-colors cursor-pointer"
             :class="isFavorite ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white/5 border-white/10 text-white/40 hover:text-white'"
             title="收藏"
           >
@@ -543,7 +543,7 @@ onUnmounted(() => {
           <div class="md:hidden flex items-center bg-white/5 p-0.5 rounded-xl border border-white/10 text-xs">
             <button 
               @click="viewMode = 'edit'; focusEditor()"
-              class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer font-medium"
+              class="px-2 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer font-medium"
               :class="viewMode === 'edit' ? 'bg-purple-600 text-white font-bold shadow' : 'text-white/50'"
             >
               <Edit3 :size="12" />
@@ -551,7 +551,7 @@ onUnmounted(() => {
             </button>
             <button 
               @click="viewMode = 'preview'"
-              class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer font-medium"
+              class="px-2 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer font-medium"
               :class="viewMode === 'preview' || viewMode === 'split' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-white/50'"
             >
               <Sparkles :size="12" />
@@ -563,7 +563,7 @@ onUnmounted(() => {
           <div class="hidden md:flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-medium">
             <button 
               @click="viewMode = 'split'"
-              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              class="px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
               :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-bold shadow ring-1 ring-indigo-400' : 'text-white/40 hover:text-white'"
               title="双栏分屏：左侧编辑输入，右侧实时解析对照"
             >
@@ -572,7 +572,7 @@ onUnmounted(() => {
             </button>
             <button 
               @click="viewMode = 'edit'; focusEditor()"
-              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              class="px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
               :class="viewMode === 'edit' ? 'bg-purple-600 text-white font-bold shadow ring-1 ring-purple-400' : 'text-white/40 hover:text-white'"
               title="单栏编辑：全宽直接输入与修改文字"
             >
@@ -581,7 +581,7 @@ onUnmounted(() => {
             </button>
             <button 
               @click="viewMode = 'preview'"
-              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              class="px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
               :class="viewMode === 'preview' ? 'bg-indigo-600 text-white font-bold shadow ring-1 ring-indigo-400' : 'text-white/40 hover:text-white'"
               title="全屏预览：查看最终排版渲染效果（点击正文即可切换回编辑）"
             >
@@ -593,7 +593,7 @@ onUnmounted(() => {
           <!-- Save Button -->
           <button 
             @click="handleSave"
-            class="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+            class="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg flex items-center gap-1.5 cursor-pointer shrink-0"
           >
             <Save :size="13" />
             <span class="hidden sm:inline">保存 (⌘S)</span>
@@ -603,7 +603,7 @@ onUnmounted(() => {
           <!-- Desktop Close Button -->
           <button 
             @click="emit('close')"
-            class="hidden md:flex px-3 py-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-300 border border-white/10 hover:border-red-500/40 transition-all items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0 ml-1"
+            class="hidden md:flex px-3 py-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-300 border border-white/10 hover:border-red-500/40 transition-colors items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0 ml-1"
             title="关闭窗口 (Esc)"
           >
             <X :size="14" />
@@ -619,7 +619,7 @@ onUnmounted(() => {
           <div class="flex items-center gap-1 bg-white/5 p-0.5 sm:p-1 rounded-xl border border-white/10 shrink-0">
             <button 
               @click="noteType = 'markdown'"
-              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer shrink-0"
               :class="noteType === 'markdown' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
               <FileText :size="11" />
@@ -627,7 +627,7 @@ onUnmounted(() => {
             </button>
             <button 
               @click="noteType = 'memory'"
-              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer shrink-0"
               :class="noteType === 'memory' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
               <Brain :size="11" />
@@ -635,7 +635,7 @@ onUnmounted(() => {
             </button>
             <button 
               @click="noteType = 'journal'"
-              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer shrink-0"
               :class="noteType === 'journal' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
               <Calendar :size="11" />
@@ -643,7 +643,7 @@ onUnmounted(() => {
             </button>
             <button 
               @click="noteType = 'todo'"
-              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer shrink-0"
               :class="noteType === 'todo' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
               <CheckSquare :size="11" />
@@ -651,7 +651,7 @@ onUnmounted(() => {
             </button>
             <button 
               @click="noteType = 'fleeting'"
-              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer shrink-0"
               :class="noteType === 'fleeting' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-white/50 hover:text-white'"
             >
               <Sparkles :size="11" />
@@ -665,7 +665,7 @@ onUnmounted(() => {
               v-for="c in colorOptions" 
               :key="c.id"
               @click="color = c.id as any"
-              class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border transition-transform hover:scale-125 relative cursor-pointer shrink-0"
+              class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border transition-transform relative cursor-pointer shrink-0"
               :class="[c.class, color === c.id ? 'ring-2 ring-white scale-110' : 'opacity-70']"
               :title="c.label"
             ></button>
@@ -727,7 +727,7 @@ onUnmounted(() => {
           ></div>
 
           <div 
-            class="inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden shrink-0"
+            class="inline-flex items-center rounded-lg border transition-colors shadow-sm overflow-hidden shrink-0"
             :class="currentCodeLang 
               ? 'bg-purple-600/25 border-purple-500/50 text-purple-200' 
               : 'border-white/10 text-white/70 hover:border-white/20 hover:bg-white/10'"

@@ -970,7 +970,7 @@ onUnmounted(() => {
             </h2>
             <button 
               @click="clearCacheAndHardReload"
-              class="text-[10px] font-mono text-indigo-300 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 hover:bg-amber-500/20 border border-indigo-500/30 hover:border-amber-500/40 shrink-0 transition-all flex items-center gap-1 cursor-pointer"
+              class="text-[10px] font-mono text-indigo-300 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 hover:bg-amber-500/20 border border-indigo-500/30 hover:border-amber-500/40 shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
               title="点击清空本地缓存并强制刷新"
             >
               <span>{{ APP_VERSION }}</span>
@@ -994,7 +994,7 @@ onUnmounted(() => {
             v-model="searchQuery" 
             type="text" 
             :placeholder="t('search.placeholder') + ' (⌘K 命令面板)'"
-            class="w-full bg-white/5 group-hover:bg-white/[0.08] border border-white/10 group-hover:border-indigo-500/40 rounded-full py-1.5 pl-10 pr-12 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all shadow-inner"
+            class="w-full bg-white/5 group-hover:bg-white/[0.08] border border-white/10 group-hover:border-indigo-500/40 rounded-full py-1.5 pl-10 pr-12 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-colors shadow-inner"
           />
           <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
             <span class="text-[10px] font-mono text-white/30 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 group-hover:text-white/60">⌘K</span>
@@ -1003,10 +1003,10 @@ onUnmounted(() => {
         
         <div class="flex items-center gap-4 ml-8 shrink-0">
           <div class="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10" v-if="activeView.includes('skills') || activeView.includes('memories')">
-            <button @click="viewMode = 'grid'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/70'" title="网格视图">
+            <button @click="viewMode = 'grid'" class="p-1.5 rounded-md transition-colors" :class="viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/70'" title="网格视图">
               <LayoutGrid :size="16" />
             </button>
-            <button @click="viewMode = 'list'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/70'" title="列表视图">
+            <button @click="viewMode = 'list'" class="p-1.5 rounded-md transition-colors" :class="viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/70'" title="列表视图">
               <List :size="16" />
             </button>
           </div>
@@ -1014,7 +1014,7 @@ onUnmounted(() => {
           <button 
             v-if="activeView.includes('skills') || activeView.includes('memories')"
             @click="openNewAsset(activeView.includes('skills') ? 'skill' : 'memory')"
-            class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg"
+            class="px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-lg"
             :class="activeView.includes('memories') 
               ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20' 
               : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'"
@@ -1027,14 +1027,14 @@ onUnmounted(() => {
           <div v-else-if="activeView === 'dashboard'" class="flex items-center gap-2">
             <button 
               @click="openNewAsset('skill')"
-              class="px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 shadow"
+              class="px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 shadow"
               title="新建技能规范"
             >
               <span>+ 新建技能</span>
             </button>
             <button 
               @click="openNewAsset('memory')"
-              class="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 shadow"
+              class="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 shadow"
               title="新建项目记忆/偏好"
             >
               <span>+ 新建记忆</span>
@@ -1043,7 +1043,7 @@ onUnmounted(() => {
           <button 
             v-if="activeView.includes('skills') || activeView.includes('memories') || activeView === 'settings'"
             @click="scanNow" 
-            class="px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-lg disabled:opacity-50"
+            class="px-5 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2 shadow-lg disabled:opacity-50"
             :disabled="isScanning"
           >
             <svg v-if="isScanning" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -1211,7 +1211,7 @@ onUnmounted(() => {
                   v-if="unparsedSkillsCount > 0"
                   @click="batchAnalyzeCurrentCategory(false)"
                   :disabled="batchIsRunning"
-                  class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md transition-all disabled:opacity-50"
+                  class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md transition-colors disabled:opacity-50"
                   title="批量解析当前分类下所有未提炼中文释义的技能"
                 >
                   <Loader2 v-if="batchIsRunning" :size="13" class="animate-spin" />
@@ -1224,7 +1224,7 @@ onUnmounted(() => {
                   v-else
                   @click="batchAnalyzeCurrentCategory(true)"
                   :disabled="batchIsRunning"
-                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 text-xs font-medium border border-white/10 transition-all disabled:opacity-50"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 text-xs font-medium border border-white/10 transition-colors disabled:opacity-50"
                   title="重新对当前分类所有技能进行 AI 深度解析"
                 >
                   <Loader2 v-if="batchIsRunning" :size="13" class="animate-spin" />
@@ -1236,7 +1236,7 @@ onUnmounted(() => {
                 <button
                   @click="generateCategorySynthesis"
                   :disabled="isSynthesizingCategory"
-                  class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 text-xs font-semibold transition-all shadow-md disabled:opacity-50"
+                  class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 text-xs font-semibold transition-colors shadow-md disabled:opacity-50"
                   title="由 AI 分析当前分类技能库的核心能力定位、技术栈覆盖与推荐工作流"
                 >
                   <Loader2 v-if="isSynthesizingCategory" :size="13" class="animate-spin" />
@@ -1248,8 +1248,8 @@ onUnmounted(() => {
 
             <!-- Active Batch Parsing Progress Indicator (In Banner) -->
             <Transition
-              enter-active-class="transition-all duration-300 ease-out"
-              leave-active-class="transition-all duration-200 ease-in"
+              enter-active-class="transition-[opacity,transform] duration-300 ease-out"
+              leave-active-class="transition-colors duration-200 ease-in"
               enter-from-class="opacity-0 -translate-y-2"
               leave-to-class="opacity-0 -translate-y-2"
             >
@@ -1284,7 +1284,7 @@ onUnmounted(() => {
                 <!-- Animated Gradient Progress Bar -->
                 <div class="w-full bg-white/5 rounded-full h-2 overflow-hidden relative border border-white/5">
                   <div 
-                    class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(168,85,247,0.6)]"
+                    class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-colors duration-300 shadow-[0_0_12px_rgba(168,85,247,0.6)]"
                     :style="{ width: `${batchProgressPercent}%` }"
                   ></div>
                 </div>
@@ -1293,8 +1293,8 @@ onUnmounted(() => {
 
             <!-- Macro Synthesis Result Display -->
             <Transition
-              enter-active-class="transition-all duration-300 ease-out"
-              leave-active-class="transition-all duration-200 ease-in"
+              enter-active-class="transition-[opacity,transform] duration-300 ease-out"
+              leave-active-class="transition-colors duration-200 ease-in"
               enter-from-class="opacity-0 -translate-y-2"
               leave-to-class="opacity-0 -translate-y-2"
             >
@@ -1389,7 +1389,7 @@ onUnmounted(() => {
             <button 
               v-if="searchQuery"
               @click="openAiChat(`我搜索 '${searchQuery}' 没有找到结果，请帮我分析可能的原因，以及如何配置才能找到相关的技能`)"
-              class="mt-6 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-sm font-medium shadow-[0_0_25px_rgba(99,102,241,0.4)] transition-all"
+              class="mt-6 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-sm font-medium shadow-[0_0_25px_rgba(99,102,241,0.4)] transition-colors"
             >
               <Sparkles :size="16" />
               问问 AI 助手
@@ -1433,7 +1433,7 @@ onUnmounted(() => {
             <div 
               v-for="(groupList, groupKey) in groupedMemories" 
               :key="groupKey"
-              class="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-all"
+              class="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-colors"
             >
               <!-- Group Header (collapsible) -->
               <div 
@@ -1481,7 +1481,7 @@ onUnmounted(() => {
             </p>
             <button 
               @click="openNewAsset('memory')"
-              class="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/25 flex items-center gap-1.5"
+              class="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-emerald-500/25 flex items-center gap-1.5"
             >
               <span>+ 新建第一条记忆 (Create Memory)</span>
             </button>
@@ -1549,11 +1549,11 @@ onUnmounted(() => {
               <div class="space-y-4">
                 <div class="space-y-1.5">
                   <label class="block text-xs font-medium text-white/60 uppercase tracking-wider">DeepSeek API Key</label>
-                  <input v-model="aiApiKey" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" class="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-all text-white placeholder-white/20 shadow-inner font-mono" />
+                  <input v-model="aiApiKey" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" class="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-colors text-white placeholder-white/20 shadow-inner font-mono" />
                 </div>
                 <div class="space-y-1.5">
                   <label class="block text-xs font-medium text-white/60 uppercase tracking-wider">模型名称</label>
-                  <input v-model="aiModel" type="text" placeholder="deepseek-v4-flash" class="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-all text-white placeholder-white/20 shadow-inner font-mono" />
+                  <input v-model="aiModel" type="text" placeholder="deepseek-v4-flash" class="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-colors text-white placeholder-white/20 shadow-inner font-mono" />
                 </div>
               </div>
             </div>
@@ -1572,14 +1572,14 @@ onUnmounted(() => {
               <div class="flex items-center gap-3 mt-4">
                 <button
                   @click="exportAssets"
-                  class="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                  class="px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 hover:text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                   导出备份
                 </button>
                 <button
                   @click="importAssets"
-                  class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                  class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                   导入恢复
@@ -1588,7 +1588,7 @@ onUnmounted(() => {
             </div>
 
             <div class="flex items-center justify-end pt-8 mt-8 border-t border-white/10">
-              <button @click="saveAllConfigs" class="px-6 py-2.5 bg-white text-black font-semibold rounded-xl text-sm hover:bg-white/90 transition-all shadow-lg">
+              <button @click="saveAllConfigs" class="px-6 py-2.5 bg-white text-black font-semibold rounded-xl text-sm hover:bg-white/90 transition-colors shadow-lg">
                 {{ t('settings.save') }}
               </button>
             </div>
@@ -1608,7 +1608,7 @@ onUnmounted(() => {
             <button @click="showWelcomePrompt = false" class="px-5 py-2 rounded-lg text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors border border-transparent">
               {{ t('prompt.cancel') }}
             </button>
-            <button @click="scanNow" class="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-all flex items-center gap-2">
+            <button @click="scanNow" class="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-colors flex items-center gap-2">
               <svg v-if="isScanning" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               {{ t('prompt.confirm') }}
             </button>
@@ -1618,8 +1618,8 @@ onUnmounted(() => {
 
       <!-- Floating Batch Action Toolbar -->
       <Transition
-        enter-active-class="transition-all duration-300 ease-out"
-        leave-active-class="transition-all duration-200 ease-in"
+        enter-active-class="transition-[opacity,transform] duration-300 ease-out"
+        leave-active-class="transition-colors duration-200 ease-in"
         enter-from-class="translate-y-16 opacity-0"
         leave-to-class="translate-y-16 opacity-0"
       >
@@ -1639,7 +1639,7 @@ onUnmounted(() => {
               v-if="activeView.includes('skills')"
               @click="batchAnalyzeAi"
               :disabled="batchIsRunning"
-              class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/25 to-purple-500/25 hover:from-indigo-500/35 hover:to-purple-500/35 border border-indigo-500/40 text-indigo-200 text-xs font-semibold transition-all shadow-md disabled:opacity-50"
+              class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/25 to-purple-500/25 hover:from-indigo-500/35 hover:to-purple-500/35 border border-indigo-500/40 text-indigo-200 text-xs font-semibold transition-colors shadow-md disabled:opacity-50"
               title="批量由 AI 解析中文释义与分类"
             >
               <Loader2 v-if="batchIsRunning" :size="13" class="animate-spin" />
@@ -1718,20 +1718,20 @@ onUnmounted(() => {
 
     <!-- Global Persistent Batch Parsing Floating Widget -->
     <Transition
-      enter-active-class="transition-all duration-300 ease-out"
-      leave-active-class="transition-all duration-200 ease-in"
+      enter-active-class="transition-[opacity,transform] duration-300 ease-out"
+      leave-active-class="transition-colors duration-200 ease-in"
       enter-from-class="translate-y-8 opacity-0 scale-95"
       leave-to-class="translate-y-8 opacity-0 scale-95"
     >
       <div 
         v-if="batchIsRunning"
-        class="fixed bottom-6 right-6 z-50 transition-all duration-200 select-none"
+        class="fixed bottom-6 right-6 z-50 transition-colors duration-200 select-none"
       >
         <!-- Minimized Suspended Capsule -->
         <div 
           v-if="batchIsMinimized"
           @click="batchToggleMinimize"
-          class="flex items-center gap-3 px-4 py-2.5 rounded-full bg-[#161922]/95 backdrop-blur-2xl border border-indigo-500/50 text-white shadow-2xl cursor-pointer hover:border-indigo-400 group transition-all"
+          class="flex items-center gap-3 px-4 py-2.5 rounded-full bg-[#161922]/95 backdrop-blur-2xl border border-indigo-500/50 text-white shadow-2xl cursor-pointer hover:border-indigo-400 group transition-colors"
           title="点击展开 AI 批量解析进度"
         >
           <Loader2 :size="14" class="animate-spin text-indigo-400" />
@@ -1780,7 +1780,7 @@ onUnmounted(() => {
             </div>
             <div class="w-full bg-black/40 rounded-full h-2 overflow-hidden relative shadow-inner border border-white/5">
               <div 
-                class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-colors duration-300 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
                 :style="{ width: `${batchProgressPercent}%` }"
               ></div>
             </div>

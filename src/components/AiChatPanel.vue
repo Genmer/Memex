@@ -182,7 +182,7 @@ watch(() => props.visible, (val) => {
             <p class="text-[10px] text-slate-400 dark:text-white/40 font-mono">deepseek-v4-flash</p>
           </div>
         </div>
-        <button @click="emit('close')" class="p-2 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-all">
+        <button @click="emit('close')" class="p-2 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors">
           <X :size="18" />
         </button>
       </div>
@@ -205,7 +205,7 @@ watch(() => props.visible, (val) => {
               v-for="q in quickQuestions" 
               :key="q"
               @click="sendQuickQuestion(q)"
-              class="w-full p-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 hover:border-indigo-500/30 rounded-xl text-sm text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-all text-left flex items-center justify-between group"
+              class="w-full p-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 hover:border-indigo-500/30 rounded-xl text-sm text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white transition-colors text-left flex items-center justify-between group"
             >
               {{ q }}
               <Sparkles :size="14" class="opacity-0 group-hover:opacity-100 text-indigo-500 dark:text-indigo-400 transition-opacity" />
@@ -282,14 +282,14 @@ watch(() => props.visible, (val) => {
               :placeholder="isGenerating ? 'AI 正在思考中...' : '输入你的问题... (Enter 发送)'"
               :disabled="isGenerating"
               rows="1"
-              class="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent resize-none transition-all disabled:opacity-50 shadow-inner"
+              class="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent resize-none transition-colors disabled:opacity-50 shadow-inner"
               style="min-height: 44px; max-height: 120px;"
             />
           </div>
           <button
             @click="sendMessage"
             :disabled="isGenerating || !inputText.trim()"
-            class="p-3 rounded-xl transition-all shrink-0 disabled:opacity-30"
+            class="p-3 rounded-xl transition-colors shrink-0 disabled:opacity-30"
             :class="isGenerating 
               ? 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-white/30' 
               : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'"

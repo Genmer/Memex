@@ -84,7 +84,7 @@ const getCleanTitle = (memo: any) => {
           v-for="memo in groupMemos" 
           :key="memo.id"
           @click="emit('edit', memo)"
-          class="group relative rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 p-5 transition-all duration-200 cursor-pointer shadow-sm"
+          class="group relative rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 p-5 transition-colors duration-200 cursor-pointer shadow-sm"
         >
           <!-- Top Row -->
           <div class="flex items-start justify-between gap-3 mb-2">

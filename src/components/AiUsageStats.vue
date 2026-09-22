@@ -183,14 +183,14 @@ const getActionBadgeClass = (action: string) => {
           <div class="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
             <button 
               @click="activeTab = 'app'"
-              class="px-3.5 py-1 rounded-lg text-xs font-semibold transition-all"
+              class="px-3.5 py-1 rounded-lg text-xs font-semibold transition-colors"
               :class="activeTab === 'app' ? 'bg-indigo-600 text-white shadow-md' : 'text-white/50 hover:text-white'"
             >
               应用用量
             </button>
             <button 
               @click="activeTab = 'plan'"
-              class="px-3.5 py-1 rounded-lg text-xs font-semibold transition-all"
+              class="px-3.5 py-1 rounded-lg text-xs font-semibold transition-colors"
               :class="activeTab === 'plan' ? 'bg-indigo-600 text-white shadow-md' : 'text-white/50 hover:text-white'"
             >
               个人套餐 & 配置
@@ -207,21 +207,21 @@ const getActionBadgeClass = (action: string) => {
         <div class="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-medium">
           <button 
             @click="timeRange = '7d'"
-            class="px-3 py-1 rounded-lg transition-all"
+            class="px-3 py-1 rounded-lg transition-colors"
             :class="timeRange === '7d' ? 'bg-white/15 text-white font-semibold' : 'text-white/50 hover:text-white'"
           >
             最近 7 天
           </button>
           <button 
             @click="timeRange = '30d'"
-            class="px-3 py-1 rounded-lg transition-all"
+            class="px-3 py-1 rounded-lg transition-colors"
             :class="timeRange === '30d' ? 'bg-white/15 text-white font-semibold' : 'text-white/50 hover:text-white'"
           >
             最近 30 天
           </button>
           <button 
             @click="timeRange = 'all'"
-            class="px-3 py-1 rounded-lg transition-all"
+            class="px-3 py-1 rounded-lg transition-colors"
             :class="timeRange === 'all' ? 'bg-white/15 text-white font-semibold' : 'text-white/50 hover:text-white'"
           >
             全部时间
@@ -243,7 +243,7 @@ const getActionBadgeClass = (action: string) => {
       <!-- 6 KPI Stat Cards Grid -->
       <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <!-- Tokens 用量 -->
-        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-all flex flex-col justify-between shadow-sm">
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-colors flex flex-col justify-between shadow-sm">
           <div class="flex items-center gap-1.5 text-xs text-white/50 mb-2">
             <Flame :size="14" class="text-amber-400" />
             <span>tokens 用量</span>
@@ -259,7 +259,7 @@ const getActionBadgeClass = (action: string) => {
         </div>
 
         <!-- 会话/调用次数 -->
-        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-all flex flex-col justify-between shadow-sm">
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-colors flex flex-col justify-between shadow-sm">
           <div class="flex items-center gap-1.5 text-xs text-white/50 mb-2">
             <MessageSquare :size="14" class="text-blue-400" />
             <span>调用次数</span>
@@ -275,7 +275,7 @@ const getActionBadgeClass = (action: string) => {
         </div>
 
         <!-- 技能解析数 -->
-        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-all flex flex-col justify-between shadow-sm">
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-colors flex flex-col justify-between shadow-sm">
           <div class="flex items-center gap-1.5 text-xs text-white/50 mb-2">
             <FileText :size="14" class="text-purple-400" />
             <span>技能解析数</span>
@@ -291,7 +291,7 @@ const getActionBadgeClass = (action: string) => {
         </div>
 
         <!-- 活跃天数 -->
-        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-all flex flex-col justify-between shadow-sm">
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-colors flex flex-col justify-between shadow-sm">
           <div class="flex items-center gap-1.5 text-xs text-white/50 mb-2">
             <Calendar :size="14" class="text-emerald-400" />
             <span>活跃天数</span>
@@ -307,7 +307,7 @@ const getActionBadgeClass = (action: string) => {
         </div>
 
         <!-- 当前连续天数 -->
-        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-all flex flex-col justify-between shadow-sm">
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-colors flex flex-col justify-between shadow-sm">
           <div class="flex items-center gap-1.5 text-xs text-white/50 mb-2">
             <CalendarDays :size="14" class="text-pink-400" />
             <span>当前连续天数</span>
@@ -323,7 +323,7 @@ const getActionBadgeClass = (action: string) => {
         </div>
 
         <!-- 最常用模型 -->
-        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-all flex flex-col justify-between shadow-sm">
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 transition-colors flex flex-col justify-between shadow-sm">
           <div class="flex items-center gap-1.5 text-xs text-white/50 mb-2">
             <Zap :size="14" class="text-indigo-400" />
             <span>最常用模型</span>
@@ -364,7 +364,7 @@ const getActionBadgeClass = (action: string) => {
             <div 
               v-for="item in stats.heatmap_data" 
               :key="item.date"
-              class="w-3.5 h-3.5 rounded-sm transition-all duration-150 cursor-pointer group relative"
+              class="w-3.5 h-3.5 rounded-sm transition-colors duration-150 cursor-pointer group relative"
               :class="[
                 item.level === 0 ? 'bg-white/5 hover:border-white/40 border border-white/5' :
                 item.level === 1 ? 'bg-indigo-500/30 hover:bg-indigo-500/45 border border-indigo-500/40' :
@@ -418,11 +418,11 @@ const getActionBadgeClass = (action: string) => {
               </div>
 
               <!-- Bar Pillar (Stacked) -->
-              <div class="w-full max-w-[28px] rounded-t-md overflow-hidden flex flex-col-reverse transition-all group-hover:opacity-90 bg-white/5" :style="{ height: `${Math.max(4, (day.total_tokens / maxTrendTokens) * 100)}%` }">
+              <div class="w-full max-w-[28px] rounded-t-md overflow-hidden flex flex-col-reverse transition-colors group-hover:opacity-90 bg-white/5" :style="{ height: `${Math.max(4, (day.total_tokens / maxTrendTokens) * 100)}%` }">
                 <div 
                   v-for="(tok, mdl) in day.models" 
                   :key="mdl"
-                  class="w-full transition-all"
+                  class="w-full transition-colors"
                   :style="{ 
                     height: `${(tok / (day.total_tokens || 1)) * 100}%`,
                     backgroundColor: getModelColor(mdl as string)
@@ -484,7 +484,7 @@ const getActionBadgeClass = (action: string) => {
                 stroke-width="14"
                 :stroke-dasharray="slice.strokeDasharray"
                 :stroke-dashoffset="slice.strokeDashoffset"
-                class="transition-all duration-500 hover:stroke-width-[16]"
+                class="transition-colors duration-500 hover:stroke-width-[16]"
               />
             </svg>
             <!-- Center Total Display -->

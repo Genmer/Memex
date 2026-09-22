@@ -1,7 +1,7 @@
 <template>
   <div 
     @click="openModal"
-    class="w-full px-3.5 sm:px-6 py-1.5 border-b text-xs flex items-center justify-between gap-3 cursor-pointer transition-all duration-300 select-none backdrop-blur-md"
+    class="w-full px-3.5 sm:px-6 py-1.5 border-b text-xs flex items-center justify-between gap-3 cursor-pointer transition-colors duration-300 select-none backdrop-blur-md"
     :class="bannerStyles.bgClass"
   >
     <!-- Left: Status Icon & Live Description -->
@@ -44,7 +44,7 @@
       <!-- Action Button -->
       <button 
         @click.stop="handleBannerAction"
-        class="px-2.5 py-0.5 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 shadow-sm active:scale-95 border"
+        class="px-2.5 py-0.5 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-sm border"
         :class="bannerStyles.btnClass"
       >
         <svg 
@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { gitliteStatus, gitliteDb } from '../services/gitliteDb';
 import GitLiteModal from './GitLiteModal.vue';
 import { useToast } from '../composables/useToast';
@@ -81,6 +81,23 @@ const emit = defineEmits<{
 const toast = useToast();
 const isModalOpen = ref(false);
 const isActionLoading = ref(false);
+
+// 曾配置过云端凭据但本次启动验证失败（如 Token 过期）→ 主动弹出重新登录引导，避免用户找不到 Token 入口
+let hadSavedCloudToken = false;
+onMounted(() => {
+  hadSavedCloudToken = !!localStorage.getItem('memex_gitlite_token');
+});
+watch([() => gitliteStatus.error, () => gitliteStatus.provider], ([err, prov]) => {
+  if (
+    err &&
+    prov === 'memory' &&
+    hadSavedCloudToken &&
+    !sessionStorage.getItem('memex_relogin_prompted')
+  ) {
+    sessionStorage.setItem('memex_relogin_prompted', '1');
+    isModalOpen.value = true;
+  }
+});
 
 function openModal() {
   isModalOpen.value = true;
@@ -112,7 +129,10 @@ const liveStatusText = computed(() => {
     return gitliteStatus.statusMessage || '正在与远程 Git 仓库交换数据...';
   }
   if (gitliteStatus.error) {
-    return `连接异常: ${gitliteStatus.error} (已自动切回本地缓存)`;
+    const expired = /expired|invalid|401|403/i.test(gitliteStatus.error);
+    return expired
+      ? `云端登录已过期或失效（${gitliteStatus.error}）。本地数据不受影响，点击右侧按钮重新粘贴 Token 即可恢复同步`
+      : `连接异常: ${gitliteStatus.error} (已自动切回本地缓存)`;
   }
   if (gitliteStatus.provider === 'gitee') {
     return `已连接 Gitee (${gitliteStatus.owner}/${gitliteStatus.repo}) · 双向实时同步已生效`;
@@ -138,14 +158,15 @@ const bannerStyles = computed(() => {
   }
 
   if (gitliteStatus.error) {
+    const expired = /expired|invalid|401|403/i.test(gitliteStatus.error);
     return {
       bgClass: 'bg-rose-950/40 border-rose-500/30 text-rose-200',
       pingClass: 'bg-rose-400',
       dotClass: 'bg-rose-400',
-      title: '⚠️ 云端通信异常',
+      title: expired ? '🔑 云端登录已过期' : '⚠️ 云端通信异常',
       titleClass: 'text-rose-300 font-bold',
       descClass: 'text-rose-200/80',
-      btnText: '重试连接',
+      btnText: expired ? '重新登录' : '重试连接',
       btnClass: 'bg-rose-500/20 text-rose-200 border-rose-500/30 hover:bg-rose-500/30'
     };
   }

@@ -330,7 +330,7 @@ const remove = async () => {
           <button
             v-if="asset.id"
             @click="toggleFavorite"
-            class="p-1.5 rounded-lg transition-all shrink-0"
+            class="p-1.5 rounded-lg transition-colors shrink-0"
             :class="asset.is_favorite ? 'text-yellow-400 bg-yellow-500/10' : 'text-white/30 hover:text-yellow-400/60 hover:bg-white/5'"
           >
             <Star :size="18" :class="{ 'fill-current': asset.is_favorite }" />
@@ -344,7 +344,7 @@ const remove = async () => {
         </div>
         <button
           @click="emit('close')"
-          class="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all shrink-0"
+          class="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors shrink-0"
         >
           <X :size="20" />
         </button>
@@ -354,7 +354,7 @@ const remove = async () => {
       <div v-if="!editing && !props.isNew" class="flex items-center px-6 border-b border-white/10 shrink-0 bg-black/10">
         <button
           @click="activeTab = 'content'"
-          class="px-4 py-3 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5"
+          class="px-4 py-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5"
           :class="activeTab === 'content' ? 'border-indigo-500 text-indigo-300 font-semibold' : 'border-transparent text-white/50 hover:text-white/80'"
         >
           <FileEdit :size="13" />
@@ -362,7 +362,7 @@ const remove = async () => {
         </button>
         <button
           @click="activeTab = 'composer'"
-          class="px-4 py-3 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5"
+          class="px-4 py-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5"
           :class="activeTab === 'composer' ? 'border-indigo-500 text-indigo-300 font-semibold' : 'border-transparent text-white/50 hover:text-white/80'"
         >
           <Sliders :size="13" />
@@ -370,7 +370,7 @@ const remove = async () => {
         </button>
         <button
           @click="activeTab = 'related'"
-          class="px-4 py-3 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5"
+          class="px-4 py-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5"
           :class="activeTab === 'related' ? 'border-indigo-500 text-indigo-300 font-semibold' : 'border-transparent text-white/50 hover:text-white/80'"
         >
           <LinkIcon :size="13" />
@@ -422,7 +422,7 @@ const remove = async () => {
                 <button
                   @click="analyzeSkillAi"
                   :disabled="isAnalyzingAi"
-                  class="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-medium transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  class="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Loader2 v-if="isAnalyzingAi" :size="12" class="animate-spin" />
                   <Sparkles v-else :size="12" />
@@ -459,14 +459,14 @@ const remove = async () => {
                 <code class="text-xs text-white/50 font-mono truncate flex-1">{{ asset.local_path }}</code>
                 <button
                   @click="openInFinder"
-                  class="p-1.5 text-white/40 hover:text-amber-500 hover:bg-amber-500/10 rounded transition-all shrink-0"
+                  class="p-1.5 text-white/40 hover:text-amber-500 hover:bg-amber-500/10 rounded transition-colors shrink-0"
                   title="在文件管理器中显示"
                 >
                   <FolderOpen :size="14" />
                 </button>
                 <button
                   @click="openInEditor"
-                  class="p-1.5 text-white/40 hover:text-emerald-500 hover:bg-emerald-500/10 rounded transition-all shrink-0"
+                  class="p-1.5 text-white/40 hover:text-emerald-500 hover:bg-emerald-500/10 rounded transition-colors shrink-0"
                   title="用编辑器打开"
                 >
                   <FileEdit :size="14" />
@@ -532,7 +532,7 @@ const remove = async () => {
 
             <button
               @click="runInAiAssistant"
-              class="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2"
+              class="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium rounded-xl text-xs shadow-md transition-colors flex items-center justify-center gap-2"
             >
               <Sparkles :size="14" />
               在内置 AI 助手测试运行
@@ -548,7 +548,7 @@ const remove = async () => {
                 v-for="rel in relatedAssets"
                 :key="rel.asset.id + rel.type"
                 @click="emit('select-asset', rel.asset, rel.type)"
-                class="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/40 transition-all cursor-pointer group"
+                class="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-indigo-500/40 transition-colors cursor-pointer group"
               >
                 <div class="flex items-center justify-between mb-1.5">
                   <div class="flex items-center gap-2 min-w-0">
@@ -623,7 +623,7 @@ const remove = async () => {
             <button
               v-if="asset.id"
               @click="remove"
-              class="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-xs transition-all"
+              class="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-xs transition-colors"
               title="删除资产"
             >
               <Trash2 :size="13" />
@@ -634,7 +634,7 @@ const remove = async () => {
             <div v-if="isSkill && asset.id" class="relative">
               <button
                 @click="showDeployMenu = !showDeployMenu"
-                class="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 rounded-xl text-xs font-medium transition-all"
+                class="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 rounded-xl text-xs font-medium transition-colors"
                 :disabled="isDeploying"
               >
                 <Rocket :size="13" />
@@ -683,7 +683,7 @@ const remove = async () => {
             <button
               v-if="isSkill && asset.local_path"
               @click="openInEditor"
-              class="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/70 hover:text-white transition-all"
+              class="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/70 hover:text-white transition-colors"
             >
               <ExternalLink :size="13" />
               打开文件
@@ -691,14 +691,14 @@ const remove = async () => {
             <button
               v-if="asset.content"
               @click="copyContent"
-              class="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/70 hover:text-white transition-all"
+              class="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/70 hover:text-white transition-colors"
             >
               <Copy :size="13" />
               复制
             </button>
             <button
               @click="startEditing"
-              class="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-sm transition-all"
+              class="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-sm transition-colors"
             >
               <Pencil :size="13" />
               编辑
@@ -708,13 +708,13 @@ const remove = async () => {
         <template v-else>
           <button
             @click="cancelEditing"
-            class="flex items-center gap-2 px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-white/70 hover:text-white transition-all"
+            class="flex items-center gap-2 px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-white/70 hover:text-white transition-colors"
           >
             取消
           </button>
           <button
             @click="save"
-            class="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium shadow-sm transition-all"
+            class="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium shadow-sm transition-colors"
           >
             <Save :size="14" />
             保存

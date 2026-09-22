@@ -245,7 +245,7 @@ onMounted(() => {
             @input="loadData"
             type="text" 
             placeholder="搜索备忘标题、内容或标签..." 
-            class="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-2xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-all shadow-inner"
+            class="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-2xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 focus:bg-white/10 transition-colors shadow-inner"
           />
         </div>
 
@@ -253,28 +253,28 @@ onMounted(() => {
         <div class="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10 text-xs font-medium">
           <button 
             @click="selectedTypeFilter = 'all'"
-            class="px-3 py-1 rounded-xl transition-all"
+            class="px-3 py-1 rounded-xl transition-colors"
             :class="selectedTypeFilter === 'all' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-white/50 hover:text-white'"
           >
             全部
           </button>
           <button 
             @click="selectedTypeFilter = 'journal'"
-            class="px-3 py-1 rounded-xl transition-all"
+            class="px-3 py-1 rounded-xl transition-colors"
             :class="selectedTypeFilter === 'journal' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-white/50 hover:text-white'"
           >
             工作日志
           </button>
           <button 
             @click="selectedTypeFilter = 'todo'"
-            class="px-3 py-1 rounded-xl transition-all"
+            class="px-3 py-1 rounded-xl transition-colors"
             :class="selectedTypeFilter === 'todo' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-white/50 hover:text-white'"
           >
             待办清单
           </button>
           <button 
             @click="selectedTypeFilter = 'fleeting'"
-            class="px-3 py-1 rounded-xl transition-all"
+            class="px-3 py-1 rounded-xl transition-colors"
             :class="selectedTypeFilter === 'fleeting' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-white/50 hover:text-white'"
           >
             闪念灵感
@@ -290,7 +290,7 @@ onMounted(() => {
         <div class="flex items-center bg-white/5 p-1 rounded-2xl border border-white/10">
           <button 
             @click="layoutMode = 'grid'"
-            class="p-1.5 rounded-xl transition-all"
+            class="p-1.5 rounded-xl transition-colors"
             :class="layoutMode === 'grid' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
             title="瀑布流卡片视图"
           >
@@ -298,7 +298,7 @@ onMounted(() => {
           </button>
           <button 
             @click="layoutMode = 'timeline'"
-            class="p-1.5 rounded-xl transition-all"
+            class="p-1.5 rounded-xl transition-colors"
             :class="layoutMode === 'timeline' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
             title="时间流日志视图"
           >
@@ -306,7 +306,7 @@ onMounted(() => {
           </button>
           <button 
             @click="layoutMode = 'split'"
-            class="p-1.5 rounded-xl transition-all"
+            class="p-1.5 rounded-xl transition-colors"
             :class="layoutMode === 'split' ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'"
             title="双栏极速工作台"
           >
@@ -357,7 +357,7 @@ onMounted(() => {
         <!-- Create Button -->
         <button 
           @click="handleOpenCreate"
-          class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl text-xs font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-1.5"
+          class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl text-xs font-bold transition-colors shadow-lg shadow-indigo-500/20 flex items-center gap-1.5"
         >
           <Plus :size="15" />
           <span>新建备忘</span>
@@ -402,7 +402,7 @@ onMounted(() => {
         </p>
         <button 
           @click="handleOpenCreate"
-          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow mt-2"
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow mt-2"
         >
           + 立即创建
         </button>

@@ -136,7 +136,7 @@ const openInEditor = async () => {
       class="shrink-0 p-0.5"
     >
       <div 
-        class="w-4 h-4 rounded flex items-center justify-center transition-all"
+        class="w-4 h-4 rounded flex items-center justify-center transition-colors"
         :class="isSelected ? 'bg-indigo-600 text-white' : 'border border-white/30 hover:border-white/60'"
       >
         <svg v-if="isSelected" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
@@ -182,7 +182,7 @@ const openInEditor = async () => {
         v-else 
         @click.stop="analyzeAi"
         :disabled="isAnalyzing"
-        class="shrink-0 px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all flex items-center gap-1 opacity-80 hover:opacity-100"
+        class="shrink-0 px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-colors flex items-center gap-1 opacity-80 hover:opacity-100"
         title="点击由 AI 提炼通俗中文用途与分类"
       >
         <Loader2 v-if="isAnalyzing" :size="11" class="animate-spin" />
@@ -246,10 +246,10 @@ const openInEditor = async () => {
     <div 
       v-if="isSelectMode" 
       @click.stop="emit('toggle-select', skill.id)"
-      class="absolute top-3 left-3 z-20 cursor-pointer p-1 rounded-lg bg-black/40 border border-white/20 hover:border-indigo-500 transition-all"
+      class="absolute top-3 left-3 z-20 cursor-pointer p-1 rounded-lg bg-black/40 border border-white/20 hover:border-indigo-500 transition-colors"
     >
       <div 
-        class="w-4 h-4 rounded flex items-center justify-center transition-all"
+        class="w-4 h-4 rounded flex items-center justify-center transition-colors"
         :class="isSelected ? 'bg-indigo-600 text-white' : 'border border-white/40'"
       >
         <svg v-if="isSelected" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
@@ -377,7 +377,7 @@ const openInEditor = async () => {
       <button 
         @click.stop="analyzeAi"
         :disabled="isAnalyzing"
-        class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+        class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
         :title="skill.summary_zh ? '重新由 AI 提炼中文释义与分类' : '由 AI 智能解析中文释义与分类'"
       >
         <Loader2 v-if="isAnalyzing" :size="12" class="animate-spin text-indigo-400" />

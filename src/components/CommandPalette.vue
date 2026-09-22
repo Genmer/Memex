@@ -261,8 +261,8 @@ const getToolBadgeColor = (tool: string) => {
 
 <template>
   <Transition
-    enter-active-class="transition-all duration-200 ease-out"
-    leave-active-class="transition-all duration-150 ease-in"
+    enter-active-class="transition-[opacity,transform] duration-200 ease-out"
+    leave-active-class="transition-colors duration-150 ease-in"
     enter-from-class="opacity-0 scale-95"
     leave-to-class="opacity-0 scale-95"
   >
@@ -299,7 +299,7 @@ const getToolBadgeColor = (tool: string) => {
               :key="item.id"
               @click="executeItem(item)"
               @mouseenter="selectedIndex = index"
-              class="flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-all select-none"
+              class="flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-colors select-none"
               :class="selectedIndex === index ? 'bg-indigo-600/30 border border-indigo-500/40 text-white' : 'text-white/70 hover:bg-white/5 border border-transparent'"
             >
               <div class="flex items-center gap-3 min-w-0 flex-1">

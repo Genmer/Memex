@@ -65,7 +65,7 @@ const toggleFavorite = async () => {
       class="shrink-0 p-0.5"
     >
       <div 
-        class="w-4 h-4 rounded flex items-center justify-center transition-all"
+        class="w-4 h-4 rounded flex items-center justify-center transition-colors"
         :class="isSelected ? 'bg-indigo-600 text-white' : 'border border-white/30 hover:border-white/60'"
       >
         <svg v-if="isSelected" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
@@ -142,10 +142,10 @@ const toggleFavorite = async () => {
     <div 
       v-if="isSelectMode" 
       @click.stop="emit('toggle-select', memory.id)"
-      class="absolute top-3 left-3 z-20 cursor-pointer p-1 rounded-lg bg-black/40 border border-white/20 hover:border-indigo-500 transition-all"
+      class="absolute top-3 left-3 z-20 cursor-pointer p-1 rounded-lg bg-black/40 border border-white/20 hover:border-indigo-500 transition-colors"
     >
       <div 
-        class="w-4 h-4 rounded flex items-center justify-center transition-all"
+        class="w-4 h-4 rounded flex items-center justify-center transition-colors"
         :class="isSelected ? 'bg-indigo-600 text-white' : 'border border-white/40'"
       >
         <svg v-if="isSelected" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>

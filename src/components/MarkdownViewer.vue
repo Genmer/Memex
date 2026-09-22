@@ -65,7 +65,7 @@ const handleContainerClick = async (event: MouseEvent) => {
       <div class="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-lg p-0.5 border border-slate-200 dark:border-white/10">
         <button
           @click="viewType = 'rendered'"
-          class="px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1.5"
+          class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5"
           :class="viewType === 'rendered' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white'"
         >
           <Eye :size="13" />
@@ -73,7 +73,7 @@ const handleContainerClick = async (event: MouseEvent) => {
         </button>
         <button
           @click="viewType = 'raw'"
-          class="px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1.5"
+          class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5"
           :class="viewType === 'raw' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white'"
         >
           <Code :size="13" />

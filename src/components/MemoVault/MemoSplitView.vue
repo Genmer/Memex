@@ -479,7 +479,7 @@ onUnmounted(() => {
           v-for="memo in filteredMemos" 
           :key="memo.id"
           @click="selectedId = memo.id"
-          class="p-3 cursor-pointer transition-all hover:bg-white/[0.04] flex flex-col gap-1"
+          class="p-3 cursor-pointer transition-colors hover:bg-white/[0.04] flex flex-col gap-1"
           :class="selectedId === memo.id ? 'bg-indigo-600/15 border-l-2 border-indigo-500' : ''"
         >
           <div class="flex items-center justify-between gap-1 text-[10px] text-white/40">
@@ -600,7 +600,7 @@ onUnmounted(() => {
             <div class="flex items-center bg-white/5 p-0.5 rounded-lg border border-white/10 text-xs">
               <button 
                 @click="viewMode = 'split'"
-                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                class="px-2 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer"
                 :class="viewMode === 'split' ? 'bg-indigo-600 text-white font-bold' : 'text-white/40 hover:text-white'"
                 title="双栏分屏：左侧编辑输入，右侧实时解析"
               >
@@ -609,7 +609,7 @@ onUnmounted(() => {
               </button>
               <button 
                 @click="viewMode = 'edit'; focusEditor()"
-                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                class="px-2 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer"
                 :class="viewMode === 'edit' ? 'bg-purple-600 text-white font-bold' : 'text-white/40 hover:text-white'"
                 title="单栏编辑：全宽直接打字输入"
               >
@@ -618,7 +618,7 @@ onUnmounted(() => {
               </button>
               <button 
                 @click="viewMode = 'preview'"
-                class="px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                class="px-2 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer"
                 :class="viewMode === 'preview' ? 'bg-indigo-600 text-white font-bold' : 'text-white/40 hover:text-white'"
                 title="全屏预览：查看最终渲染排版（点击正文即可切回编辑）"
               >
@@ -629,7 +629,7 @@ onUnmounted(() => {
 
             <button 
               @click="handleSaveCurrent"
-              class="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow cursor-pointer"
+              class="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow cursor-pointer"
             >
               <Save :size="13" />
               <span>保存</span>
@@ -685,7 +685,7 @@ onUnmounted(() => {
               <button 
                 v-if="newTagInput.trim()"
                 @click="addTag()"
-                class="px-2 py-0.5 bg-purple-600 hover:bg-purple-500 text-white rounded-md text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer shadow transition-all"
+                class="px-2 py-0.5 bg-purple-600 hover:bg-purple-500 text-white rounded-md text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer shadow transition-colors"
                 title="确认添加"
               >
                 <Plus :size="11" />
@@ -711,7 +711,7 @@ onUnmounted(() => {
 
             <!-- Format Trigger Button -->
             <div 
-              class="inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden"
+              class="inline-flex items-center rounded-lg border transition-colors shadow-sm overflow-hidden"
               :class="currentCodeLang 
                 ? 'bg-purple-600/25 border-purple-500/50 text-purple-200' 
                 : 'border-white/10 text-white/60 hover:border-white/20 hover:bg-white/10'"

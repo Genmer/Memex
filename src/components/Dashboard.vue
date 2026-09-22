@@ -116,7 +116,7 @@ onMounted(() => {
     <!-- Top Stats Row -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- Total Skills -->
-      <div class="bg-gradient-to-br from-indigo-500/20 to-purple-500/10 backdrop-blur-xl p-6 rounded-2xl border border-indigo-500/20 shadow-[0_8px_30px_rgba(99,102,241,0.15)] relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+      <div class="bg-gradient-to-br from-indigo-500/20 to-purple-500/10 backdrop-blur-xl p-6 rounded-2xl border border-indigo-500/20 shadow-[0_8px_30px_rgba(99,102,241,0.15)] relative overflow-hidden group hover:-translate-y-1 transition-colors duration-300">
         <div class="absolute -right-4 -top-4 text-indigo-500/20 group-hover:text-indigo-500/30 transition-colors">
           <Zap :size="120" />
         </div>
@@ -127,7 +127,7 @@ onMounted(() => {
       </div>
 
       <!-- Total Memories -->
-      <div class="bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 backdrop-blur-xl p-6 rounded-2xl border border-emerald-500/20 shadow-[0_8px_30px_rgba(16,185,129,0.15)] relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+      <div class="bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 backdrop-blur-xl p-6 rounded-2xl border border-emerald-500/20 shadow-[0_8px_30px_rgba(16,185,129,0.15)] relative overflow-hidden group hover:-translate-y-1 transition-colors duration-300">
         <div class="absolute -right-4 -bottom-4 text-emerald-500/20 group-hover:text-emerald-500/30 transition-colors">
           <BookOpen :size="100" />
         </div>
@@ -143,7 +143,7 @@ onMounted(() => {
       <div 
         v-for="(source, index) in stats.sources" 
         :key="source.source_tool"
-        class="backdrop-blur-xl p-5 rounded-2xl border relative overflow-hidden group hover:-translate-y-1 transition-all duration-300"
+        class="backdrop-blur-xl p-5 rounded-2xl border relative overflow-hidden group hover:-translate-y-1 transition-colors duration-300"
         :class="[`bg-gradient-to-br ${getColor(index).bg}`, getColor(index).border]"
       >
         <div class="absolute -right-3 -bottom-3 transition-colors" :class="getColor(index).icon">
@@ -180,7 +180,7 @@ onMounted(() => {
                 :stroke-dasharray="`${seg.percent} ${100 - seg.percent}`"
                 :stroke-dashoffset="`${-seg.offset}`"
                 stroke-linecap="round"
-                class="transition-all duration-700"
+                class="transition-colors duration-700"
               />
             </svg>
             <div class="absolute inset-0 flex flex-col items-center justify-center">

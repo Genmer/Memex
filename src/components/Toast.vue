@@ -21,8 +21,8 @@ const colorMap = {
   <Teleport to="body">
     <div class="fixed top-4 right-4 z-[9999] space-y-3 pointer-events-none">
       <TransitionGroup
-        enter-active-class="transition-all duration-300 ease-out"
-        leave-active-class="transition-all duration-200 ease-in"
+        enter-active-class="transition-[opacity,transform] duration-300 ease-out"
+        leave-active-class="transition-colors duration-200 ease-in"
         enter-from-class="translate-x-8 opacity-0"
         enter-to-class="translate-x-0 opacity-100"
         leave-from-class="translate-x-0 opacity-100"

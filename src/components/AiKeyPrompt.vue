@@ -54,8 +54,8 @@ const saveKey = async () => {
 
 <template>
   <Transition
-    enter-active-class="transition-all duration-300"
-    leave-active-class="transition-all duration-200"
+    enter-active-class="transition-[opacity,transform] duration-300"
+    leave-active-class="transition-colors duration-200"
     enter-from-class="opacity-0"
     leave-to-class="opacity-0"
   >
@@ -65,8 +65,8 @@ const saveKey = async () => {
       @click.self="handleDismiss"
     >
       <Transition
-        enter-active-class="transition-all duration-300 delay-100"
-        leave-active-class="transition-all duration-200"
+        enter-active-class="transition-[opacity,transform] duration-300 delay-100"
+        leave-active-class="transition-colors duration-200"
         enter-from-class="opacity-0 scale-95 translate-y-4"
         leave-to-class="opacity-0 scale-95 translate-y-4"
       >
@@ -115,7 +115,7 @@ const saveKey = async () => {
                   spellcheck="false"
                   autocomplete="off"
                   placeholder="sk-xxxxxxxxxxxxxxxx"
-                  class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-indigo-500 transition-all font-mono"
+                  class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
                   @keydown.enter="saveKey"
                 />
 
@@ -127,7 +127,7 @@ const saveKey = async () => {
                   v-model="model"
                   type="text"
                   placeholder="deepseek-chat"
-                  class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-indigo-500 transition-all font-mono"
+                  class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
                 />
               </div>
 
@@ -147,14 +147,14 @@ const saveKey = async () => {
             <div class="flex items-center justify-between gap-3 mt-6 pt-5 border-t border-neutral-800">
               <button 
                 @click="handleDismiss"
-                class="px-4 py-2 rounded-xl text-xs font-medium text-neutral-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                class="px-4 py-2 rounded-xl text-xs font-medium text-neutral-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
               >
                 稍后再说 (跳过)
               </button>
               <button
                 @click="saveKey"
                 :disabled="isSaving || !apiKey.trim()"
-                class="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer"
+                class="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg transition-colors disabled:opacity-40 flex items-center gap-1.5 cursor-pointer"
               >
                 <Sparkles v-if="!isSaving" :size="13" />
                 <svg v-else class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>

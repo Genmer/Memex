@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@gitlite/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.4.0
+        version: 0.4.0
       '@gitlite/sdk':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.4.0
+        version: 0.4.0
       '@gitlite/ui':
-        specifier: ^0.1.0
-        version: 0.1.0(react@19.2.8)
+        specifier: ^0.4.0
+        version: 0.4.0(react@19.2.8)
       '@tauri-apps/api':
         specifier: ^2.11.1
         version: 2.11.1
@@ -95,17 +95,17 @@ packages:
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
 
-  '@gitlite/adapters-node@0.1.0':
-    resolution: {integrity: sha512-zXPvZyQ63i4Jcybg0NH8D30dwe7YEnZC3v5/3k2c24sY51Awfq5PEZdjsgX9XS6w89ZUh3J5VmV93JK2gvp6Cg==}
+  '@gitlite/adapters-node@0.4.0':
+    resolution: {integrity: sha512-FZE769CNyKqxboM+NzTxTc58wUUL0RY6hn7azvVa+3tK8x3USPNtOCjdPzuVg4DTYsqoI8ssvrXqE5irB6igSQ==}
 
-  '@gitlite/core@0.1.0':
-    resolution: {integrity: sha512-GyrVQdbx1nAMk0SAcgIPjQHIRxAuxAeh1plCs4V8wiX7Q6zc8k3Yq1pTbwoC63mjzNra4yhpwYc1K46gxkFb9Q==}
+  '@gitlite/core@0.4.0':
+    resolution: {integrity: sha512-0iuynDKJ9eMlEA9M0vmeDYyenZF01qH5g9U6Ga4G4nyqNOahkBgwAyOtI3DdFXB9LXct+0pqtdKCGLMTNWH6vA==}
 
-  '@gitlite/sdk@0.1.0':
-    resolution: {integrity: sha512-hJzxi/HzNYGVoCpSancL4jzvBW+hPXcYBo1HYMHRxG7Jt8b03SVHaG87GzO0ApyKBZCgBn35QlzUFw88/6Scmg==}
+  '@gitlite/sdk@0.4.0':
+    resolution: {integrity: sha512-+IZT8eq7U/Q2YVt/dHgRZgTEGdN1opezpU8PjSeHUKTnIwiAWVXUtUU4BsI0cTCQNP/Vz1TuhSTckZyn2Cgk1g==}
 
-  '@gitlite/ui@0.1.0':
-    resolution: {integrity: sha512-SUXzZ+PosXSYuHvyCUM/fvq3mX3Bjd3oWuZ02MNygONOcc/VywIAAfjt/xYHP4xMBJCRfERwtziKL8m6MnRp4w==}
+  '@gitlite/ui@0.4.0':
+    resolution: {integrity: sha512-vbXehXlOjtOnr3e9bE5iymKCAa492jhXDj2N2jvKowfNeTU7b08MeDUE8US4IjHbpXvwkySJ4Rlv1n/2plB0sg==}
     peerDependencies:
       react: '>=18'
 
@@ -926,22 +926,22 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@gitlite/adapters-node@0.1.0':
+  '@gitlite/adapters-node@0.4.0':
     dependencies:
-      '@gitlite/core': 0.1.0
+      '@gitlite/core': 0.4.0
 
-  '@gitlite/core@0.1.0': {}
+  '@gitlite/core@0.4.0': {}
 
-  '@gitlite/sdk@0.1.0':
+  '@gitlite/sdk@0.4.0':
     dependencies:
-      '@gitlite/adapters-node': 0.1.0
-      '@gitlite/core': 0.1.0
+      '@gitlite/adapters-node': 0.4.0
+      '@gitlite/core': 0.4.0
 
-  '@gitlite/ui@0.1.0(react@19.2.8)':
+  '@gitlite/ui@0.4.0(react@19.2.8)':
     dependencies:
-      '@gitlite/adapters-node': 0.1.0
-      '@gitlite/core': 0.1.0
-      '@gitlite/sdk': 0.1.0
+      '@gitlite/adapters-node': 0.4.0
+      '@gitlite/core': 0.4.0
+      '@gitlite/sdk': 0.4.0
       react: 19.2.8
 
   '@jridgewell/gen-mapping@0.3.13':

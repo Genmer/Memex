@@ -2,7 +2,7 @@
   <div class="flex items-center">
     <button 
       @click="isModalOpen = true"
-      class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm group hover:scale-[1.02] active:scale-[0.98]"
+      class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-colors shadow-sm group"
       :class="capsuleClasses">
       <!-- Icon / Status Dot -->
       <span class="relative flex h-2 w-2 shrink-0">
@@ -33,7 +33,7 @@
         v-if="gitliteStatus.provider !== 'memory'"
         @click.stop="handleQuickSync"
         :title="isQuickSyncing ? '正在主动双向同步...' : '立即主动同步 (Pull & Push)'"
-        class="ml-0.5 p-1 rounded-full hover:bg-white/10 text-neutral-400 hover:text-emerald-300 transition-all">
+        class="ml-0.5 p-1 rounded-full hover:bg-white/10 text-neutral-400 hover:text-emerald-300 transition-colors">
         <svg :class="isQuickSyncing ? 'animate-spin text-emerald-400' : ''" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>

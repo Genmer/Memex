@@ -41,14 +41,14 @@
         <div class="flex items-center px-6 pt-3 border-b border-neutral-800 bg-neutral-900/60 gap-4">
           <button 
             @click="activeModalTab = 'cloud'"
-            class="pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-all"
+            class="pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-colors"
             :class="activeModalTab === 'cloud' ? 'text-indigo-400 border-indigo-500 font-bold' : 'text-neutral-400 border-transparent hover:text-neutral-200'"
           >
             <span>☁️ 云端数据库同步</span>
           </button>
           <button 
             @click="activeModalTab = 'mobile'"
-            class="pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-all relative"
+            class="pb-2.5 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-colors relative"
             :class="activeModalTab === 'mobile' ? 'text-indigo-400 border-indigo-500 font-bold' : 'text-neutral-400 border-transparent hover:text-neutral-200'"
           >
             <span>📱 在 iPhone / 手机上使用</span>
@@ -116,7 +116,7 @@
           <!-- ================= TAB 1: CLOUD STORAGE & SYNC ================= -->
           <template v-else>
           <!-- ================= SCENARIO A: ALREADY CONNECTED ================= -->
-          <div v-if="gitliteStatus.provider !== 'memory'" class="space-y-4 animate-fadeIn">
+          <div v-if="gitliteStatus.provider !== 'memory' && gitliteStatus.isReady && !gitliteStatus.error" class="space-y-4 animate-fadeIn">
 
             <!-- Connected Success Banner -->
             <div class="bg-gradient-to-br from-emerald-950/40 via-neutral-900 to-neutral-900 border border-emerald-500/40 rounded-2xl p-5 space-y-4">
@@ -159,7 +159,7 @@
                 <button 
                   @click="handleManualSync"
                   :disabled="isManualSyncing"
-                  class="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 disabled:opacity-50">
+                  class="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 disabled:opacity-50">
                   <svg :class="isManualSyncing ? 'animate-spin' : ''" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
@@ -214,13 +214,13 @@
                 <a 
                   href="https://gitee.com/profile/personal_access_tokens/new" 
                   target="_blank" 
-                  class="w-full py-2.5 px-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-red-950/50 flex items-center justify-between group active:scale-[0.99]"
+                  class="w-full py-2.5 px-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-red-950/50 flex items-center justify-between group"
                 >
                   <div class="flex items-center gap-2">
                     <span class="text-base">🚀</span>
                     <span>1. 点击打开 Gitee 页面获取 Token (勾选 projects)</span>
                   </div>
-                  <span class="text-[11px] bg-white/20 px-2 py-0.5 rounded-lg text-white group-hover:translate-x-0.5 transition-transform">前往 ↗</span>
+                  <span class="text-[11px] bg-white/20 px-2 py-0.5 rounded-lg text-white">前往 ↗</span>
                 </a>
 
                 <div class="space-y-2 pt-1">
@@ -264,7 +264,7 @@
                     <button 
                       @click="handleDirectTokenConnect"
                       :disabled="isConnectingToken || !directTokenInput.trim()"
-                      class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-[0.99]"
+                      class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                     >
                       <svg v-if="isConnectingToken" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                       <span>{{ isConnectingToken ? '正在验证并连接 Gitee 私有仓库...' : '🚀 一键连接并挂载私有数据库' }}</span>
@@ -291,7 +291,7 @@
                   <!-- Gitee One-Click OAuth Button -->
                   <button 
                     @click="startGiteeAuth"
-                    class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-red-500/30 bg-neutral-900/90 hover:border-red-400/80 transition-all text-left cursor-pointer">
+                    class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-red-500/30 bg-neutral-900/90 hover:border-red-400/80 transition-colors text-left cursor-pointer">
                     <div class="flex items-center gap-3">
                       <div class="w-9 h-9 rounded-xl bg-red-600 text-white font-black flex items-center justify-center text-base shadow">
                         G
@@ -310,7 +310,7 @@
                   <!-- GitHub Device Flow Button -->
                   <button 
                     @click="startGitHubAuth"
-                    class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-800 bg-neutral-900/90 hover:border-neutral-700 transition-all text-left cursor-pointer">
+                    class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-800 bg-neutral-900/90 hover:border-neutral-700 transition-colors text-left cursor-pointer">
                     <div class="flex items-center gap-3">
                       <div class="w-9 h-9 rounded-xl bg-neutral-800 border border-neutral-700 text-white flex items-center justify-center text-base">
                         <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -353,7 +353,7 @@
                   </div>
                   <button 
                     @click="copyCodeAndOpenUrl"
-                    class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
+                    class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg flex items-center gap-1.5"
                   >
                     <span>重新打开页面</span>
                   </button>
@@ -374,7 +374,7 @@
                 <div class="pt-3 flex flex-col items-center gap-2.5">
                   <button 
                     @click="handleManualEnterCode"
-                    class="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-red-950/40 flex items-center justify-center gap-2 active:scale-[0.99]">
+                    class="w-full py-2.5 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-red-950/40 flex items-center justify-center gap-2">
                     <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
                     <span>📋 贴入授权码 Code (在成功页复制后点此)</span>
                   </button>
@@ -404,12 +404,12 @@
             <div class="grid grid-cols-2 gap-3 pt-1">
               <button 
                 @click="handleExportBackup"
-                class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-neutral-700 bg-neutral-800/40 hover:bg-neutral-800 text-xs text-neutral-200 transition-all">
+                class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-neutral-700 bg-neutral-800/40 hover:bg-neutral-800 text-xs text-neutral-200 transition-colors">
                 <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 导出全量 JSON 备份
               </button>
 
-              <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-neutral-700 bg-neutral-800/40 hover:bg-neutral-800 text-xs text-neutral-200 cursor-pointer transition-all">
+              <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-neutral-700 bg-neutral-800/40 hover:bg-neutral-800 text-xs text-neutral-200 cursor-pointer transition-colors">
                 <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 导入 JSON 备份
                 <input type="file" accept=".json" @change="handleImportBackup" class="hidden" />
@@ -506,6 +506,17 @@ function copyRedirectUri() {
 const isAuthenticating = ref(false);
 const showCustomApp = ref(false);
 const authErrorMessage = ref('');
+
+// 打开弹窗时若处于"启动连接失败"（如登录过期回退本地），把原因展示出来并清掉已失效的旧 Token 预填
+watch(() => props.isOpen, (open) => {
+  if (!open) return;
+  if (gitliteStatus.error && gitliteStatus.provider === 'memory') {
+    authErrorMessage.value = `云端连接失败：${gitliteStatus.error}。请重新粘贴有效的私人令牌 Token 以恢复多端同步（本地数据不受影响）。`;
+    if (directTokenInput.value && localStorage.getItem('memex_gitlite_provider') !== 'memory') {
+      directTokenInput.value = '';
+    }
+  }
+});
 
 const directOwnerInput = ref(localStorage.getItem('memex_gitlite_owner') || 'Genmer');
 const directTokenInput = ref(localStorage.getItem('memex_gitlite_token') || '');

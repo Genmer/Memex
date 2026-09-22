@@ -177,14 +177,14 @@ const setMode = (mode: 'agent' | 'memo') => {
     <div class="p-3 border-b border-white/5 bg-black/10">
       <button 
         @click="setMode('memo')"
-        class="w-full py-2 px-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:text-purple-200 text-xs font-semibold flex items-center justify-between transition-all group shadow-sm"
+        class="w-full py-2 px-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:text-purple-200 text-xs font-semibold flex items-center justify-between transition-colors group shadow-sm"
         title="进入个人独立备忘录与开发日志模式"
       >
         <span class="flex items-center gap-2">
           <BookOpen :size="14" class="text-purple-400" />
           <span>切换至 备忘与开发日志</span>
         </span>
-        <ArrowLeftRight :size="13" class="opacity-60 group-hover:translate-x-0.5 transition-transform" />
+        <ArrowLeftRight :size="13" class="opacity-60" />
       </button>
     </div>
 
@@ -203,7 +203,7 @@ const setMode = (mode: 'agent' | 'memo') => {
             <button 
               v-if="!group.isGroup" 
               @click.stop="emit('toggle-pin', group.id)" 
-              class="opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 p-0.5 rounded"
+              class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded"
               :class="{ 'opacity-100 text-indigo-400': group.isPinned, 'hover:bg-white/10': !group.isPinned }"
               :title="group.isPinned ? 'Unpin' : 'Pin to top'"
             >
@@ -222,7 +222,7 @@ const setMode = (mode: 'agent' | 'memo') => {
             v-for="child in group.children" 
             :key="child.id"
             @click="selectItem(child.id)"
-            class="px-8 py-2 rounded-lg text-sm cursor-pointer transition-all duration-150"
+            class="px-8 py-2 rounded-lg text-sm cursor-pointer transition-colors duration-150"
             :class="[
               activeItem === child.id 
                 ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium shadow-[0_0_15px_rgba(99,102,241,0.1)]' 
@@ -266,7 +266,7 @@ const setMode = (mode: 'agent' | 'memo') => {
             v-for="tagItem in allTags.slice(0, 20)" 
             :key="tagItem.name"
             @click="handleTagClick(tagItem.name)"
-            class="px-2 py-1 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 border"
+            class="px-2 py-1 rounded-md text-xs font-mono transition-colors flex items-center gap-1.5 border"
             :class="[
               selectedTag === tagItem.name
                 ? 'bg-indigo-500/30 border-indigo-400 text-indigo-200 shadow-sm shadow-indigo-500/30'
@@ -286,7 +286,7 @@ const setMode = (mode: 'agent' | 'memo') => {
       <div class="flex items-center bg-white/5 rounded-lg p-0.5 border border-white/10">
         <button 
           @click="setThemeMode('light')"
-          class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+          class="px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
           :class="themeMode === 'light' ? 'bg-white text-indigo-600 shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
           title="浅色模式 (Light)"
         >
@@ -294,7 +294,7 @@ const setMode = (mode: 'agent' | 'memo') => {
         </button>
         <button 
           @click="setThemeMode('dark')"
-          class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+          class="px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
           :class="themeMode === 'dark' ? 'bg-indigo-600 text-white shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
           title="深色模式 (Dark)"
         >
@@ -302,7 +302,7 @@ const setMode = (mode: 'agent' | 'memo') => {
         </button>
         <button 
           @click="setThemeMode('auto')"
-          class="px-2 py-1 rounded-md text-xs transition-all flex items-center gap-1"
+          class="px-2 py-1 rounded-md text-xs transition-colors flex items-center gap-1"
           :class="themeMode === 'auto' ? 'bg-white/20 text-white shadow-sm font-medium' : 'text-white/40 hover:text-white/80'"
           title="跟随系统 (Auto)"
         >
@@ -313,11 +313,11 @@ const setMode = (mode: 'agent' | 'memo') => {
       <div class="flex items-center gap-1.5">
         <button 
           @click="clearCacheAndHardReload"
-          class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 text-white/40 border border-white/5 hover:border-amber-500/30 transition-all flex items-center gap-1 font-mono text-[10px] cursor-pointer group"
+          class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 text-white/40 border border-white/5 hover:border-amber-500/30 transition-colors flex items-center gap-1 font-mono text-[10px] cursor-pointer group"
           title="清空本地快照并强制重载最新版"
         >
           <span>{{ APP_VERSION }}</span>
-          <RotateCcw :size="10" class="group-hover:rotate-180 transition-transform duration-300 text-white/30 group-hover:text-amber-300" />
+          <RotateCcw :size="10" class="transition-colors text-white/30 group-hover:text-amber-300" />
         </button>
         <button @click="toggleLanguage" class="p-1.5 text-white/40 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors cursor-pointer" title="切换语言 / Toggle Language">
           <Globe :size="15" />
